@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # TechSpark Club - Official Website
 
 ![TechSpark Club](https://img.shields.io/badge/TechSpark-2026-blue?style=for-the-badge)
@@ -224,3 +225,6 @@ This is the official TechSpark Club website. For contributions or updates, conta
 **Made with ❤️ by TechSpark Team**
 
 *Igniting innovation and building tomorrow's technology leaders*
+=======
+# TechSpark
+>>>>>>> 69ac671410623d8e65357cc34a642dd45d59b671
