@@ -106,7 +106,7 @@ export const AuthProvider = ({ children }) => {
                 uid: currentUser.uid,
                 email: currentUser.email,
                 fullName: currentUser.displayName,
-                rollNumber: rollNo,
+                rollNumber: '', // Required manual entry or scan as per protocol
                 department: department,
                 admissionYear: admissionYear,
                 yearOfStudy: yearOfStudy > 0 && yearOfStudy <= 4 ? yearOfStudy : (yearOfStudy > 4 ? 'Alumni' : 1)

@@ -1,8 +1,9 @@
-import { useRef, useEffect } from 'react';
-import { X, Mail, CheckCircle, GraduationCap, Building2, Calendar, User, Hash } from 'lucide-react';
+import { useRef, useEffect, useState } from 'react';
+import { X, Mail, CheckCircle, GraduationCap, Building2, Calendar, User, Hash, QrCode } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { Scanner } from '@yudiel/react-qr-scanner';
 import ritLogo from '../assets/rit-logo.png';
 import tsLogo from '../assets/techspark-logo.png';
 
@@ -33,6 +34,8 @@ const AuthModal = () => {
     const sectionRef = useRef();
     const yearRef = useRef();
 
+    const [isRegScanning, setIsRegScanning] = useState(false);
+
     if (!isAuthModalOpen) return null;
 
     const handleRegistrationSubmit = (e) => {
@@ -45,6 +48,18 @@ const AuthModal = () => {
             admissionYear: yearRef.current.value
         };
         completeRegistration(data);
+    };
+
+    const handleQrScan = (text) => {
+        if (text) {
+            // Usually ID cards have the roll number as the primary data
+            // If it's a URL, extract the ID
+            const extracted = text.includes('/') ? text.split('/').pop() : text;
+            if (rollNoRef.current) {
+                rollNoRef.current.value = extracted.trim();
+                setIsRegScanning(false);
+            }
+        }
     };
 
     const sections = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'];
@@ -60,6 +75,52 @@ const AuthModal = () => {
                     onClick={closeAuthModal}
                     className="absolute inset-0 bg-black/60 backdrop-blur-sm"
                 />
+
+                {/* QR Scanner Overlay for Registration */}
+                <AnimatePresence>
+                    {isRegScanning && (
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+                        >
+                            <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-xl" />
+                            <div className="relative w-full max-w-sm bg-white rounded-3xl overflow-hidden shadow-2xl">
+                                <div className="p-6 bg-slate-900 text-white flex justify-between items-center">
+                                    <h3 className="text-sm font-black uppercase tracking-widest">Scan ID (QR/BARCODE)</h3>
+                                    <button onClick={() => setIsRegScanning(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+                                        <X size={20} />
+                                    </button>
+                                </div>
+                                <div className="p-4 aspect-square">
+                                    <div className="w-full h-full rounded-2xl overflow-hidden border-4 border-blue-500 shadow-lg shadow-blue-500/20">
+                                        <Scanner
+                                            onScan={(result) => handleQrScan(result[0]?.rawValue)}
+                                            onError={(error) => console.log(error?.message)}
+                                            constraints={{ facingMode: 'environment' }}
+                                            formats={[
+                                                'qr_code',
+                                                'code_128',
+                                                'code_39',
+                                                'ean_13',
+                                                'ean_8',
+                                                'upc_a',
+                                                'upc_e',
+                                                'codabar'
+                                            ]}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="p-6 text-center">
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
+                                        Align your Student Identity QR or Barcode <br />within the frame to auto-fill
+                                    </p>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
                 {/* Modal Container */}
                 <motion.div
@@ -154,19 +215,32 @@ const AuthModal = () => {
                                     </div>
                                 </div>
 
-                                {/* Roll Number (Editable) */}
+                                {/* Register Number (Editable + Scan) */}
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">Register Number</label>
-                                    <div className="relative">
-                                        <Hash className="absolute left-3 top-3.5 w-4 h-4 text-gray-400" />
+                                    <div className="relative group">
+                                        <Hash className="absolute left-3 top-3.5 w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
                                         <input
                                             ref={rollNoRef}
                                             type="text"
                                             defaultValue={pendingUser.rollNumber}
+                                            placeholder="SCAN OR ENTER MANUALLY"
                                             required
-                                            className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                            className="w-full pl-10 pr-14 py-3.5 bg-white border border-gray-200 rounded-xl text-gray-900 text-sm font-bold placeholder:text-slate-300 focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all uppercase"
                                         />
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsRegScanning(true)}
+                                            className="absolute right-2 top-2 p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                                            title="Scan ID Card"
+                                        >
+                                            <QrCode size={16} />
+                                        </button>
                                     </div>
+                                    <p className="text-[9px] text-slate-400 ml-1 font-bold uppercase tracking-widest italic flex items-center gap-1">
+                                        <span className="w-1 h-1 bg-blue-500 rounded-full animate-ping" />
+                                        Scan your RIT Identity Card for auto-fill
+                                    </p>
                                 </div>
 
                                 {/* Mobile Number */}
@@ -212,7 +286,7 @@ const AuthModal = () => {
                                             required
                                             className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all appearance-none"
                                         >
-                                            <option value="" disabled selected>Select Section</option>
+                                            <option value="" disabled>Select Section</option>
                                             {sections.map(s => <option key={s} value={s}>Section {s}</option>)}
                                         </select>
                                     </div>

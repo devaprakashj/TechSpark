@@ -97,7 +97,19 @@ const AdminDashboard = () => {
         localStorage.getItem('certApiUrl') || 'https://script.google.com/macros/s/AKfycbxVm9lozoblVwHV1iplRX5eGPtEAPX5XVQ5Zyg-GAmBA_9ZlMRxkvDz4H9AgW6QmOyf8Q/exec'
     );
     const [isTestingApi, setIsTestingApi] = useState(false);
-    const [apiTestMessage, setApiTestMessage] = useState(null);
+    // Student Management State
+    const [isEditStudentModalOpen, setIsEditStudentModalOpen] = useState(false);
+    const [isManageStudentModalOpen, setIsManageStudentModalOpen] = useState(false);
+    const [editingStudent, setEditingStudent] = useState(null);
+    const [selectedStudentHistory, setSelectedStudentHistory] = useState([]);
+    const [eventStatusFilter, setEventStatusFilter] = useState('ALL');
+    const [eventSearchQuery, setEventSearchQuery] = useState('');
+    const [isSearchScannerOpen, setIsSearchScannerOpen] = useState(false);
+
+    const fetchDashboardData = () => {
+        console.log("Strategic Refresh Triggered");
+        // Real-time sync is active via initDashboardSync, no manual fetch required
+    };
 
     const navigate = useNavigate();
 
@@ -398,13 +410,28 @@ const AdminDashboard = () => {
             setFeedbackBase(feedbackList);
         });
 
+        // 6. Listen to Security Logs
+        const unsubscribeSecurity = onSnapshot(query(collection(db, 'security_logs'), orderBy('timestamp', 'desc')), (snapshot) => {
+            const logsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setSecurityLogs(logsList);
+        });
+
         return () => {
             unsubscribeStudents();
             unsubscribeEvents();
             unsubscribeOrganizers();
             unsubscribeRegs();
             unsubscribeFeedback();
+            unsubscribeSecurity();
         };
+    };
+
+    const handleSearchScan = (result) => {
+        const val = result[0]?.rawValue;
+        if (val) {
+            setSearchQuery(val);
+            setIsSearchScannerOpen(false);
+        }
     };
 
     const handleManualSubmit = async (e) => {
@@ -535,6 +562,49 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleEditStudent = (student) => {
+        setEditingStudent({ ...student });
+        setIsEditStudentModalOpen(true);
+    };
+
+    const handleSaveStudent = async (e) => {
+        e.preventDefault();
+        if (!editingStudent) return;
+        try {
+            const studentRef = doc(db, 'users', editingStudent.id);
+            const updateData = {
+                fullName: editingStudent.fullName,
+                rollNumber: editingStudent.rollNumber,
+                department: editingStudent.department,
+                yearOfStudy: editingStudent.yearOfStudy,
+                email: editingStudent.email,
+                section: editingStudent.section || 'A',
+                admissionYear: editingStudent.admissionYear || new Date().getFullYear().toString()
+            };
+            await updateDoc(studentRef, updateData);
+            setIsEditStudentModalOpen(false);
+            setEditingStudent(null);
+            alert("Member profile updated successfully! 📂✅");
+        } catch (error) {
+            console.error("Error updating student:", error);
+            alert("Failed to update member profile.");
+        }
+    };
+
+    const handleManageStudent = (student) => {
+        const history = registrations.filter(r => r.studentRoll === student.rollNumber).map(r => {
+            const event = events.find(e => e.id === r.eventId);
+            return {
+                ...r,
+                eventTitle: event?.title || 'Unknown Mission',
+                eventDate: event?.date || 'N/A'
+            };
+        });
+        setSelectedStudentHistory(history);
+        setEditingStudent(student);
+        setIsManageStudentModalOpen(true);
+    };
+
     const handleUndoFeedback = async (regId, feedbackId) => {
         if (!window.confirm("STRATEGIC OVERRIDE: UNDO FEEDBACK SUBMISSION? This will revert the student's status and allow re-submission.")) return;
         try {
@@ -557,11 +627,23 @@ const AdminDashboard = () => {
         return val;
     };
 
-    const filteredStudents = allStudents.filter(student =>
-        student.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        student.rollNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        student.department?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredStudents = allStudents.filter(student => {
+        const query = (searchQuery || '').toLowerCase();
+        return (
+            (student.fullName || '').toLowerCase().includes(query) ||
+            (student.rollNumber || '').toLowerCase().includes(query) ||
+            (student.department || '').toLowerCase().includes(query) ||
+            (student.email || '').toLowerCase().includes(query)
+        );
+    });
+
+    const filteredEventsRegistry = (events || []).filter(event => {
+        const query = (eventSearchQuery || '').toLowerCase();
+        const matchesStatus = eventStatusFilter === 'ALL' || event.status === eventStatusFilter;
+        const matchesSearch = (event.title || '').toLowerCase().includes(query) ||
+            (event.type || '').toLowerCase().includes(query);
+        return matchesStatus && matchesSearch;
+    });
 
     const handleDownloadFinalReport = async (event) => {
         if (!event) return;
@@ -1265,15 +1347,25 @@ const AdminDashboard = () => {
                                     <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight italic">Global Direct Membership</h3>
                                     <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Live Directory of {allStudents.length} Verified Users</p>
                                 </div>
-                                <div className="relative w-full md:w-96">
-                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                    <input
-                                        type="text"
-                                        placeholder="FILTER BY NAME / ROLL / DEPT..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-blue-500/5 transition-all text-slate-800 placeholder:text-slate-300"
-                                    />
+                                <div className="flex items-center gap-3 w-full md:w-auto">
+                                    <div className="relative flex-1 md:w-80">
+                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="FILTER BY NAME / ROLL / DEPT..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-blue-500/5 transition-all text-slate-800 placeholder:text-slate-300"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={() => setIsSearchScannerOpen(true)}
+                                        className="p-4 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-500/20 hover:scale-105 transition-all flex items-center justify-center gap-2 group"
+                                        title="Scan Student Card"
+                                    >
+                                        <QrCode className="w-5 h-5" />
+                                        <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest">Scan ID</span>
+                                    </button>
                                 </div>
                             </div>
                             <div className="overflow-x-auto min-h-[400px]">
@@ -1316,13 +1408,25 @@ const AdminDashboard = () => {
                                                 <td className="px-8 py-6 text-right">
                                                     <div className="flex items-center justify-end gap-3">
                                                         <button
+                                                            onClick={() => handleEditStudent(student)}
+                                                            className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                                                            title="Edit Profile"
+                                                        >
+                                                            <Settings className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleManageStudent(student)}
+                                                            className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                                                            title="Mission Intelligence"
+                                                        >
+                                                            <UserCog className="w-4 h-4" />
+                                                        </button>
+                                                        <button
                                                             onClick={() => handleDeleteStudent(student.id)}
                                                             className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                                            title="Terminate Membership"
                                                         >
                                                             <Trash2 className="w-4 h-4" />
-                                                        </button>
-                                                        <button className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all">
-                                                            <UserCog className="w-4 h-4" />
                                                         </button>
                                                     </div>
                                                 </td>
@@ -1331,12 +1435,12 @@ const AdminDashboard = () => {
                                     </tbody>
                                 </table>
                             </div>
-                        </div>
-                    </div>
+                        </div >
+                    </div >
                 );
 
             case 'approvals':
-                const pendingEvents = events.filter(e => e.status === 'PENDING' || e.status === 'VERIFICATION_PENDING');
+                const pendingEvents = (events || []).filter(e => e.status === 'PENDING' || e.status === 'VERIFICATION_PENDING');
                 return (
                     <div className="animate-in slide-in-from-bottom-4 duration-500 text-left">
                         <div className="mb-8">
@@ -1345,7 +1449,7 @@ const AdminDashboard = () => {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                            {pendingEvents.length > 0 ? pendingEvents.map((event) => (
+                            {(pendingEvents || []).length > 0 ? (pendingEvents || []).map((event) => (
                                 <div key={event.id} className={`bg-white p-8 rounded-[2.5rem] border ${event.status === 'PENDING' ? 'border-orange-200' : 'border-indigo-200'} shadow-sm relative overflow-hidden group flex flex-col transition-all hover:shadow-lg`}>
                                     <div className="absolute top-6 right-8">
                                         <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${event.status === 'VERIFICATION_PENDING' ? 'bg-indigo-50 text-indigo-600' : 'bg-orange-50 text-orange-600 animate-pulse'
@@ -1431,12 +1535,27 @@ const AdminDashboard = () => {
                             </div>
                             <div className="flex items-center gap-3">
                                 <div className="relative w-64">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="SEARCH MISSIONS..."
+                                        value={eventSearchQuery}
+                                        onChange={(e) => setEventSearchQuery(e.target.value)}
+                                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
+                                    />
+                                </div>
+                                <div className="relative w-48">
                                     <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                    <select className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none appearance-none cursor-pointer">
-                                        <option>All Status</option>
-                                        <option>Live</option>
-                                        <option>Completed</option>
-                                        <option>Rejected</option>
+                                    <select
+                                        value={eventStatusFilter}
+                                        onChange={(e) => setEventStatusFilter(e.target.value)}
+                                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none appearance-none cursor-pointer"
+                                    >
+                                        <option value="ALL">All Status</option>
+                                        <option value="LIVE">Live</option>
+                                        <option value="COMPLETED">Completed</option>
+                                        <option value="PENDING">Pending</option>
+                                        <option value="REJECTED">Rejected</option>
                                     </select>
                                 </div>
                             </div>
@@ -1454,7 +1573,7 @@ const AdminDashboard = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
-                                    {events.map((event) => (
+                                    {(filteredEventsRegistry || []).map((event) => (
                                         <tr
                                             key={event.id}
                                             onClick={() => {
@@ -1616,10 +1735,11 @@ const AdminDashboard = () => {
                                         <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Participant</th>
                                         <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
                                         <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Identity Trace</th>
+                                        <th className="px-8 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Department</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
-                                    {registrations.slice(0, 100).map((reg) => (
+                                    {(registrations || []).slice(0, 100).map((reg) => (
                                         <tr key={reg.id} className="hover:bg-slate-50/50 transition-colors group">
                                             <td className="px-8 py-5">
                                                 <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{reg.eventTitle}</p>
@@ -1957,27 +2077,34 @@ const AdminDashboard = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
-                                    {[
-                                        { time: '14 Jan 15:42', agent: 'ADMIN_01', action: 'EVENT_CERTIFICATION', target: 'AI Workshop' },
-                                        { time: '14 Jan 14:15', agent: 'SYS_LEVEL', action: 'USER_DIRECTORY_EXPORT', target: 'CSV_EXPORT' },
-                                        { time: '14 Jan 12:30', agent: 'ORG_VARUN', action: 'COMMUNICATION_BROADCAST', target: 'Registered Students' }
-                                    ].map((log, i) => (
+                                    {(securityLogs || []).length > 0 ? (securityLogs || []).map((log, i) => (
                                         <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                                            <td className="px-8 py-5 font-mono text-[10px] text-slate-400 font-bold">{log.time}</td>
+                                            <td className="px-8 py-5 font-mono text-[10px] text-slate-400 font-bold">
+                                                {log.timestamp?.toDate ? new Date(log.timestamp.toDate()).toLocaleString() : 'JUST NOW'}
+                                            </td>
                                             <td className="px-8 py-5">
-                                                <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest">{log.agent}</span>
+                                                <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest">{log.adminId || log.executedBy || 'SYSTEM'}</span>
                                             </td>
                                             <td className="px-8 py-5">
                                                 <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{log.action}</p>
-                                                <p className="text-[9px] text-slate-400 font-bold uppercase">{log.target}</p>
+                                                <p className="text-[9px] text-slate-400 font-bold uppercase">{log.target || 'GLOBAL_PROTOCOL'}</p>
                                             </td>
                                             <td className="px-8 py-5 text-right">
                                                 <span className="flex items-center justify-end gap-1.5 text-emerald-600 text-[9px] font-black uppercase tracking-widest">
-                                                    <ShieldCheck className="w-3 h-3" /> VERIFIED
+                                                    <ShieldCheck className="w-3 h-3" /> {log.status || 'VERIFIED'}
                                                 </span>
                                             </td>
                                         </tr>
-                                    ))}
+                                    )) : (
+                                        <tr>
+                                            <td colSpan="4" className="px-8 py-20 text-center">
+                                                <div className="flex flex-col items-center">
+                                                    <ShieldAlert className="w-12 h-12 text-slate-100 mb-4" />
+                                                    <p className="text-slate-400 font-black uppercase tracking-widest text-[10px]">No security incidents logged</p>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -2343,6 +2470,298 @@ const AdminDashboard = () => {
                     </div>
                 )}
             </AnimatePresence>
+
+            {/* Edit Student Modal */}
+            <AnimatePresence>
+                {isEditStudentModalOpen && editingStudent && (
+                    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsEditStudentModalOpen(false)}
+                            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="relative w-full max-w-xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border border-slate-100"
+                        >
+                            <div className="p-8 border-b border-slate-100 flex items-center justify-between text-left">
+                                <div>
+                                    <h3 className="text-2xl font-black text-slate-800 italic uppercase">Edit Personnel Data</h3>
+                                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mt-1">Manual override of student identity profile</p>
+                                </div>
+                                <button onClick={() => setIsEditStudentModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-xl transition-colors">
+                                    <X className="w-6 h-6 text-slate-400" />
+                                </button>
+                            </div>
+
+                            <form onSubmit={handleSaveStudent} className="p-8 space-y-5 text-left bg-[#fcfdfe]">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Legal Full Name - READ ONLY</label>
+                                    <input
+                                        required
+                                        type="text"
+                                        value={editingStudent.fullName}
+                                        disabled
+                                        className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black text-xs uppercase tracking-tight text-slate-500 cursor-not-allowed"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-5">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Register Number</label>
+                                        <input
+                                            required
+                                            type="text"
+                                            value={editingStudent.rollNumber}
+                                            onChange={(e) => setEditingStudent({ ...editingStudent, rollNumber: e.target.value })}
+                                            className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-mono font-bold text-xs text-slate-600"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Academic Department - READ ONLY</label>
+                                        <select
+                                            disabled
+                                            value={editingStudent.department}
+                                            className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black text-xs uppercase tracking-widest text-slate-500 cursor-not-allowed"
+                                        >
+                                            <option value="CSE">CSE</option>
+                                            <option value="IT">IT</option>
+                                            <option value="AIDS">AI-DS</option>
+                                            <option value="AIML">AI-ML</option>
+                                            <option value="ECE">ECE</option>
+                                            <option value="EEE">EEE</option>
+                                            <option value="MECH">MECH</option>
+                                            <option value="CIVIL">CIVIL</option>
+                                            <option value="MCT">MCT</option>
+                                            <option value="BME">BME</option>
+                                            <option value="BT">BT</option>
+                                            <option value="CHEMICAL">CHEMICAL</option>
+                                            <option value="OTHERS">OTHERS</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Study Year</label>
+                                        <select
+                                            value={editingStudent.yearOfStudy}
+                                            onChange={(e) => setEditingStudent({ ...editingStudent, yearOfStudy: e.target.value })}
+                                            className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl outline-none font-black text-xs uppercase"
+                                        >
+                                            <option value="1">1st Year</option>
+                                            <option value="2">2nd Year</option>
+                                            <option value="3">3rd Year</option>
+                                            <option value="4">4th Year</option>
+                                            <option value="Alumni">Alumni</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Section</label>
+                                        <select
+                                            value={editingStudent.section}
+                                            onChange={(e) => setEditingStudent({ ...editingStudent, section: e.target.value })}
+                                            className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl outline-none font-black text-xs uppercase"
+                                        >
+                                            {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'].map(sec => (
+                                                <option key={sec} value={sec}>Sec {sec}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Batch Year</label>
+                                        <input
+                                            type="text"
+                                            value={editingStudent.admissionYear}
+                                            onChange={(e) => setEditingStudent({ ...editingStudent, admissionYear: e.target.value })}
+                                            className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl outline-none font-black text-xs tabular-nums"
+                                            placeholder="2024"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Digital Identity (Email) - READ ONLY</label>
+                                    <input
+                                        required
+                                        type="email"
+                                        value={editingStudent.email}
+                                        disabled
+                                        className="w-full px-5 py-4 bg-slate-100 border border-slate-100 rounded-2xl outline-none font-bold text-xs lowercase text-slate-400 cursor-not-allowed"
+                                    />
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-3 uppercase mt-4 tracking-widest"
+                                >
+                                    Commit Changes
+                                    <ShieldCheck className="w-4 h-4" />
+                                </button>
+                            </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Manage Student / History Modal */}
+            <AnimatePresence>
+                {isManageStudentModalOpen && editingStudent && (
+                    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsManageStudentModalOpen(false)}
+                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                            className="relative w-full max-w-4xl bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh] border border-slate-100"
+                        >
+                            <div className="p-8 bg-slate-900 text-white flex items-center justify-between shrink-0">
+                                <div className="flex items-center gap-5">
+                                    <div className="w-16 h-16 bg-blue-600 rounded-[1.5rem] flex items-center justify-center font-black text-2xl uppercase shadow-lg shadow-blue-500/20">
+                                        {editingStudent.fullName?.charAt(0)}
+                                    </div>
+                                    <div className="text-left">
+                                        <h3 className="text-2xl font-black italic uppercase tracking-tight">{editingStudent.fullName}</h3>
+                                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1">{editingStudent.rollNumber} | {editingStudent.department} DEP</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setIsManageStudentModalOpen(false)} className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all">
+                                    <X className="w-6 h-6" />
+                                </button>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-[#fcfdfe]">
+                                <div className="grid grid-cols-3 gap-6 mb-8">
+                                    <div className="p-5 bg-emerald-50 border border-emerald-100 rounded-2xl text-left">
+                                        <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Total Spark XP</div>
+                                        <div className="text-3xl font-black text-emerald-700">{editingStudent.points || 0}</div>
+                                    </div>
+                                    <div className="p-5 bg-blue-50 border border-blue-100 rounded-2xl text-left">
+                                        <div className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Missions Joined</div>
+                                        <div className="text-3xl font-black text-blue-700">{selectedStudentHistory.length}</div>
+                                    </div>
+                                    <div className="p-5 bg-indigo-50 border border-indigo-100 rounded-2xl text-left">
+                                        <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">Badges Earned</div>
+                                        <div className="text-3xl font-black text-indigo-700">{editingStudent.badges?.length || 0}</div>
+                                    </div>
+                                </div>
+
+                                <h4 className="font-black text-slate-800 text-sm uppercase tracking-widest mb-6 italic border-b border-slate-100 pb-4 text-left flex items-center gap-3">
+                                    <Activity className="w-5 h-5 text-blue-600" /> Tactical Mission History
+                                </h4>
+
+                                {selectedStudentHistory.length > 0 ? (
+                                    <div className="space-y-4 text-left">
+                                        {selectedStudentHistory.map((history, i) => (
+                                            <div key={i} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between hover:shadow-md transition-all">
+                                                <div className="text-left">
+                                                    <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{history.eventTitle}</p>
+                                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{history.eventDate}</p>
+                                                </div>
+                                                <div className="flex items-center gap-8">
+                                                    <div className="text-center">
+                                                        <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Status</p>
+                                                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${history.isAttended || history.status === 'Present' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                                                            {history.isAttended || history.status === 'Present' ? 'COMPLETED' : 'ABSENT'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Feedback</p>
+                                                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${history.feedbackSubmitted ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-400'}`}>
+                                                            {history.feedbackSubmitted ? 'SUBMITTED' : 'PENDING'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="py-20 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-100 flex flex-col items-center justify-center text-center px-6">
+                                        <AlertCircle className="w-12 h-12 text-slate-200 mb-4" />
+                                        <h4 className="text-slate-400 font-black uppercase tracking-widest text-xs">No Deployment Records</h4>
+                                        <p className="text-slate-300 text-[10px] font-bold italic mt-1">This member has not participated in any tracked mission yet.</p>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="p-8 border-t border-slate-100 bg-white flex justify-between items-center shrink-0">
+                                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Authorized Member Identity Access</p>
+                                <button onClick={() => setIsManageStudentModalOpen(false)} className="px-8 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all">
+                                    Close Audit
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Search Scanner Modal */}
+            <AnimatePresence>
+                {isSearchScannerOpen && (
+                    <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsSearchScannerOpen(false)}
+                            className="absolute inset-0 bg-slate-900/80 backdrop-blur-xl"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                            className="relative w-full max-w-md bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border border-white/20"
+                        >
+                            <div className="p-8 bg-slate-900 text-white flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-xl font-black italic uppercase tracking-tight flex items-center gap-3">
+                                        <QrCode className="w-6 h-6 text-blue-500" />
+                                        Identity Scanner
+                                    </h3>
+                                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-1">Digital Student Lookup</p>
+                                </div>
+                                <button onClick={() => setIsSearchScannerOpen(false)} className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all">
+                                    <X className="w-6 h-6" />
+                                </button>
+                            </div>
+
+                            <div className="p-8">
+                                <div className="aspect-square bg-slate-950 rounded-[2.5rem] overflow-hidden relative border-4 border-slate-100 shadow-inner">
+                                    <Scanner
+                                        onScan={handleSearchScan}
+                                        onError={(err) => console.error(err)}
+                                        styles={{
+                                            container: { width: '100%', height: '100%' },
+                                            video: { objectFit: 'cover' }
+                                        }}
+                                        allowMultiple={false}
+                                        scanDelay={2000}
+                                    />
+                                    <div className="absolute inset-0 border-[3px] border-blue-500/30 m-10 rounded-[2rem] pointer-events-none">
+                                        <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-blue-500 rounded-tl-xl" />
+                                        <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-blue-500 rounded-tr-xl" />
+                                        <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-blue-500 rounded-bl-xl" />
+                                        <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-blue-500 rounded-br-xl" />
+                                    </div>
+                                    <div className="absolute top-1/2 left-0 w-full h-0.5 bg-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.8)] animate-scan z-20" />
+                                </div>
+                                <p className="text-center mt-6 text-slate-400 text-[10px] font-black uppercase tracking-widest leading-relaxed">
+                                    Position the Student QR Code within the frame<br />for instantaneous recognition
+                                </p>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
             <style jsx="true">{`
                 .custom-scrollbar::-webkit-scrollbar {
                     width: 6px;
@@ -2358,8 +2777,15 @@ const AdminDashboard = () => {
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
                     background: #94a3b8;
                 }
+                @keyframes scan {
+                    0%, 100% { top: 0%; }
+                    50% { top: 100%; }
+                }
+                .animate-scan {
+                    animation: scan 3s ease-in-out infinite;
+                }
             `}</style>
-        </div>
+        </div >
     );
 };
 

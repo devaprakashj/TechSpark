@@ -592,244 +592,154 @@ const OrganizerDashboard = () => {
         return Array.from(values).sort();
     };
 
-    const downloadPDFReport = async (event, regs) => {
+    const handleDownloadSubReport = async (event, type) => {
+        if (!event) return;
+        console.log(`SUB-EXTRACTION: ${type} FOR MISSION: ${event.title}`);
+        const eventRegs = registrations.filter(r => r.eventId === event.id);
+
+        let title = '';
+        let tableHead = [];
+        let tableData = [];
+        let filenameSuffix = '';
+        let summaryMetrics = [];
+
+        // Helper for breakdowns
+        const getBreakdown = (data) => {
+            const depts = {}, years = {}, sections = {};
+            data.forEach(r => {
+                depts[r.studentDept] = (depts[r.studentDept] || 0) + 1;
+                years[r.studentYear] = (years[r.studentYear] || 0) + 1;
+                sections[r.studentSection] = (sections[r.studentSection] || 0) + 1;
+            });
+            return { depts, years, sections };
+        };
+
+        if (type === 'REGISTRATION') {
+            title = 'EVENT REGISTRATION DIRECTORY';
+            const b = getBreakdown(eventRegs);
+            summaryMetrics = [
+                ['TOTAL REGISTERED', eventRegs.length.toString()],
+                ['DEPT BREAKDOWN', Object.entries(b.depts).map(([k, v]) => `${k}:${v}`).join(' | ') || 'N/A'],
+                ['YEAR BREAKDOWN', Object.entries(b.years).map(([k, v]) => `${k}:${v}`).join(' | ') || 'N/A'],
+                ['SECTION BREAKDOWN', Object.entries(b.sections).map(([k, v]) => `${k}:${v}`).join(' | ') || 'N/A']
+            ];
+            tableHead = [['#', 'STUDENT NAME', 'ROLL NUMBER', 'DEPT', 'YEAR', 'REG DATE']];
+            tableData = eventRegs.map((r, i) => [
+                i + 1,
+                (r.studentName || 'UNIDENTIFIED').toUpperCase(),
+                r.studentRoll || 'N/A',
+                r.studentDept || 'N/A',
+                r.studentYear || 'N/A',
+                r.registeredAt?.toDate?.() ? new Date(r.registeredAt.toDate()).toLocaleDateString() : 'N/A'
+            ]);
+            filenameSuffix = 'Registration_Log';
+        } else if (type === 'ATTENDANCE') {
+            title = 'VERIFIED ATTENDANCE AUDIT';
+            const attended = eventRegs.filter(r => r.isAttended || r.status === 'Present');
+            const b = getBreakdown(attended);
+            summaryMetrics = [
+                ['CONFIRMED ATTENDEES', attended.length.toString()],
+                ['DEPT BREAKDOWN', Object.entries(b.depts).map(([k, v]) => `${k}:${v}`).join(' | ') || 'N/A'],
+                ['YEAR BREAKDOWN', Object.entries(b.years).map(([k, v]) => `${k}:${v}`).join(' | ') || 'N/A'],
+                ['ABSENTEE COUNT', (eventRegs.length - attended.length).toString()]
+            ];
+            tableHead = [['#', 'STUDENT NAME', 'ROLL NUMBER', 'DEPT', 'YEAR', 'STATUS']];
+            tableData = eventRegs.map((r, i) => {
+                const isPresent = r.isAttended || r.status === 'Present';
+                return [
+                    i + 1,
+                    (r.studentName || 'UNIDENTIFIED').toUpperCase(),
+                    r.studentRoll || 'N/A',
+                    r.studentDept || 'N/A',
+                    r.studentYear || 'N/A',
+                    isPresent ? 'PRESENT' : 'ABSENT'
+                ];
+            });
+            filenameSuffix = 'Attendance_Checkin';
+        }
+
         try {
             const doc = new jsPDF();
-            const loadImage = (url) => new Promise((resolve) => {
+            const pageWidth = doc.internal.pageSize.width;
+            const pageHeight = doc.internal.pageSize.height;
+
+            const loadImg = (path) => new Promise(res => {
                 const img = new Image();
-                img.src = url;
-                img.onload = () => resolve(img);
-                img.onerror = () => resolve(null);
+                img.onload = () => res(img);
+                img.onerror = () => res(null);
+                img.src = path;
             });
+            const [rit, ts] = await Promise.all([loadImg(ritLogo), loadImg(techsparkLogo)]);
 
-            const [ritImg, tsImg] = await Promise.all([loadImage(ritLogo), loadImage(techsparkLogo)]);
-
-            const centerX = 107.5; // (5mm sidebar + 210mm total width) / 2
-            const ritWidth = 42;
-            const tsWidth = 34;
-
+            // Professional Sidebar & Header
             doc.setFillColor(15, 23, 42);
             doc.rect(0, 0, 5, 297, 'F');
-            doc.setFillColor(255, 255, 255);
-            doc.rect(5, 0, 205, 60, 'F');
+            if (rit) doc.addImage(rit, 'PNG', 12, 10, 48, 15);
+            if (ts) doc.addImage(ts, 'PNG', pageWidth - 60, 10, 45, 15);
+            doc.setDrawColor(226, 232, 240);
+            doc.line(12, 30, pageWidth - 12, 30);
 
-            if (ritImg) doc.addImage(ritImg, 'PNG', 18, 12, ritWidth, 36);
-            if (tsImg) doc.addImage(tsImg, 'PNG', 210 - 18 - tsWidth, 12, tsWidth, 34);
-
-            doc.setTextColor(15, 23, 42);
+            // Title Block
+            doc.setTextColor(30, 41, 59);
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(24);
-            doc.text('TECHSPARK CLUB', centerX, 25, { align: 'center' });
+            doc.setFontSize(16);
+            doc.text(title, pageWidth / 2, 45, { align: 'center' });
 
-            doc.setFontSize(9);
-            doc.setTextColor(100, 116, 139);
-            doc.setFont('helvetica', 'normal');
-            doc.text('RAJALAKSHMI INSTITUTE OF TECHNOLOGY', centerX, 31, { align: 'center' });
-
-            doc.setTextColor(59, 130, 246);
-            doc.setFontSize(11);
-            doc.setFont('helvetica', 'bold');
-            doc.text('REGISTER REPORT', centerX, 38, { align: 'center' });
-
-            doc.setFillColor(15, 23, 42);
-            doc.roundedRect(centerX - 55, 44, 110, 10, 2, 2, 'F');
-            doc.setTextColor(255, 255, 255);
             doc.setFontSize(10);
             doc.setFont('helvetica', 'bold');
-            doc.text(event.title.toUpperCase(), centerX, 50.5, { align: 'center' });
-            doc.setDrawColor(226, 232, 240);
-            doc.line(15, 65, 195, 65);
+            doc.text(event.title.toUpperCase(), pageWidth / 2, 52, { align: 'center' });
 
-            doc.setTextColor(15, 23, 42);
-            doc.setFontSize(9);
-            doc.setFont('helvetica', 'bold');
-            doc.text('EVENT LOGISTICS:', 20, 75);
-
+            doc.setFontSize(7);
             doc.setFont('helvetica', 'normal');
-            doc.setTextColor(71, 85, 105);
-            doc.text(`DATE: ${event.date}`, 20, 83);
-            doc.text(`VENUE: ${event.venue}`, 20, 88);
-            doc.text(`TYPE: ${event.type}`, 20, 93);
+            doc.setTextColor(150);
+            doc.text(`GENERATED BY: ${(organizer?.fullName || 'CENTRAL ORGANIZER').toUpperCase()} | REF: ORG-LOG-${Math.floor(Math.random() * 10000)}`, pageWidth / 2, 58, { align: 'center' });
+            doc.text(`EXTRACTION LOGGED: ${new Date().toLocaleString().toUpperCase()}`, pageWidth / 2, 62, { align: 'center' });
 
-            const tableData = regs.map((reg, index) => [
-                { content: index + 1, styles: { fontStyle: 'bold' } },
-                reg.studentName.toUpperCase(),
-                reg.studentRoll || 'N/A',
-                reg.studentDept || 'N/A',
-                reg.studentYear || 'N/A',
-                reg.studentSection || 'N/A',
-                reg.studentPhone || 'N/A',
-                reg.registeredAt?.toDate ? reg.registeredAt.toDate().toLocaleString() : 'N/A'
-            ]);
+            // DUPLICATE Watermark
+            doc.saveGraphicsState();
+            doc.setGState(new doc.GState({ opacity: 0.1 }));
+            doc.setTextColor(200, 0, 0);
+            doc.setFontSize(60);
+            doc.text('DUPLICATE', pageWidth / 2, 150, { align: 'center', angle: -45 });
+            doc.setFontSize(15);
+            doc.text('FOR INTERNAL COORDINATION ONLY', pageWidth / 2, 165, { align: 'center', angle: -45 });
+            doc.restoreGraphicsState();
 
+            // Executive Summary
             autoTable(doc, {
-                startY: 105,
-                head: [['#', 'STUDENT NAME', 'ROLL NO', 'DEPT', 'YEAR', 'SEC', 'PHONE', 'TIMESTAMP']],
-                body: tableData,
-                theme: 'grid',
-                headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold', halign: 'center' },
-                bodyStyles: { fontSize: 7.5, textColor: [30, 41, 59] },
+                startY: 70,
+                head: [['EXECUTIVE SUMMARY METRIC', 'OPERATIONAL DATA']],
+                body: summaryMetrics,
+                theme: 'striped',
+                headStyles: { fillColor: [71, 85, 105], fontSize: 8 },
+                bodyStyles: { fontSize: 8, fontStyle: 'bold' },
+                columnStyles: { 0: { cellWidth: 60 } },
                 margin: { left: 15, right: 15 }
             });
 
-            const pageCount = doc.internal.getNumberOfPages();
-            for (let i = 1; i <= pageCount; i++) {
-                doc.setPage(i);
-                doc.setFontSize(7);
-                doc.setTextColor(148, 163, 184);
-                doc.text(`TRANSCRIPTION PAGE ${i} OF ${pageCount}`, centerX, 290, { align: 'center' });
-                doc.text('TECHSPARK | INNOVATE • CREATE • IMPACT', 20, 290);
-            }
-
-            doc.save(`${event.title.replace(/\s+/g, '_')}_Master_Report.pdf`);
-        } catch (error) {
-            console.error("Report Gen Failure:", error);
-        }
-    };
-
-    const downloadODReport = async (event, regs) => {
-        try {
-            const doc = new jsPDF();
-            const reportId = `TS-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-            const reportHash = `SHA256:${Math.random().toString(16).substr(2, 40)}`;
-
-            const loadImage = (url) => new Promise((resolve) => {
-                const img = new Image();
-                img.src = url;
-                img.onload = () => resolve(img);
-                img.onerror = () => resolve(null);
-            });
-
-            const [ritImg, tsImg] = await Promise.all([loadImage(ritLogo), loadImage(techsparkLogo)]);
-
-            const centerX = 107.5;
-            const ritWidth = 42;
-            const tsWidth = 34;
-
-            doc.setFillColor(16, 185, 129); // Emerald for OD
-            doc.rect(0, 0, 5, 297, 'F');
-            doc.setFillColor(255, 255, 255);
-            doc.rect(5, 0, 205, 60, 'F');
-
-            if (ritImg) doc.addImage(ritImg, 'PNG', 18, 12, ritWidth, 36);
-            if (tsImg) doc.addImage(tsImg, 'PNG', 210 - 18 - tsWidth, 12, tsWidth, 34);
-
-            doc.setTextColor(15, 23, 42);
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(24);
-            doc.text('TECHSPARK CLUB', centerX, 25, { align: 'center' });
-
-            doc.setFontSize(9);
-            doc.setTextColor(100, 116, 139);
-            doc.setFont('helvetica', 'normal');
-            doc.text('RAJALAKSHMI INSTITUTE OF TECHNOLOGY', centerX, 31, { align: 'center' });
-
-            doc.setTextColor(16, 185, 129);
-            doc.setFontSize(11);
-            doc.setFont('helvetica', 'bold');
-            doc.text('ATTENDEE REPORT', centerX, 38, { align: 'center' });
-
-            doc.setFillColor(15, 23, 42);
-            doc.roundedRect(centerX - 55, 44, 110, 10, 2, 2, 'F');
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'bold');
-            doc.text(event.title.toUpperCase(), centerX, 50.5, { align: 'center' });
-
-            doc.setDrawColor(226, 232, 240);
-            doc.line(15, 65, 195, 65);
-
-            doc.setTextColor(15, 23, 42);
-            doc.setFontSize(9);
-            doc.setFont('helvetica', 'bold');
-            doc.text('MISSION INTEL:', 20, 75);
-
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(71, 85, 105);
-            doc.text(`OPERATION DATE: ${event.date}`, 20, 83);
-            doc.text(`TERMINAL ID: T-CONSOLE-${event.id.substr(0, 6).toUpperCase()}`, 20, 88);
-            doc.text(`REPORT ID: ${reportId}`, 20, 93);
-
-            const tableData = regs.map((reg, index) => {
-                const isPresent = reg.isAttended || reg.status === 'Present';
-                return [
-                    { content: index + 1, styles: { fontStyle: 'bold' } },
-                    reg.studentName.toUpperCase(),
-                    reg.studentRoll || 'N/A',
-                    reg.studentDept || 'N/A',
-                    reg.studentYear || 'N/A',
-                    reg.studentSection || 'N/A',
-                    reg.studentPhone || 'N/A',
-                    isPresent ? (reg.checkedInAt?.toDate ? new Date(reg.checkedInAt.toDate()).toLocaleTimeString() : 'RECORDED') : '--:--',
-                    {
-                        content: isPresent ? 'PRESENT' : 'ABSENT',
-                        styles: { textColor: isPresent ? [5, 150, 105] : [220, 38, 38], fontStyle: 'bold' }
-                    }
-                ];
-            });
-
+            // Participant Directory
             autoTable(doc, {
-                startY: 105,
-                head: [['#', 'STUDENT NAME', 'ROLL NO', 'DEPT', 'YEAR', 'SEC', 'MOBILE', 'TIME', 'STATUS']],
+                startY: doc.lastAutoTable.finalY + 10,
+                head: tableHead,
                 body: tableData,
-                theme: 'grid',
-                headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontSize: 7.5, fontStyle: 'bold', halign: 'center' },
-                bodyStyles: { fontSize: 6.5, textColor: [30, 41, 59] },
-                margin: { left: 15, right: 15 },
-                didDrawPage: (data) => {
-                    // Footer will be handled globally at the end
-                }
+                headStyles: { fillColor: type === 'ATTENDANCE' ? [16, 185, 129] : [15, 23, 42], fontSize: 8 },
+                bodyStyles: { fontSize: 8 },
+                alternateRowStyles: { fillColor: [248, 250, 252] }
             });
 
-            let finalY = doc.lastAutoTable.finalY + 20;
-
-            // Check if there is space for disclaimer and signature
-            if (finalY > 230) {
-                doc.addPage();
-                finalY = 40;
-            }
-
-            // AUTHORITY & VALIDITY STATEMENT
-            doc.setDrawColor(226, 232, 240);
-            doc.line(20, finalY, 190, finalY);
-
-            doc.setTextColor(100, 116, 139);
-            doc.setFontSize(8);
-            doc.setFont('helvetica', 'italic');
-            const disclaimer = "This is a system-generated document and does not require a physical signature. This document is valid only after online verification through the official TechSpark verification portal.";
-            const splitDisclaimer = doc.splitTextToSize(disclaimer, 140);
-            doc.text(splitDisclaimer, 20, finalY + 10);
-
-            // SIGNATORY SECTION
-            doc.setTextColor(15, 23, 42);
-            doc.setFontSize(9);
-            doc.setFont('helvetica', 'bold');
-            doc.text('Authorized By', 160, finalY + 25, { align: 'right' });
-            doc.setFontSize(10);
-            doc.text('TechSpark Club', 160, finalY + 30, { align: 'right' });
-            doc.setFontSize(8);
-            doc.text('Rajalakshmi Institute of Technology', 160, finalY + 34, { align: 'right' });
-
-            const pageCount = doc.internal.getNumberOfPages();
-            for (let i = 1; i <= pageCount; i++) {
+            // Standard Footer
+            const pages = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= pages; i++) {
                 doc.setPage(i);
                 doc.setFontSize(7);
-                doc.setTextColor(148, 163, 184);
-
-                // Left-aligned system info
-                doc.text(`REPORT HASH: ${reportHash}`, 20, 285);
-                doc.text(`VERIFICATION ID: ${reportId}`, 20, 290);
-
-                // Center-aligned system name
-                doc.text('Generated using TechSpark Official Attendance & Certification System', centerX, 290, { align: 'center' });
-
-                // Right-aligned page number
-                doc.text(`PAGE ${i} OF ${pageCount}`, 190, 290, { align: 'right' });
+                doc.setTextColor(160);
+                doc.text('AUTHORIZED ORGANIZER EXTRACT | DUPLICATE COPY | TECHSPARK CLUB', pageWidth / 2, 290, { align: 'center' });
             }
 
-            doc.save(`${event.title.replace(/\s+/g, '_')}_Attendee_Report.pdf`);
+            doc.save(`${event.title.replace(/\s+/g, '_')}_${filenameSuffix}_DUPLICATE.pdf`);
         } catch (error) {
-            console.error("OD Report Gen Failure:", error);
+            console.error("PDF Export Error:", error);
+            alert("Strategic extraction failed.");
         }
     };
 
@@ -1051,14 +961,14 @@ const OrganizerDashboard = () => {
                                                     </button>
                                                 )}
                                                 <button
-                                                    onClick={() => downloadPDFReport(selectedEvent, registrations)}
+                                                    onClick={() => handleDownloadSubReport(selectedEvent, 'REGISTRATION')}
                                                     disabled={registrations.length === 0}
                                                     className="px-6 py-3.5 bg-slate-900 text-white rounded-2xl font-black text-xs shadow-xl shadow-slate-900/10 hover:bg-black transition-all flex items-center gap-2 uppercase tracking-widest disabled:opacity-30"
                                                 >
                                                     <FileText className="w-5 h-5" /> Register Report
                                                 </button>
                                                 <button
-                                                    onClick={() => downloadODReport(selectedEvent, registrations)}
+                                                    onClick={() => handleDownloadSubReport(selectedEvent, 'ATTENDANCE')}
                                                     disabled={registrations.length === 0}
                                                     className="px-6 py-3.5 bg-emerald-600 text-white rounded-2xl font-black text-xs shadow-xl shadow-emerald-500/10 hover:bg-emerald-700 transition-all flex items-center gap-2 uppercase tracking-widest disabled:opacity-30"
                                                 >
