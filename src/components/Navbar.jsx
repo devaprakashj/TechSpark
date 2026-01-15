@@ -25,21 +25,26 @@ const Navbar = () => {
         const isStudentItem = studentMenuItems.some(item => item.id === id);
         const targetPath = isStudentItem ? '/dashboard' : '/';
 
-        console.log('scrollToSection called:', { id, currentPath: location.pathname, targetPath });
+        // Always close mobile menu first
+        setIsMobileMenuOpen(false);
 
         if (location.pathname !== targetPath) {
-            console.log(`Not on target path, navigating to ${targetPath} with scrollTo:`, id);
             navigate(targetPath, { state: { scrollTo: id } });
-            setIsMobileMenuOpen(false);
         } else {
-            console.log(`Already on ${targetPath}, scrolling to:`, id);
-            const element = document.getElementById(id);
-            if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                setIsMobileMenuOpen(false);
-            } else {
-                console.error('Element not found:', id);
-            }
+            // Already on target path, scroll with offset for fixed header
+            setTimeout(() => {
+                const element = document.getElementById(id);
+                if (element) {
+                    const headerOffset = 80;
+                    const elementPosition = element.getBoundingClientRect().top;
+                    const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+                    window.scrollTo({
+                        top: offsetPosition,
+                        behavior: 'smooth'
+                    });
+                }
+            }, 100);
         }
     };
 
@@ -52,14 +57,19 @@ const Navbar = () => {
             const timer = setTimeout(() => {
                 const element = document.getElementById(id);
                 if (element) {
-                    console.log('Element found, scrolling...');
-                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    const headerOffset = 80;
+                    const elementPosition = element.getBoundingClientRect().top;
+                    const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+                    window.scrollTo({
+                        top: offsetPosition,
+                        behavior: 'smooth'
+                    });
+
                     // Clear the state after scrolling
                     window.history.replaceState({}, document.title);
-                } else {
-                    console.error('Element not found after navigation delay:', id);
                 }
-            }, 300); // Slightly longer delay to ensure dashboard data loads
+            }, 500); // 500ms delay to ensure dashboard content is rendered
             return () => clearTimeout(timer);
         }
     }, [location.pathname]);
@@ -237,14 +247,16 @@ const Navbar = () => {
                                 >
                                     {isAuthenticated ? (
                                         <div className="flex flex-col gap-3">
-                                            <Link
-                                                to="/dashboard"
-                                                onClick={() => setIsMobileMenuOpen(false)}
-                                                className="w-full py-5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-extrabold flex items-center justify-center gap-3 shadow-xl shadow-blue-200 active:scale-95 transition-all"
-                                            >
-                                                <LayoutDashboard className="w-6 h-6" />
-                                                GO TO DASHBOARD
-                                            </Link>
+                                            {location.pathname !== '/dashboard' && (
+                                                <Link
+                                                    to="/dashboard"
+                                                    onClick={() => setIsMobileMenuOpen(false)}
+                                                    className="w-full py-5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-extrabold flex items-center justify-center gap-3 shadow-xl shadow-blue-200 active:scale-95 transition-all"
+                                                >
+                                                    <LayoutDashboard className="w-6 h-6" />
+                                                    GO TO DASHBOARD
+                                                </Link>
+                                            )}
                                             <button
                                                 onClick={() => { logout(); setIsMobileMenuOpen(false); }}
                                                 className="w-full py-4 px-4 bg-red-50 text-red-600 rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all"

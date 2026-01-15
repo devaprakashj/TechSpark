@@ -1,9 +1,18 @@
 import { Linkedin, Mail, Github, Instagram } from 'lucide-react';
 import ProfileCard from './ProfileCard';
+import pandiyarajanImg from '../assets/team/pandiyarajan.png';
 import praveenImg from '../assets/team/praveen.png';
 import barathImg from '../assets/team/barath.png';
 import moneshImg from '../assets/team/monesh.png';
-import devaprakashImg from '../assets/team/devaprakash.png';
+import devaprakashImg from '../assets/team/devaprakash_new.png';
+import pallaviImg from '../assets/team/pallavi.png';
+import jananishreeImg from '../assets/team/jananishree.png';
+import thendralrajaImg from '../assets/team/thendralraja.jpg';
+import abinayaImg from '../assets/team/abinaya.jpg';
+import kanishgaImg from '../assets/team/kanishga.png';
+import vigneshImg from '../assets/team/vignesh.png';
+import antoImg from '../assets/team/anto.jpg';
+import harivasanImg from '../assets/team/harivasan.png';
 
 const Team = () => {
     // Lead Members (Coordinator & President)
@@ -12,6 +21,7 @@ const Team = () => {
             name: 'PANDIYARAJAN',
             role: 'Club Coordinator',
             emoji: '👨‍🏫',
+            image: pandiyarajanImg,
             gradient: 'from-purple-600 to-pink-600',
             social: {
                 linkedin: '#',
@@ -22,6 +32,7 @@ const Team = () => {
             name: 'ABINAYA M',
             role: 'President',
             emoji: '👩‍💼',
+            image: abinayaImg,
             gradient: 'from-blue-600 to-cyan-600',
             social: {
                 linkedin: '#',
@@ -47,6 +58,7 @@ const Team = () => {
             name: 'KANISHGA S',
             role: 'Secretary',
             emoji: '📝',
+            image: kanishgaImg,
             gradient: 'from-cyan-600 to-blue-600',
             social: {
                 linkedin: '#',
@@ -57,6 +69,7 @@ const Team = () => {
             name: 'PALLAVI S',
             role: 'PRO',
             emoji: '📢',
+            image: pallaviImg,
             gradient: 'from-pink-600 to-rose-600',
             social: {
                 linkedin: '#',
@@ -67,6 +80,7 @@ const Team = () => {
             name: 'JANANISHREE M',
             role: 'Report Head',
             emoji: '📊',
+            image: jananishreeImg,
             gradient: 'from-indigo-600 to-purple-600',
             social: {
                 linkedin: '#',
@@ -87,6 +101,7 @@ const Team = () => {
             name: 'THENDRALRAJA M J',
             role: 'Photography Head',
             emoji: '📸',
+            image: thendralrajaImg,
             gradient: 'from-yellow-600 to-orange-600',
             social: {
                 linkedin: '#',
@@ -119,6 +134,7 @@ const Team = () => {
             name: 'HARIVASAN V',
             role: 'Social Media Head',
             emoji: '📱',
+            image: harivasanImg,
             gradient: 'from-blue-600 to-indigo-600',
             social: {
                 linkedin: '#',
@@ -130,6 +146,7 @@ const Team = () => {
             name: 'VIGNESH K',
             role: 'Event Coordinator',
             emoji: '🎪',
+            image: vigneshImg,
             gradient: 'from-teal-600 to-cyan-600',
             social: {
                 linkedin: '#',
@@ -140,6 +157,7 @@ const Team = () => {
             name: 'ANTO JENISHIA A',
             role: 'Graphic Designer',
             emoji: '🎨',
+            image: antoImg,
             gradient: 'from-fuchsia-600 to-pink-600',
             social: {
                 linkedin: '#',
