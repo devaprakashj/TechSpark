@@ -37,7 +37,9 @@ import {
     QrCode,
     Activity,
     RotateCcw,
-    Zap
+    Zap,
+    Sparkles,
+    Loader2
 } from 'lucide-react';
 import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, deleteDoc, doc, where, updateDoc, increment, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -75,6 +77,54 @@ const OrganizerDashboard = () => {
     const [regSearchQuery, setRegSearchQuery] = useState('');
     const [regDeptFilter, setRegDeptFilter] = useState('all');
     const [regYearFilter, setRegYearFilter] = useState('all');
+    const [isAiLoading, setIsAiLoading] = useState(false);
+
+    const navigate = useNavigate();
+
+    const generateAIContent = async (field, promptContext) => {
+        if (!promptContext) {
+            alert("Please provide a topic or context first! 🤖");
+            return;
+        }
+
+        const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+        if (!GEMINI_API_KEY) {
+            alert("Gemini Intelligence not configured. Please add VITE_GEMINI_API_KEY to environment parameters. 🛡️");
+            return;
+        }
+
+        setIsAiLoading(true);
+        try {
+            const systemPrompt = field === 'title'
+                ? "Generate a professional, catchy, and short tech event title (MAX 5 WORDS) for: "
+                : field === 'shortDescription'
+                    ? "Generate a 1-2 line powerful abstract (MAX 25 WORDS) for a tech event about: "
+                    : "Generate a detailed, professional event description (MAX 150 WORDS) including learning outcomes and scope for: ";
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: systemPrompt + promptContext }] }]
+                })
+            });
+
+            const data = await response.json();
+            const generatedText = data.candidates[0].content.parts[0].text.trim();
+
+            setFormData(prev => ({
+                ...prev,
+                [field]: generatedText
+            }));
+
+            alert(`AI synchronized ${field} parameters. ⚡`);
+        } catch (error) {
+            console.error("AI Generation Failure:", error);
+            alert("Neural link failed. Verify connectivity and API status. 🚫");
+        } finally {
+            setIsAiLoading(false);
+        }
+    };
 
     const navigate = useNavigate();
 
@@ -1465,7 +1515,16 @@ const OrganizerDashboard = () => {
 
                                             <div className="space-y-6">
                                                 <div className="space-y-2">
-                                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Event Title *</label>
+                                                    <div className="flex items-center justify-between ml-1">
+                                                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Event Title *</label>
+                                                        <button
+                                                            onClick={() => generateAIContent('title', formData.title || formData.type)}
+                                                            disabled={isAiLoading}
+                                                            className="flex items-center gap-1.5 text-[9px] font-black text-blue-600 uppercase tracking-widest hover:text-blue-700 disabled:opacity-50 transition-colors"
+                                                        >
+                                                            {isAiLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} AI Suggest
+                                                        </button>
+                                                    </div>
                                                     <input
                                                         type="text"
                                                         placeholder="e.g. QUANTUM COMPUTING HACKATHON"
@@ -1506,7 +1565,16 @@ const OrganizerDashboard = () => {
                                                 </div>
 
                                                 <div className="space-y-2">
-                                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Mission Briefing (Short Abstract) *</label>
+                                                    <div className="flex items-center justify-between ml-1">
+                                                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Mission Briefing (Short Abstract) *</label>
+                                                        <button
+                                                            onClick={() => generateAIContent('shortDescription', formData.title)}
+                                                            disabled={isAiLoading || !formData.title}
+                                                            className="flex items-center gap-1.5 text-[9px] font-black text-blue-600 uppercase tracking-widest hover:text-blue-700 disabled:opacity-50 transition-colors"
+                                                        >
+                                                            {isAiLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} AI Drafting
+                                                        </button>
+                                                    </div>
                                                     <textarea
                                                         rows="2"
                                                         placeholder="1-2 lines summarizing the event scope..."
@@ -1517,7 +1585,16 @@ const OrganizerDashboard = () => {
                                                 </div>
 
                                                 <div className="space-y-2">
-                                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Detailed Operational Scope *</label>
+                                                    <div className="flex items-center justify-between ml-1">
+                                                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Detailed Operational Scope *</label>
+                                                        <button
+                                                            onClick={() => generateAIContent('detailedDescription', formData.title + " context: " + formData.shortDescription)}
+                                                            disabled={isAiLoading || !formData.title}
+                                                            className="flex items-center gap-1.5 text-[9px] font-black text-blue-600 uppercase tracking-widest hover:text-blue-700 disabled:opacity-50 transition-colors"
+                                                        >
+                                                            {isAiLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} AI Expansion
+                                                        </button>
+                                                    </div>
                                                     <textarea
                                                         rows="5"
                                                         placeholder="Describe modules, learning paths, and technical depth..."
