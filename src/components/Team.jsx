@@ -173,9 +173,9 @@ const Team = () => {
                 </div>
 
                 {/* Lead Members (Coordinator & President) - 2 Cards Row */}
-                <div className="flex flex-wrap justify-center gap-8 lg:gap-10 mb-12">
+                <div className="flex flex-wrap justify-center items-center gap-8 lg:gap-10 mb-12">
                     {leads.map((member, index) => (
-                        <div key={index} className="w-full sm:w-[calc(50%-1rem)] lg:w-[320px]">
+                        <div key={index} className="w-full sm:w-[calc(50%-1rem)] lg:w-[320px] flex justify-center">
                             <ProfileCard
                                 name={member.name}
                                 title={member.role}
@@ -185,16 +185,16 @@ const Team = () => {
                                 showUserInfo={true}
                                 enableTilt={true}
                                 onContactClick={() => window.location.href = `mailto:${member.social.email}`}
-                                className="w-full"
+                                className="w-full max-w-[320px]"
                             />
                         </div>
                     ))}
                 </div>
 
                 {/* Core Members Grid - 3 Columns (4 Rows) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-12 mb-16 max-w-6xl mx-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-12 mb-16 max-w-6xl mx-auto justify-items-center">
                     {coreTeam.map((member, index) => (
-                        <div key={index} className="flex justify-center">
+                        <div key={index} className="flex justify-center w-full">
                             <ProfileCard
                                 name={member.name}
                                 title={member.role}
