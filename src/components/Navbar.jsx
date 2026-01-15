@@ -22,17 +22,10 @@ const Navbar = () => {
     }, []);
 
     const scrollToSection = (id) => {
-        // If not on home page, navigate to home first
+        // If not on home page, navigate to home first with scroll intent
         if (location.pathname !== '/') {
-            navigate('/', { replace: true });
-            // Wait for navigation to complete, then scroll
-            setTimeout(() => {
-                const element = document.getElementById(id);
-                if (element) {
-                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-                setIsMobileMenuOpen(false);
-            }, 300);
+            navigate('/', { state: { scrollTo: id } });
+            setIsMobileMenuOpen(false);
         } else {
             // Already on home page, just scroll
             const element = document.getElementById(id);
@@ -47,14 +40,16 @@ const Navbar = () => {
     useEffect(() => {
         if (location.pathname === '/' && location.state?.scrollTo) {
             const id = location.state.scrollTo;
-            setTimeout(() => {
+            // Small delay to ensure DOM is ready
+            const timer = setTimeout(() => {
                 const element = document.getElementById(id);
                 if (element) {
-                    element.scrollIntoView({ behavior: 'smooth' });
-                    // Clear the state
-                    window.history.replaceState({}, document.title);
+                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
-            }, 100);
+                // Clear the state
+                window.history.replaceState({}, document.title);
+            }, 150);
+            return () => clearTimeout(timer);
         }
     }, [location]);
 
