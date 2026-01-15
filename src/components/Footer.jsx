@@ -124,7 +124,10 @@ const Footer = () => {
                         <div className="flex flex-col gap-2">
                             <input
                                 type="email"
+                                id="footer-email-subscription"
+                                name="email"
                                 placeholder="Your email"
+                                autoComplete="email"
                                 className="px-4 py-2 rounded-full border border-gray-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none text-sm"
                             />
                             <button className="px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-full hover:shadow-lg transition-all duration-300 text-sm font-semibold">
