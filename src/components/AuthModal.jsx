@@ -50,15 +50,99 @@ const AuthModal = () => {
         completeRegistration(data);
     };
 
-    const handleQrScan = (text) => {
-        if (text) {
-            // Usually ID cards have the roll number as the primary data
-            // If it's a URL, extract the ID
-            const extracted = text.includes('/') ? text.split('/').pop() : text;
-            if (rollNoRef.current) {
-                rollNoRef.current.value = extracted.trim();
-                setIsRegScanning(false);
+    const handleQrScan = async (text) => {
+        if (!text) return;
+
+        try {
+            // Check if QR contains college ID verification URL
+            if (text.includes('ims.ritchennai.edu.in') || text.includes('http')) {
+                try {
+                    console.log('Processing QR URL in registration:', text);
+
+                    // Try direct fetch first
+                    let response;
+                    try {
+                        response = await fetch(text, {
+                            method: 'GET',
+                            mode: 'cors',
+                            headers: { 'Accept': 'text/html' }
+                        });
+                    } catch (corsError) {
+                        // If CORS fails, try with public proxy
+                        console.log('Direct fetch failed, trying CORS proxy...', corsError);
+                        const proxyUrl = 'https://api.allorigins.win/raw?url=';
+                        response = await fetch(proxyUrl + encodeURIComponent(text));
+                    }
+
+                    if (!response.ok) {
+                        throw new Error(`Server returned ${response.status}`);
+                    }
+
+                    const html = await response.text();
+                    console.log('Fetched HTML for registration');
+
+                    // Multiple patterns to extract roll number
+                    const patterns = [
+                        /Register Number[:\s]*(\d+)/i,
+                        /Registration Number[:\s]*(\d+)/i,
+                        /Roll Number[:\s]*(\d+)/i,
+                        /Roll No[:\s.]*(\d+)/i,
+                        /Reg\.?\s*No\.?[:\s]*(\d+)/i,
+                        /<td[^>]*>(\d{10,15})<\/td>/i,
+                    ];
+
+                    let rollNumber = null;
+                    for (const pattern of patterns) {
+                        const match = html.match(pattern);
+                        if (match && match[1]) {
+                            rollNumber = match[1];
+                            console.log('Extracted Roll Number for registration:', rollNumber);
+                            break;
+                        }
+                    }
+
+                    if (rollNumber && rollNoRef.current) {
+                        rollNoRef.current.value = rollNumber.trim();
+                    } else {
+                        alert('Could not extract roll number from verification page');
+                    }
+
+                } catch (error) {
+                    console.error('QR URL Processing Error in registration:', error);
+
+                    // FALLBACK: Try to decode base64 hash from URL
+                    try {
+                        const urlParts = text.split('/');
+                        const hash = urlParts[urlParts.length - 1]; // Get last part (e.g., "ODA5OQ==")
+
+                        if (hash) {
+                            // Try base64 decode
+                            const decoded = atob(hash);
+                            console.log('Base64 decoded value:', decoded);
+
+                            // Check if decoded value looks like a roll number (contains digits)
+                            if (/\d+/.test(decoded) && rollNoRef.current) {
+                                rollNoRef.current.value = decoded.trim();
+                                console.log('Used base64 decoded value as fallback');
+                                return; // Success, scanner will close in finally
+                            }
+                        }
+                    } catch (decodeError) {
+                        console.log('Base64 decode also failed:', decodeError);
+                    }
+
+                    // Final fallback: show error and let user enter manually
+                    alert('Could not auto-fill from QR code. Please enter your roll number manually.');
+                }
+            } else {
+                // Direct roll number QR code
+                if (rollNoRef.current) {
+                    rollNoRef.current.value = text.trim();
+                }
             }
+        } finally {
+            // ALWAYS close scanner, regardless of success or failure
+            setTimeout(() => setIsRegScanning(false), 100);
         }
     };
 
@@ -99,6 +183,7 @@ const AuthModal = () => {
                                             onScan={(result) => handleQrScan(result[0]?.rawValue)}
                                             onError={(error) => console.log(error?.message)}
                                             constraints={{ facingMode: 'environment' }}
+                                            scanDelay={2000}
                                             formats={[
                                                 'qr_code',
                                                 'code_128',

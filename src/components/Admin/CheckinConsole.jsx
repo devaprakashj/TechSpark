@@ -210,6 +210,89 @@ const CheckinConsole = () => {
         }
     };
 
+    const processQRUrl = async (url) => {
+        if (!selectedEvent || !isScanning) return;
+
+        setIsScanning(false);
+        setFeedback({ type: 'loading', message: 'Fetching student data from verification server...' });
+
+        try {
+            console.log('Processing QR URL:', url);
+
+            // Try direct fetch first
+            let response;
+            try {
+                response = await fetch(url, {
+                    method: 'GET',
+                    mode: 'cors',
+                    headers: {
+                        'Accept': 'text/html',
+                    }
+                });
+            } catch (corsError) {
+                // If CORS fails, try with public proxy
+                console.log('Direct fetch failed, trying CORS proxy...', corsError);
+                const proxyUrl = 'https://api.allorigins.win/raw?url=';
+                response = await fetch(proxyUrl + encodeURIComponent(url));
+            }
+
+            if (!response.ok) {
+                throw new Error(`Server returned ${response.status}`);
+            }
+
+            const html = await response.text();
+            console.log('Fetched HTML content');
+
+            // Multiple patterns to extract roll number
+            const patterns = [
+                /Register Number[:\s]*(\d+)/i,
+                /Registration Number[:\s]*(\d+)/i,
+                /Roll Number[:\s]*(\d+)/i,
+                /Roll No[:\s.]*(\d+)/i,
+                /Reg\.?\s*No\.?[:\s]*(\d+)/i,
+                /<td[^>]*>(\d{10,15})<\/td>/i, // Table cell with 10-15 digit number
+            ];
+
+            let rollNumber = null;
+            for (const pattern of patterns) {
+                const match = html.match(pattern);
+                if (match && match[1]) {
+                    rollNumber = match[1];
+                    console.log('Extracted Roll Number:', rollNumber, 'using pattern:', pattern);
+                    break;
+                }
+            }
+
+            if (rollNumber) {
+                setFeedback({ type: 'loading', message: `Verifying Roll No: ${rollNumber}...` });
+
+                // Wait a bit to show the extracted roll number
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                // Continue with normal check-in process
+                await processCheckin(rollNumber);
+            } else {
+                throw new Error('Could not extract roll number from verification page');
+            }
+
+        } catch (error) {
+            console.error('QR URL Processing Error:', error);
+
+            setFeedback({
+                type: 'error',
+                message: 'AUTO-VERIFICATION FAILED',
+                detail: 'Network error or data format issue. Please try scanning again.'
+            });
+            playAudio('error');
+
+            // Auto-retry after error feedback
+            setTimeout(() => {
+                setIsScanning(true);
+                setFeedback(null);
+            }, 3000);
+        }
+    };
+
     const undoCheckin = async (regId) => {
         if (!window.confirm("Undo check-in for this student?")) return;
         try {
@@ -408,7 +491,14 @@ const CheckinConsole = () => {
                             <Scanner
                                 onScan={(result) => {
                                     const val = result[0]?.rawValue;
-                                    if (val) processCheckin(val);
+                                    if (val) {
+                                        // Check if QR contains college ID verification URL or direct roll number
+                                        if (val.includes('ims.ritchennai.edu.in') || val.includes('http')) {
+                                            processQRUrl(val); // Handle URL-based QR code
+                                        } else {
+                                            processCheckin(val); // Handle direct roll number QR
+                                        }
+                                    }
                                 }}
                                 onError={(err) => console.error(err)}
                                 styles={{

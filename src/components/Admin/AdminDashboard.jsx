@@ -426,10 +426,91 @@ const AdminDashboard = () => {
         };
     };
 
-    const handleSearchScan = (result) => {
+    const handleSearchScan = async (result) => {
         const val = result[0]?.rawValue;
         if (val) {
-            setSearchQuery(val);
+            // Check if QR contains college ID verification URL or direct roll number
+            if (val.includes('ims.ritchennai.edu.in') || val.includes('http')) {
+                // Handle URL-based QR code
+                try {
+                    console.log('🔍 Processing QR URL in search:', val);
+
+                    // Try direct fetch first
+                    let response;
+                    let usedProxy = false;
+
+                    try {
+                        console.log('⏳ Attempting direct fetch...');
+                        response = await fetch(val, {
+                            method: 'GET',
+                            mode: 'cors',
+                            headers: { 'Accept': 'text/html' }
+                        });
+                        console.log('✅ Direct fetch response status:', response.status);
+                    } catch (corsError) {
+                        // If CORS fails, try with public proxy
+                        console.log('⚠️ Direct fetch failed, trying CORS proxy...', corsError.message);
+                        const proxyUrl = 'https://api.allorigins.win/raw?url=';
+                        try {
+                            response = await fetch(proxyUrl + encodeURIComponent(val));
+                            usedProxy = true;
+                            console.log('✅ Proxy fetch response status:', response.status);
+                        } catch (proxyError) {
+                            console.error('❌ Proxy fetch also failed:', proxyError);
+                            throw proxyError;
+                        }
+                    }
+
+                    if (response && response.ok) {
+                        const html = await response.text();
+                        console.log('📄 Fetched HTML length:', html.length, 'chars');
+
+                        // Extract roll number using multiple patterns
+                        const patterns = [
+                            /Register Number[:\s]*(\d+)/i,
+                            /Registration Number[:\s]*(\d+)/i,
+                            /Roll Number[:\s]*(\d+)/i,
+                            /Roll No[:\s.]*(\d+)/i,
+                            /<td[^>]*>(\d{10,15})<\/td>/i,
+                        ];
+
+                        let rollNumber = null;
+                        for (const pattern of patterns) {
+                            const match = html.match(pattern);
+                            if (match && match[1]) {
+                                rollNumber = match[1];
+                                console.log('✅ Extracted Roll Number:', rollNumber, 'using pattern:', pattern);
+                                break;
+                            }
+                        }
+
+                        if (rollNumber) {
+                            setSearchQuery(rollNumber);
+                            console.log('✅ Search query set to:', rollNumber);
+                        } else {
+                            console.error('❌ Could not extract roll number from HTML');
+                            console.log('First 500 chars of HTML:', html.substring(0, 500));
+                            alert('Could not extract roll number from verification page. Check console for details.');
+                            setSearchQuery('');
+                        }
+                    } else {
+                        const status = response?.status || 'unknown';
+                        const statusText = response?.statusText || 'unknown';
+                        console.error('❌ Fetch failed with status:', status, statusText);
+                        alert(`Failed to fetch student data. Status: ${status}. ${usedProxy ? 'Both direct and proxy attempts failed.' : 'Try again or check network connection.'}`);
+                        setSearchQuery('');
+                    }
+                } catch (error) {
+                    console.error('❌ QR URL Processing Error:', error);
+                    console.error('Error details:', error.message, error.stack);
+                    alert(`Error: ${error.message}. Check browser console for details.`);
+                    setSearchQuery('');
+                }
+            } else {
+                // Direct roll number QR code
+                console.log('📋 Direct roll number detected:', val);
+                setSearchQuery(val);
+            }
             setIsSearchScannerOpen(false);
         }
     };
