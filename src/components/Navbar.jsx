@@ -22,36 +22,47 @@ const Navbar = () => {
     }, []);
 
     const scrollToSection = (id) => {
-        // If not on home page, navigate to home first with scroll intent
-        if (location.pathname !== '/') {
-            navigate('/', { state: { scrollTo: id } });
+        const isStudentItem = studentMenuItems.some(item => item.id === id);
+        const targetPath = isStudentItem ? '/dashboard' : '/';
+
+        console.log('scrollToSection called:', { id, currentPath: location.pathname, targetPath });
+
+        if (location.pathname !== targetPath) {
+            console.log(`Not on target path, navigating to ${targetPath} with scrollTo:`, id);
+            navigate(targetPath, { state: { scrollTo: id } });
             setIsMobileMenuOpen(false);
         } else {
-            // Already on home page, just scroll
+            console.log(`Already on ${targetPath}, scrolling to:`, id);
             const element = document.getElementById(id);
             if (element) {
                 element.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 setIsMobileMenuOpen(false);
+            } else {
+                console.error('Element not found:', id);
             }
         }
     };
 
-    // Effect to handle scrolling when navigating back to home from dashboard
+    // Effect to handle scrolling when navigating back to home or dashboard
     useEffect(() => {
-        if (location.pathname === '/' && location.state?.scrollTo) {
+        if (location.state?.scrollTo) {
             const id = location.state.scrollTo;
-            // Small delay to ensure DOM is ready
+            console.log('Navigation effect triggered, attempting scroll to:', id);
+
             const timer = setTimeout(() => {
                 const element = document.getElementById(id);
                 if (element) {
+                    console.log('Element found, scrolling...');
                     element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    // Clear the state after scrolling
+                    window.history.replaceState({}, document.title);
+                } else {
+                    console.error('Element not found after navigation delay:', id);
                 }
-                // Clear the state
-                window.history.replaceState({}, document.title);
-            }, 150);
+            }, 300); // Slightly longer delay to ensure dashboard data loads
             return () => clearTimeout(timer);
         }
-    }, [location]);
+    }, [location.pathname]);
 
     const handleJoinClick = () => {
         if (!isAuthenticated) {
@@ -62,7 +73,7 @@ const Navbar = () => {
         setIsMobileMenuOpen(false);
     };
 
-    const menuItems = [
+    const publicMenuItems = [
         { name: 'Home', id: 'home' },
         { name: 'About', id: 'about' },
         { name: 'Events', id: 'events' },
@@ -70,6 +81,16 @@ const Navbar = () => {
         { name: 'Team', id: 'team' },
         { name: 'Verify', id: 'verify', link: '/certificateverify' },
     ];
+
+    const studentMenuItems = [
+        { name: 'Overview', id: 'student-overview' },
+        { name: 'My Events', id: 'registered-events' },
+        { name: 'Explore', id: 'live-events' },
+        { name: 'Certificates', id: 'certificate-vault' },
+        { name: 'Digital ID', id: 'digital-id-card' },
+    ];
+
+    const menuItems = isAuthenticated ? studentMenuItems : publicMenuItems;
 
     return (
         <nav
@@ -116,6 +137,8 @@ const Navbar = () => {
                     <div className="hidden md:block">
                         {isAuthenticated ? (
                             <div className="flex items-center gap-3">
+                                {/* Temporarily disabled for debugging */}
+                                {/*
                                 <Link
                                     to="/dashboard"
                                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-full font-bold shadow-md hover:shadow-blue-200 transition-all hover:-translate-y-0.5"
@@ -123,6 +146,8 @@ const Navbar = () => {
                                     <LayoutDashboard className="w-4 h-4" />
                                     <span>Dashboard</span>
                                 </Link>
+                                */}
+                                <span className="text-sm text-gray-600">Logged in as {user?.fullName || 'User'}</span>
                                 <div className="w-px h-6 bg-gray-200 mx-1" />
                                 <button
                                     onClick={logout}

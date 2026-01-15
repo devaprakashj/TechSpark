@@ -1,15 +1,25 @@
 import { Zap, Linkedin, Instagram, Mail, ArrowUp } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import logo from '../assets/logo.png';
 
 const Footer = () => {
+    const navigate = useNavigate();
+    const location = useLocation();
+
     const scrollToTop = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const scrollToSection = (id) => {
-        const element = document.getElementById(id);
-        if (element) {
-            element.scrollIntoView({ behavior: 'smooth' });
+        // If not on home page, navigate to home first
+        if (location.pathname !== '/') {
+            navigate('/', { state: { scrollTo: id } });
+        } else {
+            // Already on home page, just scroll
+            const element = document.getElementById(id);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
         }
     };
 

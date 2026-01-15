@@ -364,7 +364,7 @@ const StudentDashboard = () => {
                     {/* Left Column */}
                     <div className="lg:col-span-2 space-y-8">
                         {/* Stats Grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div id="student-overview" className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             {stats.map((stat, idx) => (
                                 <motion.div
                                     key={idx}
@@ -383,7 +383,7 @@ const StudentDashboard = () => {
                         </div>
 
                         {/* Registered Events */}
-                        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div id="registered-events" className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
                             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
                                 <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
                                     <Calendar className="w-5 h-5 text-blue-600" />
@@ -443,7 +443,7 @@ const StudentDashboard = () => {
                         </div>
 
                         {/* Live Opportunities or Confirmation Area */}
-                        <div className="bg-white rounded-[3rem] shadow-sm border border-slate-200 overflow-hidden min-h-[400px]">
+                        <div id="live-events" className="bg-white rounded-[3rem] shadow-sm border border-slate-200 overflow-hidden min-h-[400px]">
                             {isConfirming && eventToRegister ? (
                                 <motion.div
                                     initial={{ opacity: 0, y: 20 }}
@@ -625,7 +625,7 @@ const StudentDashboard = () => {
                         </div>
 
                         {/* Certificate Vault */}
-                        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div id="certificate-vault" className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
                             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-blue-50/20">
                                 <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
                                     <Award className="w-5 h-5 text-blue-600" />
@@ -744,7 +744,7 @@ const StudentDashboard = () => {
                                     </div>
                                 </div>
                             </div>
-                            <div className="pt-6 border-t border-slate-100">
+                            <div id="digital-id-card" className="pt-6 border-t border-slate-100">
                                 <button onClick={handleDownloadCard} className="w-full bg-blue-600 text-white p-6 rounded-2xl relative overflow-hidden group cursor-pointer text-left focus:outline-none shadow-lg shadow-blue-100">
                                     <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-500" />
                                     <h3 className="text-lg font-bold mb-1">TS Digital Identity</h3>
