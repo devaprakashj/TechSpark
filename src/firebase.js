@@ -23,9 +23,10 @@ export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 export const db = getFirestore(app);
 
-// Force Google to show the account picker every time
+// Force Google to show the account picker and prioritize college domain
 googleProvider.setCustomParameters({
-    prompt: 'select_account'
+    prompt: 'select_account',
+    hd: 'ritchennai.edu.in'
 });
 
 export { analytics };
