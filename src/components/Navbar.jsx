@@ -22,12 +22,22 @@ const Navbar = () => {
     }, []);
 
     const scrollToSection = (id) => {
+        // If not on home page, navigate to home first
         if (location.pathname !== '/') {
-            navigate('/', { state: { scrollTo: id } });
+            navigate('/', { replace: true });
+            // Wait for navigation to complete, then scroll
+            setTimeout(() => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+                setIsMobileMenuOpen(false);
+            }, 300);
         } else {
+            // Already on home page, just scroll
             const element = document.getElementById(id);
             if (element) {
-                element.scrollIntoView({ behavior: 'smooth' });
+                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 setIsMobileMenuOpen(false);
             }
         }
