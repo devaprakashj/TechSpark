@@ -12,6 +12,7 @@ import abinayaImg from '../assets/team/abinaya.jpg';
 import kanishgaImg from '../assets/team/kanishga.png';
 import vigneshImg from '../assets/team/vignesh.png';
 import antoImg from '../assets/team/anto.jpg';
+import mugkeshImg from '../assets/team/mugkesh.png';
 import harivasanImg from '../assets/team/harivasan.png';
 
 const Team = () => {
@@ -91,6 +92,7 @@ const Team = () => {
             name: 'MUGESH M',
             role: 'Content Writer',
             emoji: '✍️',
+            image: mugkeshImg,
             gradient: 'from-green-600 to-emerald-600',
             social: {
                 linkedin: '#',
