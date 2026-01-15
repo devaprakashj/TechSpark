@@ -32,7 +32,7 @@ const CheckinConsole = () => {
     const [loadingEvents, setLoadingEvents] = useState(true);
 
     const [stats, setStats] = useState({ total: 0, present: 0 });
-    const [lastScanned, setLastScanned] = useState(null);
+    const [recentScans, setRecentScans] = useState([]); // Array of {regId, studentName, studentRoll, time}
     const [isScanning, setIsScanning] = useState(true);
     const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error', message: string, detail?: any }
 
@@ -192,19 +192,38 @@ const CheckinConsole = () => {
                         message: 'CHECK-IN SUCCESSFUL',
                         detail: regData.studentName
                     });
+                    setRecentScans(prev => [{
+                        regId: regDoc.id,
+                        studentName: regData.studentName,
+                        studentRoll: regData.studentRoll,
+                        time: new Date().toLocaleTimeString()
+                    }, ...prev].slice(0, 5));
                     playAudio('success');
                 }
             }
-        } catch (error) {
-            console.error("Check-in error:", error);
-            setFeedback({ type: 'error', message: 'SYSTEM ERROR', detail: 'Failed to update attendance.' });
+        } finally {
+            // Reset for next scan after 3 seconds
+            setTimeout(() => {
+                setIsScanning(true);
+                setFeedback(null);
+            }, 3000);
         }
+    };
 
-        // Reset for next scan after 3 seconds
-        setTimeout(() => {
-            setIsScanning(true);
-            setFeedback(null);
-        }, 3000);
+    const undoCheckin = async (regId) => {
+        if (!window.confirm("Undo check-in for this student?")) return;
+        try {
+            await updateDoc(doc(db, 'registrations', regId), {
+                status: 'Registered',
+                isAttended: false,
+                checkedInAt: null
+            });
+            setRecentScans(prev => prev.filter(s => s.regId !== regId));
+            alert("Check-in reverted.");
+        } catch (error) {
+            console.error("Undo error:", error);
+            alert("Failed to undo check-in.");
+        }
     };
 
     const playAudio = (type) => {
@@ -491,17 +510,44 @@ const CheckinConsole = () => {
                             </div>
                         </div>
 
+                        <div className="mt-10">
+                            <h5 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <Users className="w-4 h-4" /> Recent Operations
+                            </h5>
+                            <div className="space-y-3">
+                                {recentScans.length > 0 ? recentScans.map((scan, i) => (
+                                    <div key={i} className="p-4 bg-white/5 border border-white/5 rounded-2xl flex items-center justify-between group">
+                                        <div className="min-w-0">
+                                            <p className="text-[10px] font-black uppercase text-white truncate">{scan.studentName}</p>
+                                            <p className="text-[8px] font-bold text-slate-500 uppercase">{scan.studentRoll} • {scan.time}</p>
+                                        </div>
+                                        <button
+                                            onClick={() => undoCheckin(scan.regId)}
+                                            className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
+                                            title="Undo Check-in"
+                                        >
+                                            <X className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                )) : (
+                                    <p className="text-[10px] text-slate-600 font-bold italic text-center py-4 border-2 border-dashed border-white/5 rounded-2xl">
+                                        No recent scans in this session
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
                         <div className="mt-10 p-6 bg-blue-600/10 rounded-3xl border border-blue-500/20">
                             <h5 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-3">Operational Guide</h5>
                             <ul className="space-y-3">
                                 <li className="text-[10px] text-slate-400 font-bold flex gap-2">
-                                    <span className="text-blue-500">01.</span> Positioning QR Code within the frame for auto-detection.
+                                    <span className="text-blue-500">01.</span> Position QR Code within frame for auto-detection.
                                 </li>
                                 <li className="text-[10px] text-slate-400 font-bold flex gap-2">
-                                    <span className="text-blue-500">02.</span> Successful scan triggers a check against registration database.
+                                    <span className="text-blue-500">02.</span> Successful scan triggers instant DB verification.
                                 </li>
                                 <li className="text-[10px] text-slate-400 font-bold flex gap-2">
-                                    <span className="text-blue-500">03.</span> Real-time stats reflect instant movement of participants.
+                                    <span className="text-blue-500">03.</span> Use the 'X' button above to undo accidental scans.
                                 </li>
                             </ul>
                         </div>

@@ -33,14 +33,19 @@ import {
     RefreshCw,
     AlertCircle,
     Activity,
-    Terminal
+    Terminal,
+    RotateCcw,
+    ChevronRight,
+    HelpCircle
 } from 'lucide-react';
 import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, where, updateDoc, doc, increment, deleteDoc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Scanner } from '@yudiel/react-qr-scanner';
-import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import emailjs from '@emailjs/browser';
+import ritLogo from '../../assets/rit-logo.png';
+import techsparkLogo from '../../assets/techspark-logo.png';
 
 const AdminDashboard = () => {
     const [admin, setAdmin] = useState(null);
@@ -64,6 +69,9 @@ const AdminDashboard = () => {
     // Organizer Management State
     const [organizers, setOrganizers] = useState([]);
     const [registrations, setRegistrations] = useState([]);
+    const [feedbackBase, setFeedbackBase] = useState([]);
+    const [selectedEventDetails, setSelectedEventDetails] = useState(null);
+    const [showEventDetailModal, setShowEventDetailModal] = useState(false);
     const [securityLogs, setSecurityLogs] = useState([]);
     const [isOrgModalOpen, setIsOrgModalOpen] = useState(false);
     const [newOrg, setNewOrg] = useState({
@@ -172,7 +180,7 @@ const AdminDashboard = () => {
             doc.setFillColor(255, 255, 255);
             doc.rect(0, 0, 210, 65, 'F');
             doc.addImage(rit, 'PNG', 15, 15, 42, 36);
-            doc.addImage(ts, 'PNG', 160, 16, 34, 34);
+            doc.addImage(ts, 'PNG', 161, 16, 34, 34);
 
             doc.setTextColor(15, 23, 42);
             doc.setFontSize(22);
@@ -248,7 +256,7 @@ const AdminDashboard = () => {
             ]);
 
             doc.addImage(rit, 'PNG', 15, 15, 42, 36);
-            doc.addImage(ts, 'PNG', 160, 16, 34, 34);
+            doc.addImage(ts, 'PNG', 161, 16, 34, 34);
             doc.setFontSize(20).setFont('helvetica', 'bold').text('MEMBER DEMOGRAPHIC AUDIT', 105, 30, { align: 'center' });
             doc.setFontSize(9).setTextColor(100).text(`Generated: ${new Date().toLocaleString()} | ID: ${reportId}`, 105, 40, { align: 'center' });
             doc.line(15, 55, 195, 55);
@@ -290,7 +298,7 @@ const AdminDashboard = () => {
             ]);
 
             doc.addImage(rit, 'PNG', 15, 15, 42, 36);
-            doc.addImage(ts, 'PNG', 160, 16, 34, 34);
+            doc.addImage(ts, 'PNG', 161, 16, 34, 34);
             doc.setFontSize(22).setFont('helvetica', 'bold').text('OPERATIONAL LOGISTICS AUDIT', 105, 30, { align: 'center' });
             doc.setFontSize(10).setTextColor(120).text('STRATEGIC OVERSIGHT & GOVERNANCE REPORT', 105, 40, { align: 'center' });
             doc.line(15, 55, 195, 55);
@@ -384,11 +392,18 @@ const AdminDashboard = () => {
             setRegistrations(regsList);
         });
 
+        // 5. Listen to Feedback
+        const unsubscribeFeedback = onSnapshot(collection(db, 'feedback'), (snapshot) => {
+            const feedbackList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setFeedbackBase(feedbackList);
+        });
+
         return () => {
             unsubscribeStudents();
             unsubscribeEvents();
             unsubscribeOrganizers();
             unsubscribeRegs();
+            unsubscribeFeedback();
         };
     };
 
@@ -520,6 +535,23 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleUndoFeedback = async (regId, feedbackId) => {
+        if (!window.confirm("STRATEGIC OVERRIDE: UNDO FEEDBACK SUBMISSION? This will revert the student's status and allow re-submission.")) return;
+        try {
+            await updateDoc(doc(db, 'registrations', regId), {
+                feedbackSubmitted: false,
+                status: 'Present',
+                eligibleForCertificate: false
+            });
+            if (feedbackId) {
+                await deleteDoc(doc(db, 'feedback', feedbackId));
+            }
+        } catch (error) {
+            console.error("Error undoing feedback:", error);
+            alert("Operation failed. Manual override required.");
+        }
+    };
+
     const formatValue = (val) => {
         if (val >= 1000) return (val / 1000).toFixed(1) + 'K';
         return val;
@@ -530,6 +562,481 @@ const AdminDashboard = () => {
         student.rollNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         student.department?.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    const handleDownloadFinalReport = async (event) => {
+        if (!event) return;
+        console.log("INITIATING MASTER REPORT ASSEMBLY...", event.title);
+        const eventRegs = registrations.filter(r => r.eventId === event.id);
+        const eventFeedback = feedbackBase.filter(f => f.eventId === event.id);
+        const presentCount = eventRegs.filter(r => r.isAttended || r.status === 'Present').length;
+        const absentCount = eventRegs.length - presentCount;
+        const attendanceRate = ((presentCount / (eventRegs.length || 1)) * 100).toFixed(1);
+
+        try {
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.width;
+            const pageHeight = doc.internal.pageSize.height;
+            const reportId = `TS-MASTER-${event.id.slice(0, 5).toUpperCase()}-${Math.floor(Date.now() / 10000)}`;
+
+            // --- REUSABLE BRANDING HELPER ---
+            const drawBranding = () => {
+                doc.setFillColor(16, 185, 129); // TechSpark Green
+                doc.rect(0, 0, 5, pageHeight, 'F');
+                doc.setDrawColor(226, 232, 240);
+                doc.line(10, 25, pageWidth - 10, 25);
+            };
+
+            const addLogos = async () => {
+                const loadImg = (path) => new Promise(res => {
+                    const img = new Image();
+                    img.onload = () => res(img);
+                    img.onerror = () => res(null);
+                    img.src = path;
+                });
+                const [rit, ts] = await Promise.all([loadImg(ritLogo), loadImg(techsparkLogo)]);
+                if (rit) doc.addImage(rit, 'PNG', 10, 8, 45, 12);
+                if (ts) doc.addImage(ts, 'PNG', pageWidth - 55, 8, 45, 12);
+            };
+
+            const addWatermark = (text = 'OFFICIAL AUDIT') => {
+                doc.saveGraphicsState();
+                doc.setGState(new doc.GState({ opacity: 0.03 }));
+                doc.setFontSize(40);
+                doc.setTextColor(150);
+                doc.setFont('helvetica', 'bold');
+                doc.text(text, pageWidth / 2, pageHeight / 2, { align: 'center', angle: 45 });
+                doc.restoreGraphicsState();
+            };
+
+            await addLogos();
+            drawBranding();
+
+            // --- PAGE 1: COVER PAGE (SECTION 1) ---
+            doc.setTextColor(15, 23, 42);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(32);
+            doc.text('FINAL EVENT', pageWidth / 2, 80, { align: 'center' });
+            doc.text('REPORT', pageWidth / 2, 95, { align: 'center' });
+
+            doc.setFillColor(16, 185, 129);
+            doc.rect(pageWidth / 2 - 40, 105, 80, 2, 'F');
+
+            doc.setFontSize(18);
+            doc.setTextColor(71, 85, 105);
+            doc.text(event.title.toUpperCase(), pageWidth / 2, 130, { align: 'center' });
+
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`${event.date} | ${event.venue || 'OFFLINE MODE'}`, pageWidth / 2, 140, { align: 'center' });
+
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(16, 185, 129);
+            doc.text('Organized by TechSpark Club', pageWidth / 2, 160, { align: 'center' });
+
+            doc.setTextColor(148, 163, 184);
+            doc.setFontSize(8);
+            doc.text('OFFICIAL INSTITUTIONAL RECORD - FOR INTERNAL AUDIT ONLY', pageWidth / 2, pageHeight - 20, { align: 'center' });
+
+            // --- PAGE 2: EXECUTIVE SUMMARY (SECTION 2) ---
+            doc.addPage();
+            drawBranding();
+            await addLogos();
+            addWatermark('EXECUTIVE SUMMARY');
+
+            doc.setFontSize(14);
+            doc.setTextColor(15, 23, 42);
+            doc.setFont('helvetica', 'bold');
+            doc.text('SECTION II: EXECUTIVE SUMMARY', 15, 45);
+
+            autoTable(doc, {
+                startY: 55,
+                body: [
+                    ['TOTAL REGISTERED PARTICIPANTS', eventRegs.length.toString()],
+                    ['CONFIRMED ATTENDANCE (PRESENT)', presentCount.toString()],
+                    ['ABSENTEE COUNT', absentCount.toString()],
+                    ['FEEDBACK LOGS RECEIVED', eventFeedback.length.toString()],
+                    ['FINAL ATTENDANCE RATE', `${attendanceRate}%`]
+                ],
+                theme: 'striped',
+                styles: { fontSize: 10, cellPadding: 8 },
+                columnStyles: { 0: { fontStyle: 'bold', cellWidth: 100 } }
+            });
+
+            // --- PAGE 3: ATTACHMENT 1 - REGISTRATION LOG (SECTION 3) ---
+            doc.addPage();
+            drawBranding();
+            await addLogos();
+            addWatermark('REGISTRATION LOG');
+
+            doc.setFontSize(14);
+            doc.text('ATTACHMENT – I : REGISTRATION LOG', 15, 45);
+
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Total documented registrations: ${eventRegs.length}`, 15, 52);
+
+            const regTableData = eventRegs.map((r, i) => [
+                i + 1,
+                r.studentRoll,
+                (r.studentName || 'N/A').toUpperCase(),
+                r.registeredAt?.toDate ? new Date(r.registeredAt.toDate()).toLocaleString() : 'SYSTEM VERIFIED'
+            ]);
+
+            autoTable(doc, {
+                startY: 60,
+                head: [['S.NO', 'STUDENT identity', 'FULL NAME', 'VERIFIED TIMESTAMP']],
+                body: regTableData,
+                headStyles: { fillColor: [15, 23, 42] },
+                styles: { fontSize: 8 }
+            });
+            doc.setFontSize(7);
+            doc.setTextColor(150);
+            doc.text('This section is system-generated from registration database.', 15, doc.lastAutoTable.finalY + 10);
+
+            // --- PAGE 4: ATTACHMENT 2 - ATTENDANCE AUDIT (SECTION 4) ---
+            doc.addPage();
+            drawBranding();
+            await addLogos();
+            addWatermark('ATTENDANCE AUDIT');
+
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.text('ATTACHMENT – II : ATTENDANCE AUDIT', 15, 45);
+
+            const auditSummary = [
+                ['CONFIRMED PRESENT', presentCount.toString()],
+                ['ABSENT COUNT', absentCount.toString()],
+                ['ATTENDANCE RATIO', `${attendanceRate}%`],
+                ['VERIFICATION METHOD', 'SYSTEM QR / MANUAL OVERRIDE']
+            ];
+
+            autoTable(doc, {
+                startY: 55,
+                body: auditSummary,
+                theme: 'plain',
+                styles: { fontSize: 9, fontStyle: 'bold' }
+            });
+
+            doc.setFont('helvetica', 'italic');
+            doc.setFontSize(10);
+            doc.setTextColor(16, 185, 129);
+            doc.text(`"${presentCount} out of ${eventRegs.length} participants successfully checked in."`, 15, doc.lastAutoTable.finalY + 15);
+
+            const attendedList = eventRegs.filter(r => r.isAttended || r.status === 'Present').map((r, i) => [
+                i + 1,
+                r.studentName.toUpperCase(),
+                r.studentRoll,
+                r.studentDept,
+                'PRESENT'
+            ]);
+
+            autoTable(doc, {
+                startY: doc.lastAutoTable.finalY + 25,
+                head: [['#', 'STUDENT NAME', 'ROLL NO', 'DEPT', 'STATUS']],
+                body: attendedList,
+                headStyles: { fillColor: [16, 185, 129] },
+                styles: { fontSize: 7 }
+            });
+
+            // --- PAGE 5: ATTACHMENT 3 - FEEDBACK ANALYSIS (SECTION 5) ---
+            doc.addPage();
+            drawBranding();
+            await addLogos();
+            addWatermark('FEEDBACK INSIGHTS');
+
+            doc.setFontSize(14);
+            doc.text('ATTACHMENT – III : FEEDBACK ANALYSIS', 15, 45);
+
+            const avgRating = (eventFeedback.reduce((acc, curr) => acc + (curr.rating || 0), 0) / (eventFeedback.length || 1)).toFixed(1);
+            const recommendationRate = ((eventFeedback.filter(f => f.rating >= 4).length / (eventFeedback.length || 1)) * 100).toFixed(1);
+
+            autoTable(doc, {
+                startY: 55,
+                head: [['METRIC TYPE', 'RATING / SCORE', 'VISUAL PERFORMANCE']],
+                body: [
+                    ['AVERAGE USER RATING', `${avgRating} / 5.0`, '★★★★★'.slice(0, Math.round(avgRating))],
+                    ['RECOMMENDATION RATE', `${recommendationRate}%`, 'HIGHLY RECOMMENDED'],
+                    ['TOTAL LOGS ANALYZED', eventFeedback.length.toString(), 'STRATEGIC DATA']
+                ],
+                headStyles: { fillColor: [124, 58, 237] }
+            });
+
+            // --- PAGE 6: ATTACHMENT 4 - FEEDBACK HIGHLIGHTS (SECTION 6) ---
+            doc.addPage();
+            drawBranding();
+            await addLogos();
+            addWatermark('PARTICIPANT VOICES');
+
+            doc.setFontSize(14);
+            doc.text('ATTACHMENT – IV : FEEDBACK HIGHLIGHTS', 15, 45);
+
+            const highRatingFeedback = eventFeedback.filter(f => f.rating >= 4).slice(0, 5);
+            const lowRatingFeedback = eventFeedback.filter(f => f.rating <= 2).slice(0, 3);
+
+            doc.setFontSize(10);
+            doc.setTextColor(16, 185, 129);
+            doc.text('👍 WHAT PARTICIPANTS LIKED', 15, 60);
+
+            let currentY = 65;
+            doc.setTextColor(71, 85, 105);
+            doc.setFont('helvetica', 'normal');
+            highRatingFeedback.forEach(f => {
+                const comment = f.comment || f.feedback || 'Incredible experience!';
+                const textLines = doc.splitTextToSize(`• "${comment}" - Anonymous`, pageWidth - 30);
+                doc.text(textLines, 15, currentY);
+                currentY += (textLines.length * 5) + 2;
+            });
+
+            currentY += 10;
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(239, 68, 68);
+            doc.text('🔧 AREAS FOR IMPROVEMENT', 15, currentY);
+            currentY += 7;
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(71, 85, 105);
+            if (lowRatingFeedback.length === 0) {
+                doc.text('• No critical improvements identified by participants.', 15, currentY);
+            } else {
+                lowRatingFeedback.forEach(f => {
+                    const comment = f.comment || f.feedback || 'Minor technical glitches.';
+                    const textLines = doc.splitTextToSize(`• "${comment}" - Anonymous`, pageWidth - 30);
+                    doc.text(textLines, 15, currentY);
+                    currentY += (textLines.length * 5) + 2;
+                });
+            }
+
+            // --- PAGE 7: ATTACHMENT 5 - OUTCOME & CONCLUSION (SECTION 7) ---
+            doc.addPage();
+            drawBranding();
+            await addLogos();
+            addWatermark('MISSION OUTCOME');
+
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(15, 23, 42);
+            doc.text('ATTACHMENT – V : OUTCOME & CONCLUSION', 15, 45);
+
+            const outcomeText = `The event "${event.title}" achieved its intended objectives with an attendance rate of ${attendanceRate}% and a high participant satisfaction level of ${avgRating}/5.0. Based on internal analytics, the mission is classified as a SUCCESS.`;
+            const splitOutcome = doc.splitTextToSize(outcomeText, pageWidth - 30);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(11);
+            doc.text(splitOutcome, 15, 60);
+
+            doc.setFont('helvetica', 'bold');
+            doc.text('LEARNING OUTCOME:', 15, 90);
+            doc.setFont('helvetica', 'normal');
+            doc.text('• Enhanced technical proficiency in participating segments.', 15, 97);
+            doc.text('• Improved collaborative engagement among club members.', 15, 104);
+
+            // --- LAST PAGE: DECLARATION (SECTION 8) ---
+            doc.addPage();
+            drawBranding();
+            await addLogos();
+
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.text('SECTION VIII: DECLARATION & AUDIT', 15, 45);
+
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'normal');
+            doc.text('This is to certify that the event mentioned in this report was successfully conducted following all institutional protocols. The data presented here has been extracted directly from the TechSpark Event Management System and verified for accuracy.', 15, 60, { maxWidth: pageWidth - 30 });
+
+            doc.setFont('helvetica', 'bold');
+            doc.text('Data Verified by TechSpark Club Executive Board', 15, 90);
+
+            // Digital Signature Space
+            doc.setDrawColor(200);
+            doc.line(15, 120, 70, 120);
+            doc.setFontSize(8);
+            doc.text('Authorized Electronic Signature', 15, 125);
+
+            // System Footer
+            doc.setFillColor(248, 250, 252);
+            doc.rect(10, pageHeight - 50, pageWidth - 20, 35, 'F');
+            doc.setTextColor(100);
+            doc.setFontSize(7);
+            doc.text(`REPORT ID: ${reportId}`, 15, pageHeight - 40);
+            doc.text(`GENERATED BY: ${(admin?.fullName || 'CENTRAL ADMIN').toUpperCase()}`, 15, pageHeight - 35);
+            doc.text(`VERIFICATION TIMESTAMP: ${new Date().toLocaleString().toUpperCase()}`, 15, pageHeight - 30);
+            doc.setFont('helvetica', 'italic');
+            doc.text('Generated by TechSpark Club Event Management System. Digital verification active.', 15, pageHeight - 20);
+
+            // FINAL SAVE
+            doc.save(`${event.title.replace(/\s+/g, '_')}_Master_Report.pdf`);
+        } catch (error) {
+            console.error("MASTER REPORT FAILURE:", error);
+            alert("The Master Report assembly system encountered a terminal error.");
+        }
+    };
+
+    const handleDownloadSubReport = async (event, type) => {
+        if (!event) return;
+        console.log(`SUB-EXTRACTION: ${type} FOR MISSION: ${event.title}`);
+        const eventRegs = registrations.filter(r => r.eventId === event.id);
+        const eventFeedback = feedbackBase.filter(f => f.eventId === event.id);
+
+        let title = '';
+        let tableHead = [];
+        let tableData = [];
+        let filenameSuffix = '';
+        let summaryMetrics = [];
+
+        // Helper for breakdowns
+        const getBreakdown = (data) => {
+            const depts = {}, years = {}, sections = {};
+            data.forEach(r => {
+                depts[r.studentDept] = (depts[r.studentDept] || 0) + 1;
+                years[r.studentYear] = (years[r.studentYear] || 0) + 1;
+                sections[r.studentSection] = (sections[r.studentSection] || 0) + 1;
+            });
+            return { depts, years, sections };
+        };
+
+        if (type === 'REGISTRATION') {
+            title = 'EVENT REGISTRATION DIRECTORY';
+            const b = getBreakdown(eventRegs);
+            summaryMetrics = [
+                ['TOTAL REGISTERED', eventRegs.length.toString()],
+                ['DEPT BREAKDOWN', Object.entries(b.depts).map(([k, v]) => `${k}:${v}`).join(' | ') || 'N/A'],
+                ['YEAR BREAKDOWN', Object.entries(b.years).map(([k, v]) => `${k}:${v}`).join(' | ') || 'N/A'],
+                ['SECTION BREAKDOWN', Object.entries(b.sections).map(([k, v]) => `${k}:${v}`).join(' | ') || 'N/A']
+            ];
+            tableHead = [['#', 'STUDENT NAME', 'ROLL NUMBER', 'DEPT', 'YEAR', 'REG DATE']];
+            tableData = eventRegs.map((r, i) => [
+                i + 1,
+                (r.studentName || 'UNIDENTIFIED').toUpperCase(),
+                r.studentRoll || 'N/A',
+                r.studentDept || 'N/A',
+                r.studentYear || 'N/A',
+                r.registeredAt?.toDate?.() ? new Date(r.registeredAt.toDate()).toLocaleDateString() : 'N/A'
+            ]);
+            filenameSuffix = 'Registration_Log';
+        } else if (type === 'ATTENDANCE') {
+            title = 'VERIFIED ATTENDANCE AUDIT';
+            const attended = eventRegs.filter(r => r.isAttended || r.status === 'Present');
+            const b = getBreakdown(attended);
+            summaryMetrics = [
+                ['CONFIRMED ATTENDEES', attended.length.toString()],
+                ['DEPT BREAKDOWN', Object.entries(b.depts).map(([k, v]) => `${k}:${v}`).join(' | ') || 'N/A'],
+                ['YEAR BREAKDOWN', Object.entries(b.years).map(([k, v]) => `${k}:${v}`).join(' | ') || 'N/A'],
+                ['ABSENTEE COUNT', (eventRegs.length - attended.length).toString()]
+            ];
+            tableHead = [['#', 'STUDENT NAME', 'ROLL NUMBER', 'DEPT', 'YEAR', 'STATUS']];
+            tableData = attended.map((r, i) => [
+                i + 1,
+                (r.studentName || 'UNIDENTIFIED').toUpperCase(),
+                r.studentRoll || 'N/A',
+                r.studentDept || 'N/A',
+                r.studentYear || 'N/A',
+                'PRESENT'
+            ]);
+            filenameSuffix = 'Attendance_Checkin';
+        } else if (type === 'FEEDBACK_STATUS') {
+            title = 'FEEDBACK COMPLIANCE TRACKER';
+            const submitted = eventRegs.filter(r => feedbackBase.some(f => f.eventId === event.id && f.studentRoll === r.studentRoll));
+            const b = getBreakdown(submitted);
+            summaryMetrics = [
+                ['FEEDBACK SUBMITTED', submitted.length.toString()],
+                ['PENDING FEEDBACK', (eventRegs.length - submitted.length).toString()],
+                ['SUBMISSION RATE', `${((submitted.length / (eventRegs.length || 1)) * 100).toFixed(1)}%`],
+                ['SUBMITTED DEPT WISE', Object.entries(b.depts).map(([k, v]) => `${k}:${v}`).join(' | ') || 'N/A']
+            ];
+            tableHead = [['#', 'STUDENT NAME', 'ROLL NUMBER', 'DEPT', 'CHECK-IN', 'FEEDBACK']];
+            tableData = eventRegs.map((r, i) => {
+                const fb = eventFeedback.find(f => f.studentRoll === r.studentRoll);
+                return [
+                    i + 1,
+                    (r.studentName || 'UNIDENTIFIED').toUpperCase(),
+                    r.studentRoll || 'N/A',
+                    r.studentDept || 'N/A',
+                    (r.isAttended || r.status === 'Present') ? 'YES' : 'NO',
+                    fb ? 'SUBMITTED' : 'PENDING'
+                ];
+            });
+            filenameSuffix = 'Feedback_Audit';
+        }
+
+        try {
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.width;
+
+            // Brand Background
+            const loadImg = (path) => new Promise(res => {
+                const img = new Image();
+                img.onload = () => res(img);
+                img.onerror = () => res(null);
+                img.src = path;
+            });
+            const [rit, ts] = await Promise.all([loadImg(ritLogo), loadImg(techsparkLogo)]);
+
+            // Green Bar & Header
+            doc.setFillColor(16, 185, 129);
+            doc.rect(0, 0, 5, 297, 'F');
+            if (rit) doc.addImage(rit, 'PNG', 12, 10, 48, 15);
+            if (ts) doc.addImage(ts, 'PNG', pageWidth - 60, 10, 45, 15);
+            doc.setDrawColor(226, 232, 240);
+            doc.line(12, 30, pageWidth - 12, 30);
+
+            // Title
+            doc.setTextColor(30, 41, 59);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(16);
+            doc.text(title, pageWidth / 2, 45, { align: 'center' });
+
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.text(event.title.toUpperCase(), pageWidth / 2, 52, { align: 'center' });
+
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(150);
+            doc.text(`GENERATED BY: ${(admin?.fullName || 'SYSTEM ADMIN').toUpperCase()} | REF: SUB-EXT-${Math.floor(Math.random() * 10000)}`, pageWidth / 2, 58, { align: 'center' });
+            doc.text(`EXTRACTION LOGGED: ${new Date().toLocaleString().toUpperCase()}`, pageWidth / 2, 62, { align: 'center' });
+
+            // Watermark
+            doc.saveGraphicsState();
+            doc.setGState(new doc.GState({ opacity: 0.03 }));
+            doc.setFontSize(35);
+            doc.text('SYSTEM GENERATED AUDIT', pageWidth / 2, 150, { align: 'center', angle: -30 });
+            doc.restoreGraphicsState();
+
+            // SUMMARY METRICS TABLE
+            autoTable(doc, {
+                startY: 70,
+                head: [['EXECUTIVE SUMMARY METRIC', 'OPERATIONAL DATA']],
+                body: summaryMetrics,
+                theme: 'striped',
+                headStyles: { fillColor: [71, 85, 105], fontSize: 8 },
+                bodyStyles: { fontSize: 8, fontStyle: 'bold' },
+                columnStyles: { 0: { cellWidth: 60 } },
+                margin: { left: 15, right: 15 }
+            });
+
+            // MAIN DATA TABLE
+            autoTable(doc, {
+                startY: doc.lastAutoTable.finalY + 10,
+                head: tableHead,
+                body: tableData,
+                headStyles: { fillColor: type === 'ATTENDANCE' ? [16, 185, 129] : type === 'FEEDBACK_STATUS' ? [124, 58, 237] : [15, 23, 42], fontSize: 8 },
+                bodyStyles: { fontSize: 8 },
+                alternateRowStyles: { fillColor: [248, 250, 252] }
+            });
+
+            // Footer for sub-reports
+            const pages = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= pages; i++) {
+                doc.setPage(i);
+                doc.setFontSize(7);
+                doc.setTextColor(160);
+                doc.text('ELECTRONICALLY VERIFIED AUDIT LOG | SYSTEM GENERATED DOCUMENT', pageWidth / 2, 290, { align: 'center' });
+            }
+
+            doc.save(`${event.title.replace(/\s+/g, '_')}_${filenameSuffix}.pdf`);
+        } catch (error) {
+            console.error("PDF Export Error:", error);
+            alert("Strategic extraction failed.");
+        }
+    };
 
     const renderContent = () => {
         if (loadingData) {
@@ -948,7 +1455,14 @@ const AdminDashboard = () => {
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
                                     {events.map((event) => (
-                                        <tr key={event.id} className="group hover:bg-slate-50/50 transition-colors">
+                                        <tr
+                                            key={event.id}
+                                            onClick={() => {
+                                                setSelectedEventDetails(event);
+                                                setShowEventDetailModal(true);
+                                            }}
+                                            className="group hover:bg-slate-50/80 transition-all cursor-pointer border-l-4 border-l-transparent hover:border-l-blue-600 shadow-sm hover:shadow-md"
+                                        >
                                             <td className="px-8 py-6">
                                                 <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{event.title}</p>
                                                 <p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest">{event.type}</p>
@@ -1679,6 +2193,172 @@ const AdminDashboard = () => {
                     </div>
                 )}
             </AnimatePresence>
+
+            {/* Event Detail / Mission Intelligence Modal */}
+            <AnimatePresence>
+                {showEventDetailModal && selectedEventDetails && (
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowEventDetailModal(false)}
+                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                            className="relative w-full max-w-5xl bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-100"
+                        >
+                            {/* Modal Header */}
+                            <div className="p-8 bg-slate-900 text-white flex items-center justify-between shrink-0">
+                                <div>
+                                    <h3 className="text-2xl font-black italic uppercase tracking-tight flex items-center gap-3">
+                                        <Activity className="w-8 h-8 text-blue-500" />
+                                        Mission Intelligence: {selectedEventDetails.title}
+                                    </h3>
+                                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-1 italic">Tactical deployment data & participation audit</p>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <button
+                                        onClick={() => handleDownloadFinalReport(selectedEventDetails)}
+                                        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl flex items-center gap-2 transition-all"
+                                    >
+                                        <Download className="w-4 h-4" /> Final Report
+                                    </button>
+                                    <button onClick={() => setShowEventDetailModal(false)} className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all">
+                                        <X className="w-6 h-6" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Modal Content */}
+                            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-[#fcfdfe]">
+                                {/* Quick Stats Row */}
+                                <div className="grid grid-cols-4 gap-4 mb-8">
+                                    {[
+                                        { label: 'Total Registered', value: registrations.filter(r => r.eventId === selectedEventDetails.id).length, icon: <Users />, color: 'blue' },
+                                        { label: 'Confirmed Present', value: registrations.filter(r => r.eventId === selectedEventDetails.id && (r.isAttended || r.status === 'Present')).length, icon: <CheckCircle />, color: 'emerald' },
+                                        { label: 'Absent/No-Show', value: registrations.filter(r => r.eventId === selectedEventDetails.id && !(r.isAttended || r.status === 'Present')).length, icon: <X />, color: 'red' },
+                                        { label: 'Feedback Received', value: registrations.filter(r => r.eventId === selectedEventDetails.id && r.feedbackSubmitted).length, icon: <HelpCircle />, color: 'purple' }
+                                    ].map((stat, i) => (
+                                        <div key={i} className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4">
+                                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-${stat.color}-50 text-${stat.color}-600`}>
+                                                {stat.icon}
+                                            </div>
+                                            <div>
+                                                <div className="text-2xl font-black text-slate-800 tabular-nums">{stat.value}</div>
+                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Granular Reports Hub */}
+                                <div className="grid grid-cols-3 gap-6 mb-8">
+                                    {[
+                                        { title: 'Registration Log', desc: 'Complete directory of all event sign-ups.', action: () => handleDownloadSubReport(selectedEventDetails, 'REGISTRATION') },
+                                        { title: 'Check-in Audit', desc: 'Verified list of confirmed attendees.', action: () => handleDownloadSubReport(selectedEventDetails, 'ATTENDANCE') },
+                                        { title: 'Feedback Tracker', desc: 'Submission status & compliance audit.', action: () => handleDownloadSubReport(selectedEventDetails, 'FEEDBACK_STATUS') }
+                                    ].map((hub, i) => (
+                                        <div key={i} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:border-blue-200 transition-all flex flex-col items-center text-center group">
+                                            <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                                                <Download className="w-5 h-5" />
+                                            </div>
+                                            <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">{hub.title}</h4>
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase mt-1 mb-4">{hub.desc}</p>
+                                            <button
+                                                onClick={hub.action}
+                                                className="w-full py-2.5 bg-slate-900 hover:bg-black text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all"
+                                            >
+                                                Export PDF
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Participant Directory */}
+                                <div className="bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm">
+                                    <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                                        <h4 className="font-black text-slate-800 text-xs uppercase tracking-widest italic">Live Participant Roster</h4>
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Authorized Viewing Only</p>
+                                    </div>
+                                    <table className="w-full text-left">
+                                        <thead className="bg-[#fcfdfe] text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                                            <tr>
+                                                <th className="px-8 py-4">Student Identity</th>
+                                                <th className="px-8 py-4">Status</th>
+                                                <th className="px-8 py-4">Feedback Intelligence</th>
+                                                <th className="px-8 py-4 text-right">Strategic Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {registrations
+                                                .filter(r => r.eventId === selectedEventDetails.id)
+                                                .map((reg) => {
+                                                    const fb = feedbackBase.find(f => f.eventId === selectedEventDetails.id && f.studentRoll === reg.studentRoll);
+                                                    return (
+                                                        <tr key={reg.id} className="hover:bg-slate-50/50 transition-colors group">
+                                                            <td className="px-8 py-5">
+                                                                <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{reg.studentName}</p>
+                                                                <p className="text-[10px] text-blue-600 font-mono font-bold">{reg.studentRoll}</p>
+                                                            </td>
+                                                            <td className="px-8 py-5">
+                                                                {(reg.isAttended || reg.status === 'Present') ? (
+                                                                    <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-emerald-100">Present</span>
+                                                                ) : (
+                                                                    <span className="px-3 py-1 bg-red-50 text-red-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-red-100">Absent</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-8 py-5">
+                                                                {reg.feedbackSubmitted ? (
+                                                                    <div className="flex flex-col gap-1">
+                                                                        <span className="px-3 py-1 bg-purple-50 text-purple-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-purple-100 w-fit">Intelligence Logged</span>
+                                                                        {fb && <p className="text-[9px] text-slate-400 font-medium italic line-clamp-1">"{fb.comment || fb.feedback}"</p>}
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="px-3 py-1 bg-slate-50 text-slate-400 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100">No Data</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-8 py-5 text-right">
+                                                                {reg.feedbackSubmitted && (
+                                                                    <button
+                                                                        onClick={() => handleUndoFeedback(reg.id, fb?.id)}
+                                                                        className="p-2.5 text-orange-500 hover:bg-orange-50 rounded-xl transition-all flex items-center gap-2 text-[9px] font-black uppercase tracking-widest ml-auto"
+                                                                        title="UNDO FEEDBACK"
+                                                                    >
+                                                                        <RotateCcw className="w-3.5 h-3.5" /> UNDO
+                                                                    </button>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+            <style jsx="true">{`
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 6px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: #f1f5f9;
+                    border-radius: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: #cbd5e1;
+                    border-radius: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: #94a3b8;
+                }
+            `}</style>
         </div>
     );
 };

@@ -35,7 +35,9 @@ import {
     Search,
     Briefcase as BriefcaseIcon,
     QrCode,
-    Activity
+    Activity,
+    RotateCcw,
+    Zap
 } from 'lucide-react';
 import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, deleteDoc, doc, where, updateDoc, increment, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -65,6 +67,9 @@ const OrganizerDashboard = () => {
     const [loadingRegs, setLoadingRegs] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [editingEventId, setEditingEventId] = useState(null); // null = create new, otherwise = editing
+    const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+    const [selectedEventFeedback, setSelectedEventFeedback] = useState([]);
+    const [loadingFeedback, setLoadingFeedback] = useState(false);
 
     // Registration Search & Filter State
     const [regSearchQuery, setRegSearchQuery] = useState('');
@@ -367,6 +372,111 @@ const OrganizerDashboard = () => {
         }
     };
 
+    const handleViewFeedback = async (eventId) => {
+        setLoadingFeedback(true);
+        setShowFeedbackModal(true);
+        try {
+            const q = query(collection(db, 'feedback'), where('eventId', '==', eventId));
+            const snapshot = await getDocs(q);
+            const feedbackList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                .sort((a, b) => {
+                    const timeA = a.submittedAt?.seconds || 0;
+                    const timeB = b.submittedAt?.seconds || 0;
+                    return timeB - timeA;
+                });
+            setSelectedEventFeedback(feedbackList);
+        } catch (error) {
+            console.error("Error fetching feedback:", error);
+        } finally {
+            setLoadingFeedback(false);
+        }
+    };
+
+    const handleDownloadFeedbackPDF = async () => {
+        if (!selectedEventFeedback.length) return;
+        const currentEvent = events.find(e => e.id === selectedEventFeedback[0].eventId);
+        if (!currentEvent) return;
+
+        try {
+            const doc = new jsPDF();
+            const loadImage = (url) => new Promise((resolve) => {
+                const img = new Image();
+                img.src = url;
+                img.onload = () => resolve(img);
+                img.onerror = () => resolve(null);
+            });
+
+            const [ritImg, tsImg] = await Promise.all([loadImage(ritLogo), loadImage(techsparkLogo)]);
+
+            const centerX = 107.5;
+            doc.setFillColor(15, 23, 42);
+            doc.rect(0, 0, 5, 297, 'F');
+            doc.setFillColor(255, 255, 255);
+            doc.rect(5, 0, 205, 60, 'F');
+
+            if (ritImg) doc.addImage(ritImg, 'PNG', 18, 12, 42, 36);
+            if (tsImg) doc.addImage(tsImg, 'PNG', 210 - 18 - 34, 12, 34, 34);
+
+            doc.setTextColor(15, 23, 42);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(24);
+            doc.text('TECHSPARK CLUB', centerX, 25, { align: 'center' });
+
+            doc.setFontSize(9);
+            doc.setTextColor(100, 116, 139);
+            doc.setFont('helvetica', 'normal');
+            doc.text('RAJALAKSHMI INSTITUTE OF TECHNOLOGY', centerX, 31, { align: 'center' });
+
+            doc.setTextColor(59, 130, 246);
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.text('FEEDBACK INTELLIGENCE REPORT', centerX, 38, { align: 'center' });
+
+            doc.setFillColor(15, 23, 42);
+            doc.roundedRect(centerX - 55, 44, 110, 10, 2, 2, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.text(currentEvent.title.toUpperCase(), centerX, 50.5, { align: 'center' });
+
+            doc.setTextColor(15, 23, 42);
+            doc.setFontSize(9);
+            doc.text('PERFORMANCE DATA:', 20, 75);
+            const avgRating = (selectedEventFeedback.reduce((acc, curr) => acc + curr.rating, 0) / selectedEventFeedback.length).toFixed(1);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(71, 85, 105);
+            doc.text(`VOLUME: ${selectedEventFeedback.length} Responses`, 20, 83);
+            doc.text(`AVG RATING: ${avgRating} / 5.0`, 20, 88);
+
+            const tableData = selectedEventFeedback.map((item, index) => [
+                index + 1,
+                item.studentName.toUpperCase(),
+                item.studentRoll,
+                item.rating,
+                item.category.toUpperCase(),
+                item.comment || 'N/A'
+            ]);
+
+            autoTable(doc, {
+                startY: 100,
+                head: [['#', 'STUDENT NAME', 'ROLL NO', 'RATE', 'FOCUS AREA', 'COMMENT/DEBRIEF']],
+                body: tableData,
+                theme: 'grid',
+                headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold', halign: 'center' },
+                bodyStyles: { fontSize: 7, textColor: [30, 41, 59] },
+                columnStyles: {
+                    5: { cellWidth: 70 }
+                },
+                margin: { left: 15, right: 15 }
+            });
+
+            doc.save(`${currentEvent.title.replace(/\s+/g, '_')}_Feedback_Report.pdf`);
+        } catch (error) {
+            console.error("PDF Error:", error);
+            alert("Failed to generate PDF.");
+        }
+    };
+
     // Quick Action: Mark Event as Completed
     const handleMarkComplete = async (eventId) => {
         if (!window.confirm("Mark this event as completed? This indicates the event has concluded.")) return;
@@ -433,6 +543,29 @@ const OrganizerDashboard = () => {
         }
     };
 
+    // Undo Check-in (Keep registration but mark as not attended)
+    const handleUndoCheckIn = async (regId) => {
+        if (!window.confirm("Revert check-in for this participant? They will be marked as 'Registered' again.")) return;
+
+        try {
+            await updateDoc(doc(db, 'registrations', regId), {
+                status: 'Registered',
+                isAttended: false,
+                checkedInAt: null
+            });
+
+            // Update local state
+            setRegistrations(prev => prev.map(r =>
+                r.id === regId ? { ...r, status: 'Registered', isAttended: false, checkedInAt: null } : r
+            ));
+
+            alert("✅ Check-in reverted successfully!");
+        } catch (error) {
+            console.error("Error reverting check-in:", error);
+            alert("Failed to revert check-in.");
+        }
+    };
+
     // Get filtered registrations based on search and filters
     const getFilteredRegistrations = () => {
         return registrations.filter(reg => {
@@ -441,11 +574,13 @@ const OrganizerDashboard = () => {
                 reg.studentName?.toLowerCase().includes(regSearchQuery.toLowerCase()) ||
                 reg.studentRoll?.toLowerCase().includes(regSearchQuery.toLowerCase());
 
-            // Department filter
-            const deptMatch = regDeptFilter === 'all' || reg.studentDept === regDeptFilter;
+            // Department filter - handling potential case differences
+            const deptMatch = regDeptFilter === 'all' ||
+                reg.studentDept?.toString().toLowerCase() === regDeptFilter?.toString().toLowerCase();
 
-            // Year filter
-            const yearMatch = regYearFilter === 'all' || reg.studentYear === regYearFilter;
+            // Year filter - handling string vs number comparison
+            const yearMatch = regYearFilter === 'all' ||
+                reg.studentYear?.toString() === regYearFilter?.toString();
 
             return searchMatch && deptMatch && yearMatch;
         });
@@ -453,7 +588,7 @@ const OrganizerDashboard = () => {
 
     // Get unique departments and years from registrations for filter options
     const getUniqueValues = (key) => {
-        const values = new Set(registrations.map(r => r[key]).filter(Boolean));
+        const values = new Set(registrations.map(r => r[key]?.toString()).filter(Boolean));
         return Array.from(values).sort();
     };
 
@@ -469,35 +604,39 @@ const OrganizerDashboard = () => {
 
             const [ritImg, tsImg] = await Promise.all([loadImage(ritLogo), loadImage(techsparkLogo)]);
 
+            const centerX = 107.5; // (5mm sidebar + 210mm total width) / 2
+            const ritWidth = 42;
+            const tsWidth = 34;
+
             doc.setFillColor(15, 23, 42);
             doc.rect(0, 0, 5, 297, 'F');
-            doc.setFillColor(255, 255, 255); // Match logo background
+            doc.setFillColor(255, 255, 255);
             doc.rect(5, 0, 205, 60, 'F');
 
-            if (ritImg) doc.addImage(ritImg, 'PNG', 15, 12, 42, 36);
-            if (tsImg) doc.addImage(tsImg, 'PNG', 158, 12, 34, 34);
+            if (ritImg) doc.addImage(ritImg, 'PNG', 18, 12, ritWidth, 36);
+            if (tsImg) doc.addImage(tsImg, 'PNG', 210 - 18 - tsWidth, 12, tsWidth, 34);
 
             doc.setTextColor(15, 23, 42);
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(24);
-            doc.text('TECHSPARK CLUB', 105, 25, { align: 'center' });
+            doc.text('TECHSPARK CLUB', centerX, 25, { align: 'center' });
 
             doc.setFontSize(9);
             doc.setTextColor(100, 116, 139);
             doc.setFont('helvetica', 'normal');
-            doc.text('RAJALAKSHMI INSTITUTE OF TECHNOLOGY', 105, 31, { align: 'center' });
+            doc.text('RAJALAKSHMI INSTITUTE OF TECHNOLOGY', centerX, 31, { align: 'center' });
 
             doc.setTextColor(59, 130, 246);
             doc.setFontSize(11);
             doc.setFont('helvetica', 'bold');
-            doc.text('REGISTER REPORT', 105, 38, { align: 'center' });
+            doc.text('REGISTER REPORT', centerX, 38, { align: 'center' });
 
             doc.setFillColor(15, 23, 42);
-            doc.roundedRect(50, 44, 110, 10, 2, 2, 'F');
+            doc.roundedRect(centerX - 55, 44, 110, 10, 2, 2, 'F');
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(10);
             doc.setFont('helvetica', 'bold');
-            doc.text(event.title.toUpperCase(), 105, 50.5, { align: 'center' });
+            doc.text(event.title.toUpperCase(), centerX, 50.5, { align: 'center' });
             doc.setDrawColor(226, 232, 240);
             doc.line(15, 65, 195, 65);
 
@@ -538,7 +677,7 @@ const OrganizerDashboard = () => {
                 doc.setPage(i);
                 doc.setFontSize(7);
                 doc.setTextColor(148, 163, 184);
-                doc.text(`TRANSCRIPTION PAGE ${i} OF ${pageCount}`, 105, 290, { align: 'center' });
+                doc.text(`TRANSCRIPTION PAGE ${i} OF ${pageCount}`, centerX, 290, { align: 'center' });
                 doc.text('TECHSPARK | INNOVATE • CREATE • IMPACT', 20, 290);
             }
 
@@ -563,35 +702,39 @@ const OrganizerDashboard = () => {
 
             const [ritImg, tsImg] = await Promise.all([loadImage(ritLogo), loadImage(techsparkLogo)]);
 
+            const centerX = 107.5;
+            const ritWidth = 42;
+            const tsWidth = 34;
+
             doc.setFillColor(16, 185, 129); // Emerald for OD
             doc.rect(0, 0, 5, 297, 'F');
-            doc.setFillColor(255, 255, 255); // Match logo background
+            doc.setFillColor(255, 255, 255);
             doc.rect(5, 0, 205, 60, 'F');
 
-            if (ritImg) doc.addImage(ritImg, 'PNG', 15, 12, 42, 36);
-            if (tsImg) doc.addImage(tsImg, 'PNG', 158, 12, 34, 34);
+            if (ritImg) doc.addImage(ritImg, 'PNG', 18, 12, ritWidth, 36);
+            if (tsImg) doc.addImage(tsImg, 'PNG', 210 - 18 - tsWidth, 12, tsWidth, 34);
 
             doc.setTextColor(15, 23, 42);
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(24);
-            doc.text('TECHSPARK CLUB', 105, 25, { align: 'center' });
+            doc.text('TECHSPARK CLUB', centerX, 25, { align: 'center' });
 
             doc.setFontSize(9);
             doc.setTextColor(100, 116, 139);
             doc.setFont('helvetica', 'normal');
-            doc.text('RAJALAKSHMI INSTITUTE OF TECHNOLOGY', 105, 31, { align: 'center' });
+            doc.text('RAJALAKSHMI INSTITUTE OF TECHNOLOGY', centerX, 31, { align: 'center' });
 
             doc.setTextColor(16, 185, 129);
             doc.setFontSize(11);
             doc.setFont('helvetica', 'bold');
-            doc.text('ATTENDEE REPORT', 105, 38, { align: 'center' });
+            doc.text('ATTENDEE REPORT', centerX, 38, { align: 'center' });
 
             doc.setFillColor(15, 23, 42);
-            doc.roundedRect(50, 44, 110, 10, 2, 2, 'F');
+            doc.roundedRect(centerX - 55, 44, 110, 10, 2, 2, 'F');
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(10);
             doc.setFont('helvetica', 'bold');
-            doc.text(event.title.toUpperCase(), 105, 50.5, { align: 'center' });
+            doc.text(event.title.toUpperCase(), centerX, 50.5, { align: 'center' });
 
             doc.setDrawColor(226, 232, 240);
             doc.line(15, 65, 195, 65);
@@ -678,7 +821,7 @@ const OrganizerDashboard = () => {
                 doc.text(`VERIFICATION ID: ${reportId}`, 20, 290);
 
                 // Center-aligned system name
-                doc.text('Generated using TechSpark Official Attendance & Certification System', 105, 290, { align: 'center' });
+                doc.text('Generated using TechSpark Official Attendance & Certification System', centerX, 290, { align: 'center' });
 
                 // Right-aligned page number
                 doc.text(`PAGE ${i} OF ${pageCount}`, 190, 290, { align: 'right' });
@@ -1040,18 +1183,35 @@ const OrganizerDashboard = () => {
                                                                     </div>
                                                                 </div>
 
-                                                                {/* Delete Button - Only show if event is NOT completed */}
+                                                                {/* Participant Actions - Only show if event is NOT completed */}
                                                                 {selectedEvent?.status !== 'COMPLETED' ? (
-                                                                    <button
-                                                                        onClick={() => handleDeleteRegistration(reg.id, reg.eventId)}
-                                                                        className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-400 hover:bg-red-100 hover:text-red-600 transition-all flex items-center gap-2"
-                                                                    >
-                                                                        <UserMinus className="w-4 h-4" /> Remove
-                                                                    </button>
+                                                                    <div className="flex items-center gap-2">
+                                                                        {(reg.status === 'Present' || reg.isAttended) && (
+                                                                            <button
+                                                                                onClick={() => handleUndoCheckIn(reg.id)}
+                                                                                className="px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all flex items-center gap-2 border border-emerald-100 shadow-sm"
+                                                                            >
+                                                                                <RotateCcw className="w-4 h-4" /> UNDO
+                                                                            </button>
+                                                                        )}
+                                                                        <button
+                                                                            onClick={() => handleDeleteRegistration(reg.id, reg.eventId)}
+                                                                            className="px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-slate-50 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-all flex items-center gap-2 border border-slate-100 shadow-sm"
+                                                                        >
+                                                                            <UserMinus className="w-4 h-4" /> REMOVE
+                                                                        </button>
+                                                                    </div>
                                                                 ) : (
-                                                                    <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">
-                                                                        {reg.registeredAt?.toDate ? new Date(reg.registeredAt.toDate()).toLocaleDateString() : 'Registered'}
-                                                                    </span>
+                                                                    <div className="flex flex-col items-end gap-1">
+                                                                        <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">
+                                                                            {reg.registeredAt?.toDate ? new Date(reg.registeredAt.toDate()).toLocaleDateString() : 'Registered'}
+                                                                        </span>
+                                                                        {(reg.status === 'Present' || reg.isAttended) ? (
+                                                                            <span className="text-[8px] text-emerald-500 font-black uppercase tracking-tighter">Verified Participation</span>
+                                                                        ) : (
+                                                                            <span className="text-[8px] text-red-500 font-black uppercase tracking-widest">ABSENT</span>
+                                                                        )}
+                                                                    </div>
                                                                 )}
                                                             </div>
                                                         )) : (
@@ -1173,6 +1333,16 @@ const OrganizerDashboard = () => {
                                                                 </>
                                                             )}
 
+                                                            {/* COMPLETED: View Feedback */}
+                                                            {event.status === 'COMPLETED' && (
+                                                                <button
+                                                                    onClick={() => handleViewFeedback(event.id)}
+                                                                    className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline flex items-center gap-1"
+                                                                >
+                                                                    <Activity className="w-3 h-3" /> Pulse
+                                                                </button>
+                                                            )}
+
                                                             {/* Delete for non-LIVE/non-COMPLETED events */}
                                                             {(event.status === 'DRAFT' || event.status === 'REJECTED') && (
                                                                 <button
@@ -1237,7 +1407,22 @@ const OrganizerDashboard = () => {
                                                             <p className="text-[9px] text-slate-400 font-bold uppercase">{reg.studentDept}</p>
                                                         </td>
                                                         <td className="px-8 py-6 text-right">
-                                                            <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">VERIFIED</span>
+                                                            <div className="flex items-center justify-end gap-3">
+                                                                {(reg.status === 'Present' || reg.isAttended) ? (
+                                                                    <>
+                                                                        <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-100">VERIFIED</span>
+                                                                        <button
+                                                                            onClick={() => handleUndoCheckIn(reg.id)}
+                                                                            className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                                                            title="Undo Check-in"
+                                                                        >
+                                                                            <X className="w-4 h-4" />
+                                                                        </button>
+                                                                    </>
+                                                                ) : (
+                                                                    <span className="bg-slate-50 text-slate-400 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-slate-100">REGISTERED</span>
+                                                                )}
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -1821,7 +2006,7 @@ const OrganizerDashboard = () => {
             </main>
 
             {/* Global Custom Scrollbar Style */}
-            <style jsx>{`
+            <style>{`
                 .custom-scrollbar::-webkit-scrollbar {
                     width: 6px;
                 }
@@ -1836,6 +2021,124 @@ const OrganizerDashboard = () => {
                     background: #cbd5e1;
                 }
             `}</style>
+
+            {/* Feedback Visualization Modal */}
+            <AnimatePresence>
+                {showFeedbackModal && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowFeedbackModal(false)}
+                            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col max-h-[85vh] z-10"
+                        >
+                            {/* Header */}
+                            <div className="p-8 bg-slate-900 text-white text-left relative shrink-0">
+                                <button
+                                    onClick={() => setShowFeedbackModal(false)}
+                                    className="absolute top-6 right-6 p-2 hover:bg-white/10 rounded-xl transition-colors"
+                                >
+                                    <X className="w-5 h-5 text-slate-400" />
+                                </button>
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                                        <Activity className="w-6 h-6" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-2xl font-black uppercase italic tracking-tight">Mission Intelligence</h3>
+                                            {selectedEventFeedback.length > 0 && (
+                                                <button
+                                                    onClick={handleDownloadFeedbackPDF}
+                                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-[9px] font-black uppercase tracking-widest rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-blue-500/20"
+                                                >
+                                                    <Download className="w-3.5 h-3.5" /> Download Report
+                                                </button>
+                                            )}
+                                        </div>
+                                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">Real-time feedback & Strategic Insights</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto p-8 pt-0 custom-scrollbar">
+                                {loadingFeedback ? (
+                                    <div className="py-20 flex flex-col items-center gap-4 opacity-50">
+                                        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Decrypting Response Cloud...</p>
+                                    </div>
+                                ) : selectedEventFeedback.length === 0 ? (
+                                    <div className="py-20 flex flex-col items-center gap-4 opacity-30">
+                                        <Zap className="w-12 h-12 text-slate-400" />
+                                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">No tactical feedback received yet</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-6 pt-8">
+                                        {/* Stats Summary */}
+                                        <div className="grid grid-cols-2 gap-4 mb-8">
+                                            <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Avg. Performance</p>
+                                                <div className="flex items-end gap-2">
+                                                    <h4 className="text-3xl font-black italic text-slate-900">
+                                                        {(selectedEventFeedback.reduce((acc, curr) => acc + curr.rating, 0) / selectedEventFeedback.length).toFixed(1)}
+                                                    </h4>
+                                                    <span className="text-xs font-bold text-blue-600 mb-1">/ 5.0</span>
+                                                </div>
+                                            </div>
+                                            <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Response Volume</p>
+                                                <h4 className="text-3xl font-black italic text-slate-900">{selectedEventFeedback.length}</h4>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            {selectedEventFeedback.map((item, idx) => (
+                                                <motion.div
+                                                    key={item.id}
+                                                    initial={{ opacity: 0, x: -10 }}
+                                                    animate={{ opacity: 1, x: 0 }}
+                                                    transition={{ delay: idx * 0.05 }}
+                                                    className="p-6 rounded-3xl border border-slate-100 bg-white hover:border-blue-100 hover:shadow-xl hover:shadow-blue-500/5 transition-all text-left"
+                                                >
+                                                    <div className="flex items-start justify-between mb-4">
+                                                        <div>
+                                                            <h5 className="text-sm font-black text-slate-800 uppercase italic">{item.studentName}</h5>
+                                                            <p className="text-[10px] text-blue-600 font-bold uppercase tracking-tight">{item.studentRoll} • {item.studentDept}</p>
+                                                        </div>
+                                                        <div className="flex gap-1">
+                                                            {[...Array(5)].map((_, i) => (
+                                                                <Zap key={i} className={`w-3 h-3 ${i < item.rating ? 'text-blue-600 fill-current' : 'text-slate-100'}`} />
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                    <div className="mb-4">
+                                                        <span className="px-2 py-1 bg-slate-100 text-slate-500 text-[8px] font-black uppercase rounded-lg border border-slate-200">
+                                                            {item.category}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-slate-600 font-medium leading-relaxed italic">
+                                                        "{item.comment || 'No detailed debrief provided.'}"
+                                                    </p>
+                                                    <p className="text-[8px] text-slate-300 font-bold uppercase tracking-widest mt-4">
+                                                        Captured: {item.submittedAt?.toDate?.() ? item.submittedAt.toDate().toLocaleString() : 'Just now'}
+                                                    </p>
+                                                </motion.div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };
