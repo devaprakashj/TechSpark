@@ -68,21 +68,25 @@ const Footer = () => {
                         </p>
                         <div className="flex gap-3">
                             <a
-                                href="#"
+                                href="https://www.linkedin.com/company/techspark-rit/"
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 className="w-10 h-10 rounded-full bg-white border border-gray-200 hover:bg-blue-600 hover:border-blue-600 hover:text-white flex items-center justify-center transition-all duration-300"
                                 aria-label="LinkedIn"
                             >
                                 <Linkedin className="w-5 h-5" />
                             </a>
                             <a
-                                href="#"
+                                href="https://www.instagram.com/techspark.rit?igsh=OHZxbnQwOHp4emR2"
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 className="w-10 h-10 rounded-full bg-white border border-gray-200 hover:bg-pink-600 hover:border-pink-600 hover:text-white flex items-center justify-center transition-all duration-300"
                                 aria-label="Instagram"
                             >
                                 <Instagram className="w-5 h-5" />
                             </a>
                             <a
-                                href="mailto:techspark@college.edu"
+                                href="mailto:techspark@ritchennai.edu.in"
                                 className="w-10 h-10 rounded-full bg-white border border-gray-200 hover:bg-gray-900 hover:border-gray-900 hover:text-white flex items-center justify-center transition-all duration-300"
                                 aria-label="Email"
                             >
@@ -125,7 +129,7 @@ const Footer = () => {
                             Stay instantly updated with event alerts, workshop materials, and tech discussions.
                         </p>
                         <a
-                            href="https://chat.whatsapp.com/I8B5Wdybrew2dYYdRE4PGR"
+                            href="https://chat.whatsapp.com/GodMTYyeOFC8hvN64yfqkF"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="group relative flex items-center justify-center gap-3 w-full py-4 bg-[#25D366] text-white rounded-2xl font-bold text-sm shadow-xl shadow-green-500/20 hover:shadow-green-500/40 hover:-translate-y-1 transition-all duration-300"

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 const FloatingWhatsApp = () => {
     return (
         <motion.a
-            href="https://chat.whatsapp.com/I8B5Wdybrew2dYYdRE4PGR"
+            href="https://chat.whatsapp.com/GodMTYyeOFC8hvN64yfqkF"
             target="_blank"
             rel="noopener noreferrer"
             initial={{ scale: 0, opacity: 0 }}
