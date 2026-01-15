@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Search, Calendar, MapPin, Clock, Filter, Tag, Users, Rocket } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { doc, getDoc, setDoc, serverTimestamp, collection, onSnapshot, query, orderBy, updateDoc, increment } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, collection, onSnapshot, query, orderBy, updateDoc, increment, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, ShieldCheck, Smartphone, Hash, Building2, GraduationCap, CheckCircle } from 'lucide-react';
+import { X, ShieldCheck, Smartphone, Hash, Building2, GraduationCap, CheckCircle, Users as UsersIcon, Trophy, Plus, LogIn } from 'lucide-react';
 
 const Events = () => {
     const { user, openAuthModal } = useAuth();
@@ -14,6 +14,12 @@ const Events = () => {
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
     const [eventToRegister, setEventToRegister] = useState(null);
     const [isRegLoading, setIsRegLoading] = useState(false);
+
+    // Team Registration States
+    const [regMode, setRegMode] = useState('INDIVIDUAL'); // INDIVIDUAL, TEAM_CREATE, TEAM_JOIN
+    const [teamName, setTeamName] = useState('');
+    const [teamCodeInput, setTeamCodeInput] = useState('');
+    const [verificationError, setVerificationError] = useState('');
 
     useEffect(() => {
         const q = query(collection(db, 'events'), orderBy('createdAt', 'desc'));
@@ -52,9 +58,41 @@ const Events = () => {
 
             // Open confirmation modal instead of immediate registration
             setEventToRegister(event);
+            setRegMode(event.isTeamEvent ? 'TEAM_CREATE' : 'INDIVIDUAL');
+            setTeamName('');
+            setTeamCodeInput('');
+            setVerificationError('');
             setIsConfirmModalOpen(true);
         } catch (error) {
             console.error("Auth check error:", error);
+        }
+    };
+
+    const handleVerifyTeamCode = async () => {
+        if (!teamCodeInput) return;
+        setVerificationError('');
+        setIsRegLoading(true);
+        try {
+            const q = query(
+                collection(db, 'registrations'),
+                where('eventId', '==', eventToRegister.id),
+                where('teamCode', '==', teamCodeInput.toUpperCase()),
+                where('teamRole', '==', 'LEADER')
+            );
+            const querySnapshot = await getDocs(q);
+
+            if (querySnapshot.empty) {
+                setVerificationError("Invalid Team Code. Please verify with your leader.");
+            } else {
+                const teamData = querySnapshot.docs[0].data();
+                setTeamName(teamData.teamName);
+                alert(`Team Found: ${teamData.teamName}. Proceed to join!`);
+            }
+        } catch (error) {
+            console.error("Team Verification Error:", error);
+            setVerificationError("Failed to verify code.");
+        } finally {
+            setIsRegLoading(false);
         }
     };
 
@@ -66,8 +104,8 @@ const Events = () => {
             const regId = `${eventToRegister.id}_${user.uid}`;
             const regRef = doc(db, 'registrations', regId);
 
-            // Register for the event
-            await setDoc(regRef, {
+            // Team specific parameters
+            let registrationData = {
                 eventId: eventToRegister.id,
                 eventTitle: eventToRegister.title,
                 eventDate: eventToRegister.date,
@@ -82,7 +120,41 @@ const Events = () => {
                 studentSection: user.section || 'N/A',
                 registeredAt: serverTimestamp(),
                 status: 'Upcoming'
-            });
+            };
+
+            if (eventToRegister.isTeamEvent) {
+                if (regMode === 'TEAM_CREATE') {
+                    if (!teamName) {
+                        alert("Please enter a team name!");
+                        setIsRegLoading(false);
+                        return;
+                    }
+                    const generatedCode = `TS-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+                    registrationData = {
+                        ...registrationData,
+                        isTeamRegistration: true,
+                        teamName: teamName,
+                        teamCode: generatedCode,
+                        teamRole: 'LEADER'
+                    };
+                } else {
+                    if (!teamCodeInput || !teamName) {
+                        alert("Please verify a team code first!");
+                        setIsRegLoading(false);
+                        return;
+                    }
+                    registrationData = {
+                        ...registrationData,
+                        isTeamRegistration: true,
+                        teamName: teamName,
+                        teamCode: teamCodeInput.toUpperCase(),
+                        teamRole: 'MEMBER'
+                    };
+                }
+            }
+
+            // Register for the event
+            await setDoc(regRef, registrationData);
 
             // Update attendee count
             const eventRef = doc(db, 'events', eventToRegister.id);
@@ -263,42 +335,104 @@ const Events = () => {
                                     <h4 className="text-lg font-black text-slate-900 uppercase italic leading-none">{eventToRegister.title}</h4>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-4">
-                                        <div>
-                                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1.5 ml-1">Student Identity</p>
-                                            <div className="space-y-3">
-                                                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
-                                                    <Users className="w-4 h-4 text-blue-500" />
-                                                    <span className="text-xs font-bold text-slate-700">{user.fullName}</span>
+                                <div className="grid grid-cols-1 gap-4">
+                                    {eventToRegister.isTeamEvent && (
+                                        <div className="space-y-4 mb-4">
+                                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1.5 ml-1">Team Deployment Strategy</p>
+                                            <div className="flex bg-slate-100 p-1.5 rounded-[1.2rem] gap-1.5">
+                                                <button
+                                                    onClick={() => setRegMode('TEAM_CREATE')}
+                                                    className={`flex-1 py-2.5 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase transition-all ${regMode === 'TEAM_CREATE' ? 'bg-white text-blue-600 shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
+                                                >
+                                                    <Plus className="w-3.5 h-3.5" /> Create Team
+                                                </button>
+                                                <button
+                                                    onClick={() => setRegMode('TEAM_JOIN')}
+                                                    className={`flex-1 py-2.5 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase transition-all ${regMode === 'TEAM_JOIN' ? 'bg-white text-blue-600 shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
+                                                >
+                                                    <LogIn className="w-3.5 h-3.5" /> Join Team
+                                                </button>
+                                            </div>
+
+                                            {regMode === 'TEAM_CREATE' ? (
+                                                <div className="animate-fade-in">
+                                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Squad Identifier (Team Name)</label>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="e.g. CYBER KNIGHTS"
+                                                        value={teamName}
+                                                        onChange={(e) => setTeamName(e.target.value)}
+                                                        className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl outline-none font-bold text-slate-800 text-sm focus:ring-4 focus:ring-blue-500/5 transition-all uppercase"
+                                                    />
                                                 </div>
+                                            ) : (
+                                                <div className="animate-fade-in space-y-3">
+                                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Authorization Code (Team Code)</label>
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="e.g. TS-ABCD"
+                                                            value={teamCodeInput}
+                                                            onChange={(e) => setTeamCodeInput(e.target.value)}
+                                                            className="flex-1 px-5 py-4 bg-white border border-slate-200 rounded-2xl outline-none font-bold text-slate-800 text-sm focus:ring-4 focus:ring-blue-500/5 transition-all uppercase"
+                                                        />
+                                                        <button
+                                                            onClick={handleVerifyTeamCode}
+                                                            disabled={isRegLoading || !teamCodeInput}
+                                                            className="px-6 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all disabled:opacity-50"
+                                                        >Verify</button>
+                                                    </div>
+                                                    {verificationError && <p className="text-[9px] text-pink-600 font-bold ml-1">{verificationError}</p>}
+                                                    {teamName && <p className="text-[9px] text-emerald-600 font-bold ml-1 italic">Joining Squad: {teamName}</p>}
+                                                </div>
+                                            )}
+
+                                            <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 flex items-center gap-3">
+                                                <Trophy className="w-4 h-4 text-blue-500" />
+                                                <p className="text-[9px] text-blue-700 font-bold uppercase italic">
+                                                    Team Size: {eventToRegister.minTeamSize || 1}-{eventToRegister.maxTeamSize || 4} Members Required
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-4">
+                                            <div>
+                                                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1.5 ml-1">Student Identity</p>
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
+                                                        <UsersIcon className="w-4 h-4 text-blue-500" />
+                                                        <span className="text-xs font-bold text-slate-700">{user.fullName}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
+                                                        <Hash className="w-4 h-4 text-blue-500" />
+                                                        <span className="text-xs font-bold text-slate-700">{user.rollNumber}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1.5 ml-1">Contact Intelligence</p>
                                                 <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
-                                                    <Hash className="w-4 h-4 text-blue-500" />
-                                                    <span className="text-xs font-bold text-slate-700">{user.rollNumber}</span>
+                                                    <Smartphone className="w-4 h-4 text-blue-500" />
+                                                    <span className="text-xs font-bold text-slate-700">{user.phone || 'N/A'}</span>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div>
-                                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1.5 ml-1">Contact Intelligence</p>
-                                            <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
-                                                <Smartphone className="w-4 h-4 text-blue-500" />
-                                                <span className="text-xs font-bold text-slate-700">{user.phone || 'N/A'}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <div>
-                                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1.5 ml-1">Academic Status</p>
-                                            <div className="space-y-3">
-                                                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
-                                                    <Building2 className="w-4 h-4 text-blue-500" />
-                                                    <span className="text-xs font-bold text-slate-700">{user.department}</span>
-                                                </div>
-                                                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
-                                                    <GraduationCap className="w-4 h-4 text-blue-500" />
-                                                    <span className="text-xs font-bold text-slate-700">Year {user.yearOfStudy} - Sec {user.section || 'N/A'}</span>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1.5 ml-1">Academic Status</p>
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
+                                                        <Building2 className="w-4 h-4 text-blue-500" />
+                                                        <span className="text-xs font-bold text-slate-700">{user.department}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200">
+                                                        <GraduationCap className="w-4 h-4 text-blue-500" />
+                                                        <span className="text-xs font-bold text-slate-700">Year {user.yearOfStudy} - Sec {user.section || 'N/A'}</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>

@@ -89,11 +89,51 @@ export const AuthProvider = ({ children }) => {
             const localPart = emailParts[0];
             const domainPart = emailParts[1];
 
-            const rollNo = localPart.split('.').pop();
-            const department = domainPart.split('.')[0].toUpperCase();
+            let department = '';
+            let rollNo = '';
+            let admissionYear = '';
 
-            const shortYear = rollNo.substring(0, 2);
-            const admissionYear = 2000 + parseInt(shortYear);
+            // Check email format by analyzing domain structure
+            const domainSegments = domainPart.split('.');
+
+            // NEW FORMAT: name.rollnumber@dept.ritchennai.edu.in (2024 batch onwards)
+            // Example: antojenishia.240007@aiml.ritchennai.edu.in
+            if (domainSegments.length === 4 && domainSegments[1] === 'ritchennai') {
+                console.log("Detected NEW email format (2024+)");
+
+                // Department from subdomain
+                department = domainSegments[0].toUpperCase(); // aiml -> AIML
+
+                // Roll number from local part (last segment after dot)
+                const localSegments = localPart.split('.');
+                rollNo = localSegments[localSegments.length - 1]; // 240007
+
+                // Extract year from roll number (first 2 digits)
+                const shortYear = rollNo.substring(0, 2);
+                admissionYear = 2000 + parseInt(shortYear); // 24 -> 2024
+            }
+            // OLD FORMAT: name.initial.year.dept@ritchennai.edu.in (2023 batch)
+            // Example: jananishree.m.2023.ece@ritchennai.edu.in
+            else if (domainSegments.length === 3 && domainSegments[0] === 'ritchennai') {
+                console.log("Detected OLD email format (2023 and earlier)");
+
+                // Split local part
+                const localSegments = localPart.split('.');
+
+                // Department from last segment of local part
+                department = localSegments[localSegments.length - 1].toUpperCase(); // ece -> ECE
+
+                // Year from second last segment
+                rollNo = localSegments[localSegments.length - 2]; // 2023
+
+                // Extract admission year
+                const shortYear = rollNo.substring(0, 2);
+                admissionYear = 2000 + parseInt(shortYear); // 20 -> 2020 or 23 -> 2023
+            }
+
+            if (!department || !admissionYear) {
+                throw new Error("Unable to parse email format");
+            }
 
             const now = new Date();
             const currentYear = now.getFullYear();
