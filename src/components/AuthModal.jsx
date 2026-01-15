@@ -35,6 +35,26 @@ const AuthModal = () => {
     const yearRef = useRef();
 
     const [isRegScanning, setIsRegScanning] = useState(false);
+    const [scanLoadingMessage, setScanLoadingMessage] = useState('');
+
+    // Success beep sound
+    const playSuccessBeep = () => {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sine';
+
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.2);
+    };
 
     if (!isAuthModalOpen) return null;
 
@@ -54,11 +74,22 @@ const AuthModal = () => {
         if (!text) return;
 
         try {
-            let rollNumber = text;
+            // Immediate validation - check if it's a URL
+            const isRITUrl = text.includes('ims.ritchennai.edu.in');
 
-            // Check if QR contains college verification URL
-            if (text.includes('ims.ritchennai.edu.in') || text.includes('http')) {
-                console.log('Detected URL-based QR code:', text);
+            if (isRITUrl || text.includes('http')) {
+                // ✅ Step 1: Play success beep
+                playSuccessBeep();
+
+                // ✅ Step 2: Instantly close camera scanner
+                setIsRegScanning(false);
+
+                // ✅ Step 3: Display loading message
+                setScanLoadingMessage('Fetching data from RIT IMS portal...');
+
+                console.log('✅ Detected RIT IMS URL:', text);
+
+                let rollNumber = text;
 
                 // Fetch verification page
                 let response;
@@ -70,6 +101,7 @@ const AuthModal = () => {
                     });
                 } catch (corsError) {
                     console.log('Direct fetch failed, using CORS proxy...');
+                    setScanLoadingMessage('Connecting via secure proxy...');
                     const proxyUrl = 'https://api.allorigins.win/raw?url=';
                     response = await fetch(proxyUrl + encodeURIComponent(text));
                 }
@@ -78,6 +110,7 @@ const AuthModal = () => {
                     throw new Error(`Failed to fetch: ${response.status}`);
                 }
 
+                setScanLoadingMessage('Extracting verified data...');
                 const html = await response.text();
 
                 // Extract roll number using multiple patterns
@@ -94,21 +127,35 @@ const AuthModal = () => {
                     const match = html.match(pattern);
                     if (match && match[1]) {
                         rollNumber = match[1];
-                        console.log('Extracted Roll Number:', rollNumber);
+                        console.log('✅ Extracted Roll Number:', rollNumber);
                         break;
                     }
                 }
+
+                // ✅ Step 4: Auto-fill the register number
+                if (rollNoRef.current) {
+                    rollNoRef.current.value = rollNumber.trim();
+                    setScanLoadingMessage('✓ Data verified and populated!');
+
+                    // Clear success message after 1.5 seconds
+                    setTimeout(() => {
+                        setScanLoadingMessage('');
+                    }, 1500);
+                }
+            } else {
+                // Direct roll number QR code (backwards compatible)
+                playSuccessBeep();
+                setIsRegScanning(false);
+
+                if (rollNoRef.current) {
+                    rollNoRef.current.value = text.trim();
+                }
             }
 
-            // Fill the input field
-            if (rollNoRef.current) {
-                rollNoRef.current.value = rollNumber.trim();
-                setIsRegScanning(false);
-            }
         } catch (error) {
             console.error('QR Scan Error:', error);
+            setScanLoadingMessage('');
             alert('Failed to process QR code. Please enter manually or try again.');
-            setIsRegScanning(false);
         }
     };
 
@@ -167,6 +214,29 @@ const AuthModal = () => {
                                         Align your Student Identity QR or Barcode <br />within the frame to auto-fill
                                     </p>
                                 </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Loading Message Overlay */}
+                <AnimatePresence>
+                    {scanLoadingMessage && (
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+                        >
+                            <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-xl" />
+                            <div className="relative bg-white rounded-3xl p-10 shadow-2xl text-center max-w-sm">
+                                <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-6" />
+                                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight mb-2">
+                                    {scanLoadingMessage.includes('✓') ? '✓ Success!' : 'Processing...'}
+                                </h3>
+                                <p className="text-sm text-slate-600 font-medium">
+                                    {scanLoadingMessage}
+                                </p>
                             </div>
                         </motion.div>
                     )}

@@ -426,13 +426,41 @@ const AdminDashboard = () => {
         };
     };
 
+    // Success beep sound
+    const playSuccessBeep = () => {
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = 800;
+            oscillator.type = 'sine';
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.2);
+        } catch (e) {
+            console.log('Audio not supported');
+        }
+    };
+
     const handleSearchScan = async (result) => {
         const val = result[0]?.rawValue;
         if (val) {
             // Check if QR contains college ID verification URL
             if (val.includes('ims.ritchennai.edu.in') || val.includes('http')) {
+                // ✅ Play success beep and close scanner
+                playSuccessBeep();
+                setIsSearchScannerOpen(false);
+
                 await processSearchQRUrl(val);
             } else {
+                playSuccessBeep();
                 setSearchQuery(val);
                 setIsSearchScannerOpen(false);
             }
@@ -441,7 +469,7 @@ const AdminDashboard = () => {
 
     const processSearchQRUrl = async (url) => {
         try {
-            console.log('Processing Search QR URL:', url);
+            console.log('✅ Processing Search QR URL:', url);
 
             // Fetch verification page
             let response;
@@ -478,21 +506,19 @@ const AdminDashboard = () => {
                 const match = html.match(pattern);
                 if (match && match[1]) {
                     rollNumber = match[1];
-                    console.log('Extracted Roll Number:', rollNumber);
+                    console.log('✅ Extracted Roll Number:', rollNumber);
                     break;
                 }
             }
 
             if (rollNumber) {
                 setSearchQuery(rollNumber);
-                setIsSearchScannerOpen(false);
             } else {
                 throw new Error('Could not extract roll number');
             }
         } catch (error) {
             console.error('Search QR URL Error:', error);
             alert('Failed to process QR code. Please try again or enter manually.');
-            setIsSearchScannerOpen(false);
         }
     };
 
