@@ -36,7 +36,7 @@ const Team = () => {
             image: abinayaImg,
             gradient: 'from-blue-600 to-cyan-600',
             social: {
-                linkedin: '#',
+                linkedin: 'https://www.linkedin.com/in/abinaya-m-880297291?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app',
                 email: 'president@techspark.edu',
             },
         },
@@ -51,7 +51,7 @@ const Team = () => {
             image: devaprakashImg,
             gradient: 'from-purple-600 to-pink-600',
             social: {
-                linkedin: '#',
+                linkedin: 'https://www.linkedin.com/in/devaprakashj?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app',
                 email: 'vp@techspark.edu',
             },
         },
@@ -62,7 +62,7 @@ const Team = () => {
             image: kanishgaImg,
             gradient: 'from-cyan-600 to-blue-600',
             social: {
-                linkedin: '#',
+                linkedin: 'https://www.linkedin.com/in/kanishga-shanmugam-7211a7283?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app',
                 email: 'secretary@techspark.edu',
             },
         },
@@ -73,7 +73,7 @@ const Team = () => {
             image: pallaviImg,
             gradient: 'from-pink-600 to-rose-600',
             social: {
-                linkedin: '#',
+                linkedin: 'https://www.linkedin.com/in/pallavi-s-aa61a1337?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app',
                 email: 'pro@techspark.edu',
             },
         },
@@ -84,7 +84,7 @@ const Team = () => {
             image: jananishreeImg,
             gradient: 'from-indigo-600 to-purple-600',
             social: {
-                linkedin: '#',
+                linkedin: 'https://www.linkedin.com/in/janani-shree-535926299?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app',
                 email: 'reports@techspark.edu',
             },
         },
@@ -95,7 +95,7 @@ const Team = () => {
             image: mugkeshImg,
             gradient: 'from-green-600 to-emerald-600',
             social: {
-                linkedin: '#',
+                linkedin: 'https://www.linkedin.com/in/mugesh-m-50403232b?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app',
                 email: 'content@techspark.edu',
             },
         },
@@ -117,7 +117,7 @@ const Team = () => {
             image: barathImg,
             gradient: 'from-red-600 to-pink-600',
             social: {
-                linkedin: '#',
+                linkedin: 'https://www.linkedin.com/in/barath-s-52910431a?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app',
                 email: 'events@techspark.edu',
             },
         },
@@ -128,7 +128,7 @@ const Team = () => {
             image: praveenImg,
             gradient: 'from-violet-600 to-purple-600',
             social: {
-                linkedin: '#',
+                linkedin: 'https://www.linkedin.com/in/praveen-manthiramoorthi-899438309?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app',
                 email: 'creative@techspark.edu',
             },
         },
@@ -139,7 +139,7 @@ const Team = () => {
             image: harivasanImg,
             gradient: 'from-blue-600 to-indigo-600',
             social: {
-                linkedin: '#',
+                linkedin: 'https://www.linkedin.com/in/hari-vasan-6ba71232b?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app',
                 email: 'socialmedia@techspark.edu',
                 instagram: '#',
             },
@@ -151,7 +151,7 @@ const Team = () => {
             image: vigneshImg,
             gradient: 'from-teal-600 to-cyan-600',
             social: {
-                linkedin: '#',
+                linkedin: 'https://www.linkedin.com/in/k-vignesh-ab7712324?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app',
                 email: 'coordinator@techspark.edu',
             },
         },
@@ -162,7 +162,7 @@ const Team = () => {
             image: antoImg,
             gradient: 'from-fuchsia-600 to-pink-600',
             social: {
-                linkedin: '#',
+                linkedin: 'https://www.linkedin.com/in/anto-jenishia-aa0415314?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app',
                 email: 'graphics@techspark.edu',
             },
         },
@@ -173,7 +173,7 @@ const Team = () => {
             image: moneshImg,
             gradient: 'from-lime-600 to-green-600',
             social: {
-                linkedin: '#',
+                linkedin: 'https://www.linkedin.com/in/monesh-raj-j-35a80a371?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app',
                 email: 'volunteers@techspark.edu',
             },
         },
@@ -201,10 +201,17 @@ const Team = () => {
                                 title={member.role}
                                 handle={member.name.toLowerCase().replace(/\s/g, '')}
                                 status="Active"
+                                contactText="LinkedIn"
                                 avatarUrl={member.image || `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.name}`}
                                 showUserInfo={true}
                                 enableTilt={true}
-                                onContactClick={() => window.location.href = `mailto:${member.social.email}`}
+                                onContactClick={() => {
+                                    if (member.social.linkedin !== '#') {
+                                        window.open(member.social.linkedin, '_blank');
+                                    } else {
+                                        window.location.href = `mailto:${member.social.email}`;
+                                    }
+                                }}
                                 className="w-full max-w-[320px]"
                             />
                         </div>
@@ -220,10 +227,17 @@ const Team = () => {
                                 title={member.role}
                                 handle={member.name.toLowerCase().replace(/\s/g, '')}
                                 status="Active"
+                                contactText="LinkedIn"
                                 avatarUrl={member.image || `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.name}`}
                                 showUserInfo={true}
                                 enableTilt={true}
-                                onContactClick={() => window.location.href = `mailto:${member.social.email}`}
+                                onContactClick={() => {
+                                    if (member.social.linkedin !== '#') {
+                                        window.open(member.social.linkedin, '_blank');
+                                    } else {
+                                        window.location.href = `mailto:${member.social.email}`;
+                                    }
+                                }}
                                 className="w-full max-w-[320px]"
                             />
                         </div>
