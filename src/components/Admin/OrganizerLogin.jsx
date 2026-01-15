@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Lock, User, Calendar, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
+import tsLogo from '../../assets/techspark-logo.png';
 
 const OrganizerLogin = () => {
     const [username, setUsername] = useState('');
@@ -66,11 +67,11 @@ const OrganizerLogin = () => {
                     </div>
 
                     <div className="text-center mb-10">
-                        <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-blue-500/20 transform -rotate-6 group-hover:rotate-0 transition-transform duration-500">
-                            <Calendar className="w-12 h-12 text-white" />
+                        <div className="w-24 h-24 flex items-center justify-center mx-auto mb-6">
+                            <img src={tsLogo} alt="TechSpark Logo" className="w-full h-full object-contain filter drop-shadow-2xl" />
                         </div>
-                        <h1 className="text-3xl font-black text-white mb-2 tracking-tight">Event Editor</h1>
-                        <p className="text-slate-500 text-sm font-medium">Organizer-only access portal</p>
+                        <h1 className="text-3xl font-black text-white mb-2 tracking-tight uppercase italic underline decoration-cyan-500 decoration-4 underline-offset-8">Editor Portal</h1>
+                        <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em] mt-4">Authorized Organizers Only</p>
                     </div>
 
                     <form onSubmit={handleLogin} className="space-y-6">

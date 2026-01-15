@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Lock, User, ShieldCheck, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
+import tsLogo from '../../assets/techspark-logo.png';
 
 const AdminLogin = () => {
     const [username, setUsername] = useState('');
@@ -60,11 +61,11 @@ const AdminLogin = () => {
             >
                 <div className="bg-white/10 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-10 shadow-2xl">
                     <div className="text-center mb-10">
-                        <div className="w-20 h-20 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-blue-500/20 rotate-12 group hover:rotate-0 transition-transform duration-500">
-                            <ShieldCheck className="w-10 h-10 text-white" />
+                        <div className="w-24 h-24 flex items-center justify-center mx-auto mb-6">
+                            <img src={tsLogo} alt="TechSpark Logo" className="w-full h-full object-contain filter drop-shadow-2xl" />
                         </div>
-                        <h1 className="text-3xl font-black text-white mb-2 tracking-tight">Admin Console</h1>
-                        <p className="text-slate-400 text-sm font-medium">Restricted access for TechSpark core team</p>
+                        <h1 className="text-3xl font-black text-white mb-2 tracking-tight uppercase italic underline decoration-blue-500 decoration-4 underline-offset-8">Admin Console</h1>
+                        <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em] mt-4">Security Cleared Personnel Only</p>
                     </div>
 
                     <form onSubmit={handleLogin} className="space-y-6">
