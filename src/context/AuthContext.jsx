@@ -137,7 +137,7 @@ export const AuthProvider = ({ children }) => {
         try {
             await signInWithPopup(auth, googleProvider);
         } catch (error) {
-            if (error.code !== 'auth/cancelled-popup-request') {
+            if (error.code !== 'auth/cancelled-popup-request' && error.code !== 'auth/popup-closed-by-user') {
                 console.error("Login failed", error);
                 alert("Login failed: " + error.message);
             }
