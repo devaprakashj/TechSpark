@@ -1,24 +1,54 @@
 import { Zap, Linkedin, Instagram, Mail, ArrowUp } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import logo from '../assets/logo.png';
 
 const Footer = () => {
+    const { isAuthenticated } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+
+    const publicLinks = [
+        { name: 'Home', id: 'home' },
+        { name: 'About Us', id: 'about' },
+        { name: 'Events', id: 'events' },
+        { name: 'Projects', id: 'projects' },
+        { name: 'Team', id: 'team' },
+        { name: 'Contact', id: 'contact' },
+    ];
+
+    const studentLinks = [
+        { name: 'Overview', id: 'student-overview' },
+        { name: 'My Events', id: 'registered-events' },
+        { name: 'Explore', id: 'live-events' },
+        { name: 'Certificates', id: 'certificate-vault' },
+        { name: 'Digital ID', id: 'digital-id-card' },
+    ];
+
+    const menuItems = isAuthenticated ? studentLinks : publicLinks;
 
     const scrollToTop = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const scrollToSection = (id) => {
-        // If not on home page, navigate to home first
-        if (location.pathname !== '/') {
-            navigate('/', { state: { scrollTo: id } });
+        const isStudentItem = studentLinks.some(item => item.id === id);
+        const targetPath = isStudentItem ? '/dashboard' : '/';
+
+        if (location.pathname !== targetPath) {
+            navigate(targetPath, { state: { scrollTo: id } });
         } else {
-            // Already on home page, just scroll
+            // Already on target path, scroll with offset for fixed header
             const element = document.getElementById(id);
             if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                const headerOffset = 80;
+                const elementPosition = element.getBoundingClientRect().top;
+                const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+                window.scrollTo({
+                    top: offsetPosition,
+                    behavior: 'smooth'
+                });
             }
         }
     };
@@ -72,56 +102,19 @@ const Footer = () => {
 
                     {/* Quick Links Column */}
                     <div>
-                        <h4 className="font-bold text-gray-900 mb-4">Quick Links</h4>
-                        <ul className="space-y-2">
-                            <li>
-                                <button
-                                    onClick={() => scrollToSection('home')}
-                                    className="text-gray-600 hover:text-blue-600 transition-colors text-left"
-                                >
-                                    Home
-                                </button>
-                            </li>
-                            <li>
-                                <button
-                                    onClick={() => scrollToSection('about')}
-                                    className="text-gray-600 hover:text-blue-600 transition-colors text-left"
-                                >
-                                    About Us
-                                </button>
-                            </li>
-                            <li>
-                                <button
-                                    onClick={() => scrollToSection('events')}
-                                    className="text-gray-600 hover:text-blue-600 transition-colors text-left"
-                                >
-                                    Events
-                                </button>
-                            </li>
-                            <li>
-                                <button
-                                    onClick={() => scrollToSection('projects')}
-                                    className="text-gray-600 hover:text-blue-600 transition-colors text-left"
-                                >
-                                    Projects
-                                </button>
-                            </li>
-                            <li>
-                                <button
-                                    onClick={() => scrollToSection('team')}
-                                    className="text-gray-600 hover:text-blue-600 transition-colors text-left"
-                                >
-                                    Team
-                                </button>
-                            </li>
-                            <li>
-                                <button
-                                    onClick={() => scrollToSection('contact')}
-                                    className="text-gray-600 hover:text-blue-600 transition-colors text-left"
-                                >
-                                    Contact
-                                </button>
-                            </li>
+                        <h4 className="font-bold text-gray-900 mb-4 tracking-tight">Quick Links</h4>
+                        <ul className="space-y-3">
+                            {menuItems.map((item) => (
+                                <li key={item.id}>
+                                    <button
+                                        onClick={() => scrollToSection(item.id)}
+                                        className="text-gray-500 hover:text-blue-600 transition-all duration-300 text-sm font-medium flex items-center group"
+                                    >
+                                        <span className="w-0 group-hover:w-2 h-0.5 bg-blue-600 mr-0 group-hover:mr-2 transition-all duration-300 rounded-full" />
+                                        {item.name}
+                                    </button>
+                                </li>
+                            ))}
                         </ul>
                     </div>
 
