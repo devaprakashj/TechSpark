@@ -250,17 +250,23 @@ const SecretaryDashboard = () => {
             doc.setFont('helvetica', 'normal');
             doc.text(`Total documented registrations: ${eventRegs.length}`, 15, 52);
 
+            const isHackathon = event.type === 'Hackathon';
             const regTableData = eventRegs.map((r, i) => [
                 i + 1,
                 r.studentRoll,
                 (r.studentName || 'N/A').toUpperCase(),
                 r.isTeamRegistration ? `${r.teamName} (${r.teamRole})` : 'INDIVIDUAL',
+                ...(isHackathon ? [r.problemStatement || 'N/A'] : []),
                 r.registeredAt?.toDate ? new Date(r.registeredAt.toDate()).toLocaleString() : 'SYSTEM VERIFIED'
             ]);
 
             autoTable(doc, {
                 startY: 60,
-                head: [['S.NO', 'ROLL NO', 'FULL NAME', 'SQUAD/TEAM', 'TIMESTAMP']],
+                head: [[
+                    'S.NO', 'ROLL NO', 'FULL NAME', 'SQUAD/TEAM',
+                    ...(isHackathon ? ['PROBLEM'] : []),
+                    'TIMESTAMP'
+                ]],
                 body: regTableData,
                 headStyles: { fillColor: [15, 23, 42] },
                 styles: { fontSize: 7 } // Slightly smaller font to fit more columns
@@ -282,12 +288,17 @@ const SecretaryDashboard = () => {
                 r.studentRoll,
                 r.isTeamRegistration ? r.teamName : 'N/A',
                 r.studentDept,
+                ...(isHackathon ? [r.problemStatement || 'N/A'] : []),
                 'PRESENT'
             ]);
 
             autoTable(doc, {
                 startY: 55,
-                head: [['#', 'STUDENT NAME', 'ROLL NO', 'SQUAD', 'DEPT', 'STATUS']],
+                head: [[
+                    '#', 'STUDENT NAME', 'ROLL NO', 'SQUAD', 'DEPT',
+                    ...(isHackathon ? ['PROBLEM'] : []),
+                    'STATUS'
+                ]],
                 body: attendedList,
                 headStyles: { fillColor: [16, 185, 129] },
                 styles: { fontSize: 7 }

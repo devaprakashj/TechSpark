@@ -69,6 +69,9 @@ const StudentDashboard = () => {
     const [teamName, setTeamName] = useState('');
     const [teamCodeInput, setTeamCodeInput] = useState('');
     const [verificationError, setVerificationError] = useState('');
+    const [selectedProblemStatement, setSelectedProblemStatement] = useState('');
+    const [customProblemStatement, setCustomProblemStatement] = useState('');
+    const [isCustomProblem, setIsCustomProblem] = useState(false);
     const idCardRef = useRef(null);
     const navigate = useNavigate();
 
@@ -258,6 +261,9 @@ const StudentDashboard = () => {
             setTeamName('');
             setTeamCodeInput('');
             setVerificationError('');
+            setSelectedProblemStatement('');
+            setCustomProblemStatement('');
+            setIsCustomProblem(false);
             setIsConfirming(true);
         } catch (error) {
             console.error("Auth check error:", error);
@@ -346,7 +352,10 @@ const StudentDashboard = () => {
                 isTeamRegistration: regMode !== 'INDIVIDUAL',
                 teamRole: regMode === 'TEAM_CREATE' ? 'LEADER' : (regMode === 'TEAM_JOIN' ? 'MEMBER' : 'INDIVIDUAL'),
                 teamName: regMode !== 'INDIVIDUAL' ? (teamName || 'Solo Ops') : '',
-                teamCode: regMode === 'TEAM_CREATE' ? generatedTeamCode : (regMode === 'TEAM_JOIN' ? teamCodeInput.toUpperCase() : '')
+                teamCode: regMode === 'TEAM_CREATE' ? generatedTeamCode : (regMode === 'TEAM_JOIN' ? teamCodeInput.toUpperCase() : ''),
+
+                // Hackathon Specific
+                problemStatement: eventToRegister.type === 'Hackathon' ? (isCustomProblem ? customProblemStatement : selectedProblemStatement) : ''
             });
 
             // 2. Update attendee count atomically
@@ -732,6 +741,85 @@ const StudentDashboard = () => {
                                             </div>
                                         )}
 
+                                        {/* Hackathon Specific: Problem Statement Selection */}
+                                        {eventToRegister.type === 'Hackathon' && (
+                                            <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-1.5 h-6 bg-blue-600 rounded-full" />
+                                                    <p className="text-[11px] text-slate-900 font-black uppercase tracking-widest italic">Technical Directive: Problem Statement</p>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-3">
+                                                    {(eventToRegister.problemStatements || []).map((ps, idx) => (
+                                                        <button
+                                                            key={idx}
+                                                            onClick={() => {
+                                                                setSelectedProblemStatement(ps);
+                                                                setIsCustomProblem(false);
+                                                            }}
+                                                            className={`p-5 rounded-2xl border text-left transition-all relative overflow-hidden group ${selectedProblemStatement === ps && !isCustomProblem
+                                                                ? 'bg-blue-600 border-blue-600 text-white shadow-xl shadow-blue-500/20'
+                                                                : 'bg-white border-slate-100 text-slate-600 hover:border-blue-200 hover:bg-slate-50'}`}
+                                                        >
+                                                            <div className="flex items-start gap-4 h-full">
+                                                                <span className={`text-[10px] font-black px-2 py-0.5 rounded ${selectedProblemStatement === ps && !isCustomProblem ? 'bg-white/20' : 'bg-slate-100'}`}>PS #{idx + 1}</span>
+                                                                <p className="text-xs font-bold leading-relaxed pr-6">{ps}</p>
+                                                            </div>
+                                                            {selectedProblemStatement === ps && !isCustomProblem && (
+                                                                <div className="absolute top-1/2 -translate-y-1/2 right-4">
+                                                                    <CheckCircle className="w-5 h-5" />
+                                                                </div>
+                                                            )}
+                                                        </button>
+                                                    ))}
+
+                                                    {eventToRegister.allowOpenStatement && (
+                                                        <div className="space-y-3">
+                                                            <button
+                                                                onClick={() => {
+                                                                    setIsCustomProblem(true);
+                                                                    setSelectedProblemStatement('');
+                                                                }}
+                                                                className={`w-full p-5 rounded-2xl border text-left transition-all relative overflow-hidden group ${isCustomProblem
+                                                                    ? 'bg-slate-900 border-slate-900 text-white shadow-xl shadow-slate-900/20'
+                                                                    : 'bg-white border-slate-100 text-slate-600 hover:border-slate-800 hover:bg-slate-900 hover:text-white'}`}
+                                                            >
+                                                                <div className="flex items-center gap-4">
+                                                                    <div className={`p-2 rounded-xl ${isCustomProblem ? 'bg-white/10' : 'bg-slate-100 group-hover:bg-white/10'}`}>
+                                                                        <Zap className="w-4 h-4" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="text-[10px] font-black uppercase tracking-widest">Open Statement</p>
+                                                                        <p className="text-xs font-bold">Declare a custom innovation objective</p>
+                                                                    </div>
+                                                                </div>
+                                                                {isCustomProblem && (
+                                                                    <div className="absolute top-1/2 -translate-y-1/2 right-4">
+                                                                        <CheckCircle className="w-5 h-5" />
+                                                                    </div>
+                                                                )}
+                                                            </button>
+
+                                                            {isCustomProblem && (
+                                                                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-1">
+                                                                    <textarea
+                                                                        placeholder="Describe your custom problem statement / innovation goal..."
+                                                                        value={customProblemStatement}
+                                                                        onChange={(e) => setCustomProblemStatement(e.target.value)}
+                                                                        className="w-full h-32 px-5 py-4 bg-white border-2 border-slate-900 rounded-2xl outline-none font-bold text-slate-800 text-sm focus:ring-4 focus:ring-blue-500/5 transition-all resize-none italic"
+                                                                    />
+                                                                </motion.div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {/* Validation Hint */}
+                                                {!selectedProblemStatement && !customProblemStatement && (
+                                                    <p className="text-[9px] text-blue-600 font-bold uppercase italic animate-pulse ml-1">Selection of technical directive required for deployment.</p>
+                                                )}
+                                            </div>
+                                        )}
+
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                                             <div className="space-y-6">
                                                 <div>
@@ -799,7 +887,7 @@ const StudentDashboard = () => {
                                             </div>
                                             <button
                                                 onClick={confirmRegistration}
-                                                disabled={isRegLoading}
+                                                disabled={isRegLoading || (eventToRegister.type === 'Hackathon' && !selectedProblemStatement && !customProblemStatement.trim())}
                                                 className="w-full lg:w-auto px-10 py-5 bg-blue-600 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-white hover:text-blue-600 transition-all flex items-center justify-center gap-3 disabled:opacity-50 min-w-[240px] shadow-lg shadow-blue-500/20"
                                             >
                                                 {isRegLoading ? (

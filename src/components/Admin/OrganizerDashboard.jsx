@@ -76,6 +76,27 @@ const OrganizerDashboard = () => {
     const [regDeptFilter, setRegDeptFilter] = useState('all');
     const [regYearFilter, setRegYearFilter] = useState('all');
 
+    // Custom Export System
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [exportType, setExportType] = useState('REGISTRATION'); // REGISTRATION or ATTENDANCE
+    const [selectedFields, setSelectedFields] = useState([
+        'name', 'roll', 'dept', 'year', 'section', 'phone', 'squad', 'role', 'problem', 'date', 'status'
+    ]);
+
+    const availableFields = [
+        { id: 'name', label: 'FULL NAME', category: 'Identity' },
+        { id: 'roll', label: 'ROLL NO', category: 'Identity' },
+        { id: 'dept', label: 'DEPARTMENT', category: 'Academic' },
+        { id: 'year', label: 'YEAR', category: 'Academic' },
+        { id: 'section', label: 'SECTION', category: 'Academic' },
+        { id: 'phone', label: 'MOBILE NO', category: 'Contact' },
+        { id: 'squad', label: 'SQUAD/TEAM', category: 'Team' },
+        { id: 'role', label: 'SQUAD ROLE', category: 'Team' },
+        { id: 'problem', label: 'PROBLEM STATEMENT', category: 'Strategic' },
+        { id: 'date', label: 'REG DATE', category: 'Timeline' },
+        { id: 'status', label: 'ATTENDANCE', category: 'Admin' },
+    ];
+
     const navigate = useNavigate();
 
     // Multi-step Form Data
@@ -104,6 +125,8 @@ const OrganizerDashboard = () => {
         isTeamEvent: false,
         minTeamSize: 1,
         maxTeamSize: 4,
+        problemStatements: [],
+        allowOpenStatement: false,
         coordinatorName: '',
         coordinatorPhone: '',
         coordinatorEmail: '',
@@ -210,6 +233,34 @@ const OrganizerDashboard = () => {
         }
     }, []);
 
+    // Real-time listener for DETAILED registrations when an event is selected
+    useEffect(() => {
+        if (!selectedEvent?.id) {
+            setRegistrations([]);
+            return;
+        }
+
+        console.log("Establishing Tactical Link for:", selectedEvent.title);
+        setLoadingRegs(true);
+
+        const q = query(
+            collection(db, 'registrations'),
+            where('eventId', '==', selectedEvent.id)
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const regList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setRegistrations(regList);
+            setLoadingRegs(false);
+            console.log(`Live Intelligence Sync: ${regList.length} agents detected.`);
+        }, (error) => {
+            console.error("Link Failure in Detail sync:", error);
+            setLoadingRegs(false);
+        });
+
+        return () => unsubscribe();
+    }, [selectedEvent?.id]);
+
     // Reactive Stats Calculation
     useEffect(() => {
         setStats({
@@ -221,7 +272,15 @@ const OrganizerDashboard = () => {
             completed: events.filter(e => e.status === 'COMPLETED').length,
             totalRegs: allRegs.length
         });
-    }, [events, allRegs]);
+
+        // Sync selectedEvent with the updated list to reflect real-time attendee counts etc.
+        if (selectedEvent) {
+            const updated = events.find(e => e.id === selectedEvent.id);
+            if (updated && JSON.stringify(updated) !== JSON.stringify(selectedEvent)) {
+                setSelectedEvent(updated);
+            }
+        }
+    }, [events, allRegs, selectedEvent]);
 
     const fetchEvents = async () => {
         if (organizer) fetchInitialData(organizer.username);
@@ -497,22 +556,12 @@ const OrganizerDashboard = () => {
         }
     };
 
-    const handleViewDetails = async (event) => {
+    const handleViewDetails = (event) => {
         setSelectedEvent(event);
-        setLoadingRegs(true);
         // Reset filters when viewing new event
         setRegSearchQuery('');
         setRegDeptFilter('all');
         setRegYearFilter('all');
-        try {
-            const q = query(collection(db, 'registrations'), where('eventId', '==', event.id));
-            const snapshot = await getDocs(q);
-            setRegistrations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        } catch (error) {
-            console.error("Error fetching registrations:", error);
-        } finally {
-            setLoadingRegs(false);
-        }
     };
 
     // Delete a registration (remove participant from event)
@@ -600,6 +649,11 @@ const OrganizerDashboard = () => {
         console.log(`SUB-EXTRACTION: ${type} FOR MISSION: ${event.title}`);
         const eventRegs = registrations.filter(r => r.eventId === event.id);
 
+        if (!eventRegs.length) {
+            alert("Strategic extraction aborted: No participant data found.");
+            return;
+        }
+
         let title = '';
         let tableHead = [];
         let tableData = [];
@@ -620,49 +674,82 @@ const OrganizerDashboard = () => {
         if (type === 'REGISTRATION') {
             title = 'EVENT REGISTRATION DIRECTORY';
             const b = getBreakdown(eventRegs);
+            const squadCount = new Set(eventRegs.filter(r => r.isTeamRegistration).map(r => r.teamCode)).size;
+
+            // Deep Analysis
+            const topDept = Object.entries(b.depts).sort((a, b) => b[1] - a[1])[0];
+            const topYear = Object.entries(b.years).sort((a, b) => b[1] - a[1])[0];
+            const teamMembers = eventRegs.filter(r => r.isTeamRegistration).length;
+
             summaryMetrics = [
                 ['TOTAL REGISTERED', eventRegs.length.toString()],
-                ['DEPT BREAKDOWN', Object.entries(b.depts).map(([k, v]) => `${k}:${v}`).join(' | ') || 'N/A'],
-                ['YEAR BREAKDOWN', Object.entries(b.years).map(([k, v]) => `${k}:${v}`).join(' | ') || 'N/A'],
-                ['SECTION BREAKDOWN', Object.entries(b.sections).map(([k, v]) => `${k}:${v}`).join(' | ') || 'N/A']
+                ['DIVERSITY INDEX', `${Object.keys(b.depts).length} DEPTS | ${Object.keys(b.years).length} YEARS`],
+                ['SQUAD INFRASTRUCTURE', `${squadCount} SQUADS | ${teamMembers} MEMBERS`],
+                ['INDIVIDUAL AGENTS', (eventRegs.length - teamMembers).toString()],
+                ['STRATEGIC HOTSPOT (DEPT)', `${topDept?.[0] || 'N/A'} (${topDept?.[1] || 0} REGS)`],
+                ['STRATEGIC HOTSPOT (YEAR)', `${topYear?.[0] || 'N/A'} YEAR (${topYear?.[1] || 0} REGS)`],
+                ['CAPACITY LOAD', `${((eventRegs.length / (event.maxParticipants || 1)) * 100).toFixed(1)}%`]
             ];
-            tableHead = [['#', 'STUDENT NAME', 'ROLL NUMBER', 'DEPT', 'YEAR', 'REG DATE']];
-            tableData = eventRegs.map((r, i) => [
-                i + 1,
-                (r.studentName || 'UNIDENTIFIED').toUpperCase(),
-                r.studentRoll || 'N/A',
-                r.studentDept || 'N/A',
-                r.studentYear || 'N/A',
-                r.registeredAt?.toDate?.() ? new Date(r.registeredAt.toDate()).toLocaleDateString() : 'N/A'
-            ]);
             filenameSuffix = 'Registration_Log';
         } else if (type === 'ATTENDANCE') {
             title = 'VERIFIED ATTENDANCE AUDIT';
             const attended = eventRegs.filter(r => r.isAttended || r.status === 'Present');
             const b = getBreakdown(attended);
+
+            // Deep Analysis
+            const attendanceRate = ((attended.length / eventRegs.length) * 100).toFixed(1);
+            const topAttendedDept = Object.entries(b.depts).sort((a, b) => b[1] - a[1])[0];
+            const topAttendedYear = Object.entries(b.years).sort((a, b) => b[1] - a[1])[0];
+            const teamAttendance = attended.filter(r => r.isTeamRegistration).length;
+            const individualAttendance = attended.length - teamAttendance;
+
             summaryMetrics = [
                 ['CONFIRMED ATTENDEES', attended.length.toString()],
-                ['DEPT BREAKDOWN', Object.entries(b.depts).map(([k, v]) => `${k}:${v}`).join(' | ') || 'N/A'],
-                ['YEAR BREAKDOWN', Object.entries(b.years).map(([k, v]) => `${k}:${v}`).join(' | ') || 'N/A'],
-                ['ABSENTEE COUNT', (eventRegs.length - attended.length).toString()]
+                ['ATTENDANCE EFFICIENCY', `${attendanceRate}% OF REGISTRATIONS`],
+                ['ENGAGEMENT MIX', `${teamAttendance} TEAM | ${individualAttendance} INDIVIDUAL`],
+                ['ABSENTEE COUNT', (eventRegs.length - attended.length).toString()],
+                ['PEAK ENGAGEMENT (DEPT)', `${topAttendedDept?.[0] || 'N/A'} (${topAttendedDept?.[1] || 0} PRESENT)`],
+                ['PEAK ENGAGEMENT (YEAR)', `${topAttendedYear?.[0] || 'N/A'} YEAR (${topAttendedYear?.[1] || 0} PRESENT)`],
+                ['TACTICAL SPREAD', `${Object.keys(b.depts).length} DEPTS REPRESENTED`]
             ];
-            tableHead = [['#', 'STUDENT NAME', 'ROLL NUMBER', 'DEPT', 'YEAR', 'STATUS']];
-            tableData = eventRegs.map((r, i) => {
-                const isPresent = r.isAttended || r.status === 'Present';
-                return [
-                    i + 1,
-                    (r.studentName || 'UNIDENTIFIED').toUpperCase(),
-                    r.studentRoll || 'N/A',
-                    r.studentDept || 'N/A',
-                    r.studentYear || 'N/A',
-                    isPresent ? 'PRESENT' : 'ABSENT'
-                ];
-            });
             filenameSuffix = 'Attendance_Checkin';
         }
 
+        // Dynamic Header Generation
+        const activeHeaders = ['#'];
+        if (selectedFields.includes('name')) activeHeaders.push('NAME');
+        if (selectedFields.includes('roll')) activeHeaders.push('ROLL');
+        if (selectedFields.includes('dept')) activeHeaders.push('DEPT');
+        if (selectedFields.includes('year')) activeHeaders.push('YR');
+        if (selectedFields.includes('section')) activeHeaders.push('SEC');
+        if (selectedFields.includes('phone')) activeHeaders.push('PHONE');
+        if (selectedFields.includes('squad') && event.isTeamEvent) activeHeaders.push('SQUAD');
+        if (selectedFields.includes('role') && event.isTeamEvent) activeHeaders.push('ROLE');
+        if (selectedFields.includes('problem') && event.type === 'Hackathon') activeHeaders.push('PROBLEM');
+        if (selectedFields.includes('date')) activeHeaders.push('DATE');
+        if (selectedFields.includes('status')) activeHeaders.push('STATUS');
+
+        tableHead = [activeHeaders];
+
+        // Dynamic Data Generation
+        tableData = eventRegs.map((r, i) => {
+            const row = [i + 1];
+            if (selectedFields.includes('name')) row.push((r.studentName || 'N/A').toUpperCase());
+            if (selectedFields.includes('roll')) row.push(r.studentRoll || 'N/A');
+            if (selectedFields.includes('dept')) row.push(r.studentDept || 'N/A');
+            if (selectedFields.includes('year')) row.push(r.studentYear || 'N/A');
+            if (selectedFields.includes('section')) row.push(r.studentSection || 'N/A');
+            if (selectedFields.includes('phone')) row.push(r.studentPhone || 'N/A');
+            if (selectedFields.includes('squad') && event.isTeamEvent) row.push(r.isTeamRegistration ? (r.teamName || 'N/A') : 'INDIVIDUAL');
+            if (selectedFields.includes('role') && event.isTeamEvent) row.push(r.isTeamRegistration ? (r.teamRole || 'MEMBER') : 'N/A');
+            if (selectedFields.includes('problem') && event.type === 'Hackathon') row.push(r.problemStatement || 'N/A');
+            if (selectedFields.includes('date')) row.push(r.registeredAt?.toDate?.() ? new Date(r.registeredAt.toDate()).toLocaleDateString() : 'N/A');
+            if (selectedFields.includes('status')) row.push((r.isAttended || r.status === 'Present') ? 'PRESENT' : 'ABSENT');
+            return row;
+        });
+
         try {
-            const doc = new jsPDF();
+            const doc = new jsPDF('l', 'mm', 'a4');
             const pageWidth = doc.internal.pageSize.width;
             const pageHeight = doc.internal.pageSize.height;
 
@@ -676,7 +763,7 @@ const OrganizerDashboard = () => {
 
             // Professional Sidebar & Header
             doc.setFillColor(15, 23, 42);
-            doc.rect(0, 0, 5, 297, 'F');
+            doc.rect(0, 0, 5, 210, 'F');
             if (rit) doc.addImage(rit, 'PNG', 12, 10, 48, 15);
             if (ts) doc.addImage(ts, 'PNG', pageWidth - 60, 10, 45, 15);
             doc.setDrawColor(226, 232, 240);
@@ -725,9 +812,16 @@ const OrganizerDashboard = () => {
                 startY: doc.lastAutoTable.finalY + 10,
                 head: tableHead,
                 body: tableData,
-                headStyles: { fillColor: type === 'ATTENDANCE' ? [16, 185, 129] : [15, 23, 42], fontSize: 8 },
-                bodyStyles: { fontSize: 8 },
-                alternateRowStyles: { fillColor: [248, 250, 252] }
+                headStyles: { fillColor: type === 'ATTENDANCE' ? [16, 185, 129] : [15, 23, 42], fontSize: 7, fontStyle: 'bold' },
+                bodyStyles: { fontSize: 6.5 },
+                alternateRowStyles: { fillColor: [248, 250, 252] },
+                margin: { left: 10, right: 10 },
+                didParseCell: (data) => {
+                    if (data.section === 'body' && data.cell.text[0] === 'ABSENT') {
+                        data.cell.styles.textColor = [220, 38, 38];
+                        data.cell.styles.fontStyle = 'bold';
+                    }
+                }
             });
 
             // Standard Footer
@@ -736,7 +830,7 @@ const OrganizerDashboard = () => {
                 doc.setPage(i);
                 doc.setFontSize(7);
                 doc.setTextColor(160);
-                doc.text('AUTHORIZED ORGANIZER EXTRACT | DUPLICATE COPY | TECHSPARK CLUB', pageWidth / 2, 290, { align: 'center' });
+                doc.text('AUTHORIZED ORGANIZER EXTRACT | DUPLICATE COPY | TECHSPARK CLUB', pageWidth / 2, 200, { align: 'center' });
             }
 
             doc.save(`${event.title.replace(/\s+/g, '_')}_${filenameSuffix}_DUPLICATE.pdf`);
@@ -964,14 +1058,20 @@ const OrganizerDashboard = () => {
                                                     </button>
                                                 )}
                                                 <button
-                                                    onClick={() => handleDownloadSubReport(selectedEvent, 'REGISTRATION')}
+                                                    onClick={() => {
+                                                        setExportType('REGISTRATION');
+                                                        setIsExportModalOpen(true);
+                                                    }}
                                                     disabled={registrations.length === 0}
                                                     className="px-6 py-3.5 bg-slate-900 text-white rounded-2xl font-black text-xs shadow-xl shadow-slate-900/10 hover:bg-black transition-all flex items-center gap-2 uppercase tracking-widest disabled:opacity-30"
                                                 >
                                                     <FileText className="w-5 h-5" /> Register Report
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDownloadSubReport(selectedEvent, 'ATTENDANCE')}
+                                                    onClick={() => {
+                                                        setExportType('ATTENDANCE');
+                                                        setIsExportModalOpen(true);
+                                                    }}
                                                     disabled={registrations.length === 0}
                                                     className="px-6 py-3.5 bg-emerald-600 text-white rounded-2xl font-black text-xs shadow-xl shadow-emerald-500/10 hover:bg-emerald-700 transition-all flex items-center gap-2 uppercase tracking-widest disabled:opacity-30"
                                                 >
@@ -1097,6 +1197,14 @@ const OrganizerDashboard = () => {
                                                                                     <span className="w-1 h-1 bg-blue-300 rounded-full" />
                                                                                     <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded italic">
                                                                                         Squad: {reg.teamName} ({reg.teamRole})
+                                                                                    </span>
+                                                                                </>
+                                                                            )}
+                                                                            {selectedEvent?.type === 'Hackathon' && reg.problemStatement && (
+                                                                                <>
+                                                                                    <span className="w-1 h-1 bg-purple-300 rounded-full" />
+                                                                                    <span className="text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-100 flex items-center gap-1">
+                                                                                        <Zap className="w-2.5 h-2.5" /> {reg.problemStatement}
                                                                                     </span>
                                                                                 </>
                                                                             )}
@@ -1536,6 +1644,68 @@ const OrganizerDashboard = () => {
                                                         className="w-full px-6 py-5 bg-slate-50 border border-slate-200 rounded-[2rem] focus:ring-4 focus:ring-blue-500/5 outline-none font-medium text-slate-800 transition-all"
                                                     />
                                                 </div>
+
+                                                {/* Hackathon Specific: Problem Statements */}
+                                                {formData.type === 'Hackathon' && (
+                                                    <motion.div
+                                                        initial={{ opacity: 0, height: 0 }}
+                                                        animate={{ opacity: 1, height: 'auto' }}
+                                                        className="pt-6 border-t border-slate-100 space-y-6"
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <div>
+                                                                <h4 className="text-sm font-black text-slate-900 uppercase italic">Problem Statement Repository</h4>
+                                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Define challenges or enable open innovation</p>
+                                                            </div>
+                                                            <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-xl border border-slate-200">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    id="allowOpenStatement"
+                                                                    checked={formData.allowOpenStatement}
+                                                                    onChange={(e) => setFormData({ ...formData, allowOpenStatement: e.target.checked })}
+                                                                    className="w-4 h-4 rounded accent-blue-600"
+                                                                />
+                                                                <label htmlFor="allowOpenStatement" className="text-[10px] font-black text-slate-600 uppercase tracking-tight cursor-pointer">Allow Open Innovation (Custom Statements)</label>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="space-y-4">
+                                                            {(formData.problemStatements || []).map((ps, idx) => (
+                                                                <div key={idx} className="flex gap-2">
+                                                                    <div className="flex-1 flex items-center gap-4 bg-slate-50 border border-slate-200 px-6 py-4 rounded-2xl">
+                                                                        <span className="text-xs font-black text-blue-600">#{idx + 1}</span>
+                                                                        <input
+                                                                            type="text"
+                                                                            value={ps}
+                                                                            onChange={(e) => {
+                                                                                const newPS = [...formData.problemStatements];
+                                                                                newPS[idx] = e.target.value;
+                                                                                setFormData({ ...formData, problemStatements: newPS });
+                                                                            }}
+                                                                            placeholder="Define a specific challenge..."
+                                                                            className="flex-1 bg-transparent border-none outline-none font-bold text-slate-700 text-sm"
+                                                                        />
+                                                                    </div>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const newPS = formData.problemStatements.filter((_, i) => i !== idx);
+                                                                            setFormData({ ...formData, problemStatements: newPS });
+                                                                        }}
+                                                                        className="p-4 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-2xl transition-all"
+                                                                    >
+                                                                        <X className="w-5 h-5" />
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                            <button
+                                                                onClick={() => setFormData({ ...formData, problemStatements: [...(formData.problemStatements || []), ''] })}
+                                                                className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50/50 transition-all flex items-center justify-center gap-2"
+                                                            >
+                                                                <Plus className="w-4 h-4" /> Add Problem Statement
+                                                            </button>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
                                             </div>
                                         </motion.div>
                                     )}
@@ -2093,6 +2263,139 @@ const OrganizerDashboard = () => {
                                         </div>
                                     </div>
                                 )}
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+
+                {/* Export Configuration Modal */}
+                {isExportModalOpen && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsExportModalOpen(false)}
+                            className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 30 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 30 }}
+                            className="relative w-full max-w-4xl bg-white rounded-[3rem] shadow-[0_32px_128px_-16px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col max-h-[90vh]"
+                        >
+                            {/* Premium Header */}
+                            <div className="p-10 bg-slate-900 text-white relative overflow-hidden shrink-0">
+                                <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 blur-[120px] -mr-48 -mt-48" />
+                                <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-600/5 blur-[80px] -ml-32 -mb-32" />
+
+                                <div className="flex items-center justify-between relative z-10">
+                                    <div className="flex items-center gap-6">
+                                        <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/20 ring-4 ring-blue-500/10">
+                                            <Download className="w-8 h-8 text-white" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-2xl font-black uppercase italic tracking-tight mb-1">Export Matrix Configuration</h3>
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em]">Operational Dimension Selection for {exportType} extraction</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => setIsExportModalOpen(false)}
+                                        className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all border border-white/10 group"
+                                    >
+                                        <X className="w-6 h-6 text-slate-400 group-hover:text-white transition-colors" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Configuration Body */}
+                            <div className="p-10 space-y-10 overflow-y-auto custom-scrollbar">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-12">
+                                    {['Identity', 'Academic', 'Contact', 'Team', 'Strategic', 'Timeline', 'Admin'].map(category => (
+                                        <div key={category} className="space-y-5">
+                                            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-2 h-5 bg-blue-600 rounded-full" />
+                                                    <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em]">{category} Infrastructure</h4>
+                                                </div>
+                                                <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{availableFields.filter(f => f.category === category).length} Nodes</span>
+                                            </div>
+                                            <div className="space-y-3">
+                                                {availableFields.filter(f => f.category === category).map(field => (
+                                                    <label key={field.id} className="flex items-center gap-4 p-4 bg-slate-50/50 border border-slate-100 rounded-2xl cursor-pointer hover:border-blue-300 hover:bg-white hover:shadow-xl hover:shadow-blue-500/5 transition-all group relative overflow-hidden">
+                                                        {selectedFields.includes(field.id) && (
+                                                            <motion.div layoutId={`bg-${field.id}`} className="absolute inset-0 bg-blue-50/50" />
+                                                        )}
+                                                        <div className="relative z-10 flex items-center gap-4 w-full">
+                                                            <div className="relative flex items-center justify-center">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={selectedFields.includes(field.id)}
+                                                                    onChange={(e) => {
+                                                                        if (e.target.checked) setSelectedFields([...selectedFields, field.id]);
+                                                                        else setSelectedFields(selectedFields.filter(f => f !== field.id));
+                                                                    }}
+                                                                    className="w-6 h-6 rounded-lg border-2 border-slate-200 text-blue-600 focus:ring-blue-500/20 transition-all cursor-pointer accent-blue-600"
+                                                                />
+                                                            </div>
+                                                            <span className={`text-[11px] font-black uppercase tracking-wide transition-colors ${selectedFields.includes(field.id) ? 'text-blue-600' : 'text-slate-600 group-hover:text-blue-500'}`}>
+                                                                {field.label}
+                                                            </span>
+                                                        </div>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Summary & Actions */}
+                                <div className="space-y-8 pt-6">
+                                    <div className="flex items-center gap-6 p-6 bg-slate-900 rounded-[2rem] text-white shadow-2xl shadow-slate-900/20 relative overflow-hidden group">
+                                        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 blur-[40px] group-hover:bg-blue-500/20 transition-all" />
+                                        <div className="flex-1 space-y-2">
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">Selection Intelligence</p>
+                                            <div className="flex items-center gap-4">
+                                                <button
+                                                    onClick={() => setSelectedFields(availableFields.map(f => f.id))}
+                                                    className="px-6 py-2.5 bg-white/10 hover:bg-white text-[10px] font-black text-white hover:text-slate-900 uppercase tracking-widest rounded-xl transition-all border border-white/10"
+                                                >
+                                                    Full Extraction
+                                                </button>
+                                                <button
+                                                    onClick={() => setSelectedFields(['name', 'roll'])}
+                                                    className="px-6 py-2.5 bg-white/5 hover:bg-white/10 text-[10px] font-black text-slate-400 hover:text-white uppercase tracking-widest rounded-xl transition-all border border-white/5"
+                                                >
+                                                    Core Essentials
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="text-right border-l border-white/10 pl-8">
+                                            <h4 className="text-3xl font-black italic mb-1 text-blue-400">{selectedFields.length}</h4>
+                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Dimensions Active</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-6">
+                                        <button
+                                            onClick={() => setIsExportModalOpen(false)}
+                                            className="flex-1 py-6 bg-slate-100 text-slate-600 rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] hover:bg-slate-200 transition-all border border-slate-200"
+                                        >
+                                            Abort Extraction
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                handleDownloadSubReport(selectedEvent, exportType);
+                                                setIsExportModalOpen(false);
+                                            }}
+                                            disabled={selectedFields.length === 0}
+                                            className="flex-[2] py-6 bg-blue-600 text-white rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] shadow-[0_20px_40px_-12px_rgba(37,99,235,0.4)] hover:shadow-[0_25px_50px_-12px_rgba(37,99,235,0.6)] hover:bg-blue-700 transition-all flex items-center justify-center gap-4 disabled:opacity-40 disabled:shadow-none"
+                                        >
+                                            <ShieldCheck className="w-6 h-6 text-emerald-400" />
+                                            <span>Generate Official Report</span>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </motion.div>
                     </div>
