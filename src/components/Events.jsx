@@ -11,6 +11,7 @@ const Events = () => {
     const [filter, setFilter] = useState('All');
     const [liveEvents, setLiveEvents] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [isEventDetailsModalOpen, setIsEventDetailsModalOpen] = useState(false);
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
     const [eventToRegister, setEventToRegister] = useState(null);
     const [isRegLoading, setIsRegLoading] = useState(false);
@@ -56,13 +57,9 @@ const Events = () => {
                 return;
             }
 
-            // Open confirmation modal instead of immediate registration
+            // Open event details modal first
             setEventToRegister(event);
-            setRegMode(event.isTeamEvent ? 'TEAM_CREATE' : 'INDIVIDUAL');
-            setTeamName('');
-            setTeamCodeInput('');
-            setVerificationError('');
-            setIsConfirmModalOpen(true);
+            setIsEventDetailsModalOpen(true);
         } catch (error) {
             console.error("Auth check error:", error);
         }
@@ -170,6 +167,16 @@ const Events = () => {
         } finally {
             setIsRegLoading(false);
         }
+    };
+
+    const proceedToRegistration = () => {
+        // Close details modal, open registration confirmation modal
+        setIsEventDetailsModalOpen(false);
+        setRegMode(eventToRegister?.isTeamEvent ? 'TEAM_CREATE' : 'INDIVIDUAL');
+        setTeamName('');
+        setTeamCodeInput('');
+        setVerificationError('');
+        setIsConfirmModalOpen(true);
     };
 
     const types = ['All', 'WORKSHOP', 'COMPETITION', 'HACKATHON', 'SEMINAR'];
@@ -292,7 +299,128 @@ const Events = () => {
                 )}
             </div>
 
-            {/* Registration Confirmation Modal */}
+            {/* Event Details Modal - Step 1 */}
+            <AnimatePresence>
+                {isEventDetailsModalOpen && eventToRegister && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsEventDetailsModalOpen(false)}
+                            className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                            className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto"
+                        >
+                            {/* Modal Header */}
+                            <div className="sticky top-0 z-10 p-8 bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-between">
+                                <div>
+                                    <span className={`inline-block px-3 py-1 rounded-lg text-[9px] font-black tracking-widest uppercase mb-3 ${eventToRegister.type === 'HACKATHON' ? 'bg-purple-500/30' : eventToRegister.type === 'WORKSHOP' ? 'bg-blue-500/30' : 'bg-pink-500/30'}`}>
+                                        {eventToRegister.type}
+                                    </span>
+                                    <h2 className="text-3xl font-black uppercase tracking-tight">
+                                        {eventToRegister.title}
+                                    </h2>
+                                </div>
+                                <button
+                                    onClick={() => setIsEventDetailsModalOpen(false)}
+                                    className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+                                >
+                                    <X size={24} />
+                                </button>
+                            </div>
+
+                            {/* Modal Content */}
+                            <div className="p-8 space-y-6">
+                                {/* Event Description */}
+                                <div>
+                                    <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-3">About This Event</h3>
+                                    <p className="text-slate-700 leading-relaxed">
+                                        {eventToRegister.detailedDescription || eventToRegister.shortDescription}
+                                    </p>
+                                </div>
+
+                                {/* Event Details Grid */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    {/* Date & Time */}
+                                    <div className="bg-blue-50 rounded-2xl p-4">
+                                        <div className="flex items-center gap-2 text-blue-600 mb-2">
+                                            <Calendar className="w-4 h-4" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest">Date & Time</span>
+                                        </div>
+                                        <p className="text-slate-800 font-bold text-sm">{eventToRegister.date}</p>
+                                        <p className="text-slate-600 text-xs">{eventToRegister.time}</p>
+                                    </div>
+
+                                    {/* Venue */}
+                                    <div className="bg-purple-50 rounded-2xl p-4">
+                                        <div className="flex items-center gap-2 text-purple-600 mb-2">
+                                            <MapPin className="w-4 h-4" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest">Venue</span>
+                                        </div>
+                                        <p className="text-slate-800 font-bold text-sm">{eventToRegister.venue}</p>
+                                        <p className="text-slate-600 text-xs">{eventToRegister.venueType || 'On-Campus'}</p>
+                                    </div>
+
+                                    {/* Max Participants */}
+                                    <div className="bg-pink-50 rounded-2xl p-4">
+                                        <div className="flex items-center gap-2 text-pink-600 mb-2">
+                                            <Users className="w-4 h-4" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest">Capacity</span>
+                                        </div>
+                                        <p className="text-slate-800 font-bold text-sm">{eventToRegister.maxParticipants || 'Unlimited'} Seats</p>
+                                        <p className="text-slate-600 text-xs">{eventToRegister.attendeesCount || 0} Registered</p>
+                                    </div>
+
+                                    {/* Event Type */}
+                                    <div className="bg-emerald-50 rounded-2xl p-4">
+                                        <div className="flex items-center gap-2 text-emerald-600 mb-2">
+                                            <Tag className="w-4 h-4" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest">Audience</span>
+                                        </div>
+                                        <p className="text-slate-800 font-bold text-sm">{eventToRegister.audienceType || 'All Students'}</p>
+                                        {eventToRegister.isTeamEvent && (
+                                            <p className="text-slate-600 text-xs">Team Event ({eventToRegister.minTeamSize}-{eventToRegister.maxTeamSize} members)</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Coordinator Info */}
+                                {eventToRegister.coordinator && (
+                                    <div className="bg-slate-50 rounded-2xl p-6">
+                                        <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Event Coordinator</h3>
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-black text-lg">
+                                                {eventToRegister.coordinator.name?.charAt(0) || 'T'}
+                                            </div>
+                                            <div>
+                                                <p className="font-black text-slate-800">{eventToRegister.coordinator.name}</p>
+                                                <p className="text-sm text-slate-600">{eventToRegister.coordinator.email}</p>
+                                                <p className="text-sm text-slate-600">{eventToRegister.coordinator.phone}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Register Button */}
+                                <button
+                                    onClick={proceedToRegistration}
+                                    className="w-full py-5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all duration-300 flex items-center justify-center gap-3"
+                                >
+                                    <Rocket className="w-5 h-5" />
+                                    Register for This Event
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Registration Confirmation Modal - Step 2 */}
             <AnimatePresence>
                 {isConfirmModalOpen && eventToRegister && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
