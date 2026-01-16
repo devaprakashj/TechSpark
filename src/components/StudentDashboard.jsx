@@ -33,6 +33,7 @@ import {
     X,
     Loader2,
     Send,
+    CalendarPlus,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
@@ -72,8 +73,243 @@ const StudentDashboard = () => {
     const [selectedProblemStatement, setSelectedProblemStatement] = useState('');
     const [customProblemStatement, setCustomProblemStatement] = useState('');
     const [isCustomProblem, setIsCustomProblem] = useState(false);
+    const [selectedRegDetails, setSelectedRegDetails] = useState(null);
+    const [teamMembers, setTeamMembers] = useState([]);
+    const [isFetchingTeam, setIsFetchingTeam] = useState(false);
     const idCardRef = useRef(null);
     const navigate = useNavigate();
+
+    // Quiz Modal State
+    const [showQuizModal, setShowQuizModal] = useState(false);
+    const [activeQuizUrl, setActiveQuizUrl] = useState('');
+    const [activeQuizTitle, setActiveQuizTitle] = useState('');
+    const [activeQuizRegId, setActiveQuizRegId] = useState(null);
+    const [iframeLoadCount, setIframeLoadCount] = useState(0);
+    const quizStartTime = useRef(null);
+    const [currentTime, setCurrentTime] = useState(new Date());
+
+    // Live Clock Effect
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTime(new Date());
+        }, 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    // Hide body scroll and navbar when quiz modal is open
+    useEffect(() => {
+        const navbar = document.querySelector('nav');
+        const header = document.querySelector('header');
+
+        if (showQuizModal) {
+            document.body.style.overflow = 'hidden';
+            document.body.style.position = 'fixed';
+            document.body.style.width = '100%';
+            document.body.style.top = `0px`; // Force to top
+            if (navbar) navbar.style.display = 'none';
+            if (header) header.style.display = 'none';
+        } else {
+            document.body.style.overflow = '';
+            document.body.style.position = '';
+            document.body.style.width = '';
+            document.body.style.top = '';
+            if (navbar) navbar.style.display = '';
+            if (header) header.style.display = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+            document.body.style.position = '';
+            document.body.style.width = '';
+            document.body.style.top = '';
+            if (navbar) navbar.style.display = '';
+            if (header) header.style.display = '';
+        };
+    }, [showQuizModal]);
+
+    // Quiz Auto-Completion Logic
+    const handleQuizCompletion = async () => {
+        if (!activeQuizRegId) return;
+
+        try {
+            const regRef = doc(db, 'registrations', activeQuizRegId);
+            await updateDoc(regRef, {
+                status: 'Completed',
+                isAttended: true,
+                quizCompletedAt: serverTimestamp(),
+                lastUpdated: serverTimestamp()
+            });
+
+            // Brief delay to let the user see the Google Form "Thank You" message
+            setTimeout(() => {
+                setShowQuizModal(false);
+                setActiveQuizUrl('');
+                setActiveQuizTitle('');
+                setActiveQuizRegId(null);
+                setIframeLoadCount(0);
+                quizStartTime.current = null;
+                alert("✨ BRAVO! Quiz Submission Detected. Your participation has been recorded and your dashboard is now updated to COMPLETED! 🚀");
+            }, 2000);
+        } catch (error) {
+            console.error("Error updating quiz status:", error);
+        }
+    };
+
+    const handleIframeLoad = () => {
+        if (!showQuizModal) return;
+
+        console.log(`Quiz Iframe Loaded. Current Count: ${iframeLoadCount + 1}`);
+
+        if (iframeLoadCount === 0) {
+            // First load: User just opened the quiz
+            quizStartTime.current = Date.now();
+            setIframeLoadCount(1);
+        } else {
+            // Subsequent loads: Could be draft recovery OR final submission redirect
+            const timeSpent = (Date.now() - quizStartTime.current) / 1000;
+            console.log(`Time spent in quiz: ${timeSpent} seconds`);
+
+            // Heuristic: If they spent more than 10 seconds, it's likely a real submission
+            // Google Forms draft recovery reloads happen almost instantly after opening
+            if (timeSpent > 10) {
+                handleQuizCompletion();
+            } else {
+                console.log("Transient reload detected (likely draft recovery). Ignoring for completion.");
+                setIframeLoadCount(prev => prev + 1);
+            }
+        }
+    };
+
+    const fetchTeamDetails = async (reg) => {
+        if (!reg?.isTeamRegistration || !reg?.teamCode) {
+            setTeamMembers([]);
+            return;
+        }
+        setIsFetchingTeam(true);
+        try {
+            const q = query(
+                collection(db, 'registrations'),
+                where('eventId', '==', reg.eventId),
+                where('teamCode', '==', reg.teamCode)
+            );
+            const snapshot = await getDocs(q);
+            const members = snapshot.docs.map(doc => doc.data());
+            setTeamMembers(members);
+        } catch (error) {
+            console.error("Error fetching team:", error);
+        } finally {
+            setIsFetchingTeam(false);
+        }
+    };
+
+    // Generate Google Calendar URL for event
+    const generateCalendarUrl = (reg) => {
+        const eventData = allEvents.find(e => e.id === reg.eventId);
+        const title = encodeURIComponent(`TechSpark: ${reg.eventTitle}`);
+        const venue = encodeURIComponent(eventData?.venue || 'RIT Chennai Campus');
+        const description = encodeURIComponent(`📍 TechSpark Club Event\n\n🎯 Event: ${reg.eventTitle}\n🕐 Time: ${reg.eventTime}\n📍 Venue: ${eventData?.venue || 'TBA'}\n\n✅ Registration ID: ${reg.id}\n\nPowered by TechSpark Club - RIT Chennai`);
+
+        // Parse date and time
+        let startDate = '';
+        let endDate = '';
+        try {
+            // Attempt to parse eventDate (e.g., "Jan 20, 2026")
+            const dateStr = reg.eventDate || '';
+            const timeStr = reg.eventTime || '10:00 AM';
+
+            // Create a date object
+            const eventDateObj = new Date(dateStr);
+            if (!isNaN(eventDateObj.getTime())) {
+                // Parse time (e.g., "10:00 AM" or "10:00 AM - 12:00 PM")
+                const timeParts = timeStr.split('-')[0].trim().match(/(\d+):(\d+)\s*(AM|PM)/i);
+                if (timeParts) {
+                    let hours = parseInt(timeParts[1]);
+                    const minutes = parseInt(timeParts[2]);
+                    const period = timeParts[3].toUpperCase();
+                    if (period === 'PM' && hours !== 12) hours += 12;
+                    if (period === 'AM' && hours === 12) hours = 0;
+                    eventDateObj.setHours(hours, minutes, 0, 0);
+                }
+
+                // Format for Google Calendar (YYYYMMDDTHHMMSS)
+                const formatDate = (d) => {
+                    return d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+                };
+
+                startDate = formatDate(eventDateObj);
+                const endDateObj = new Date(eventDateObj.getTime() + 2 * 60 * 60 * 1000); // 2 hours later
+                endDate = formatDate(endDateObj);
+            }
+        } catch (e) {
+            console.error('Date parsing error:', e);
+        }
+
+        const baseUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE';
+        const url = `${baseUrl}&text=${title}&dates=${startDate}/${endDate}&details=${description}&location=${venue}&sf=true&output=xml`;
+
+        return url;
+    };
+
+    // Generate Quiz URL with pre-filled student data
+    const generateQuizUrl = (reg) => {
+        const eventData = allEvents.find(e => e.id === reg.eventId);
+
+        console.log('=== QUIZ URL DEBUG ===');
+        console.log('Event Data:', eventData);
+        console.log('User Data:', user);
+        console.log('Quiz Form URL:', eventData?.quizFormUrl);
+        console.log('Quiz Entry IDs:', {
+            name: eventData?.quizEntryName,
+            roll: eventData?.quizEntryRoll,
+            dept: eventData?.quizEntryDept,
+            year: eventData?.quizEntryYear,
+            section: eventData?.quizEntrySection,
+            mobile: eventData?.quizEntryMobile
+        });
+
+        if (!eventData || eventData.type !== 'Quiz' || !eventData.quizFormUrl) {
+            console.log('Quiz URL generation failed: Missing event data or not a quiz');
+            return null;
+        }
+
+        // Clean the base URL - remove any existing query params to start fresh
+        let baseUrl = eventData.quizFormUrl;
+        if (baseUrl.includes('?')) {
+            baseUrl = baseUrl.split('?')[0];
+        }
+
+        const params = ['usp=pp_url']; // Required for Google Forms pre-fill
+
+        // Add pre-fill parameters if entry IDs are configured
+        if (eventData.quizEntryName && user.fullName) {
+            params.push(`${eventData.quizEntryName}=${encodeURIComponent(user.fullName)}`);
+            console.log('Added Name:', user.fullName);
+        }
+        if (eventData.quizEntryRoll && user.rollNumber) {
+            params.push(`${eventData.quizEntryRoll}=${encodeURIComponent(user.rollNumber)}`);
+            console.log('Added Roll:', user.rollNumber);
+        }
+        if (eventData.quizEntryDept && user.department) {
+            params.push(`${eventData.quizEntryDept}=${encodeURIComponent(user.department)}`);
+            console.log('Added Dept:', user.department);
+        }
+        if (eventData.quizEntryYear && user.yearOfStudy) {
+            params.push(`${eventData.quizEntryYear}=${encodeURIComponent(user.yearOfStudy)}`);
+            console.log('Added Year:', user.yearOfStudy);
+        }
+        if (eventData.quizEntrySection && user.section) {
+            params.push(`${eventData.quizEntrySection}=${encodeURIComponent(user.section)}`);
+            console.log('Added Section:', user.section);
+        }
+        if (eventData.quizEntryMobile && user.phone) {
+            params.push(`${eventData.quizEntryMobile}=${encodeURIComponent(user.phone)}`);
+            console.log('Added Mobile:', user.phone);
+        }
+
+        const finalUrl = `${baseUrl}?${params.join('&')}`;
+        console.log('Final Quiz URL:', finalUrl);
+
+        return finalUrl;
+    };
 
     const handleFeedbackSubmit = async () => {
         if (!activeFeedbackEvent || !user) return;
@@ -188,8 +424,47 @@ const StudentDashboard = () => {
             setAllEvents(evs);
 
             // Filter and Sort locally: Only show LIVE/CLOSED and sort by newest
+            // Also filter by audience targeting
             const filteredEvents = evs
                 .filter(e => ['LIVE', 'CLOSED'].includes(e.status))
+                .filter(e => {
+                    // Check audience targeting
+                    const audienceType = e.audienceType || 'Whole College';
+
+                    if (audienceType === 'Whole College') {
+                        return true; // Everyone can see
+                    }
+
+                    // Convert student year to Roman numeral format
+                    const yearMap = { '1': 'I', '2': 'II', '3': 'III', '4': 'IV', 'I': 'I', 'II': 'II', 'III': 'III', 'IV': 'IV' };
+                    const studentYear = yearMap[user.yearOfStudy] || user.yearOfStudy;
+                    const studentDept = user.department?.toUpperCase();
+                    const studentSection = user.section?.toUpperCase();
+
+                    if (audienceType === 'Department Wise') {
+                        const targetDepts = (e.departments || []).map(d => d.toUpperCase());
+                        return targetDepts.length === 0 || targetDepts.includes(studentDept);
+                    }
+
+                    if (audienceType === 'Year Wise') {
+                        const targetYears = e.years || [];
+                        return targetYears.length === 0 || targetYears.includes(studentYear);
+                    }
+
+                    if (audienceType === 'Section Wise' || audienceType === 'Custom') {
+                        const targetDepts = (e.departments || []).map(d => d.toUpperCase());
+                        const targetYears = e.years || [];
+                        const targetSections = (e.sections || []).map(s => s.toUpperCase());
+
+                        const deptMatch = targetDepts.length === 0 || targetDepts.includes(studentDept);
+                        const yearMatch = targetYears.length === 0 || targetYears.includes(studentYear);
+                        const sectionMatch = targetSections.length === 0 || targetSections.includes(studentSection);
+
+                        return deptMatch && yearMatch && sectionMatch;
+                    }
+
+                    return true;
+                })
                 .sort((a, b) => {
                     const dateA = a.createdAt?.toDate?.() || new Date(0);
                     const dateB = b.createdAt?.toDate?.() || new Date(0);
@@ -227,8 +502,14 @@ const StudentDashboard = () => {
                     const data = await response.json();
                     if (Array.isArray(data)) {
                         setCertificates(data);
-                    } else if (data && data.status !== 'not_found' && data.status !== 'error') {
+                    } else if (data &&
+                        data.status !== 'not_found' &&
+                        data.status !== 'not found' &&
+                        data.status !== 'error' &&
+                        !data.message) {
                         setCertificates([data]);
+                    } else {
+                        setCertificates([]);
                     }
                 }
             } catch (error) {
@@ -393,64 +674,65 @@ const StudentDashboard = () => {
 
     if (!user) return null;
 
-    const effectivePoints = Math.max(user.points || 0, 10);
+    const certCount = certificates.length;
+    const calculatedPoints = certCount * 100;
 
     const stats = [
         { label: 'Events Registered', value: registrations.length, icon: <Calendar className="w-5 h-5" />, color: 'blue' },
-        { label: 'Participation Points', value: effectivePoints, icon: <Award className="w-5 h-5" />, color: 'purple' },
+        { label: 'Events Participated', value: certCount, icon: <Rocket className="w-5 h-5" />, color: 'emerald' },
+        { label: 'Participation Points', value: calculatedPoints, icon: <Award className="w-5 h-5" />, color: 'purple' },
         { label: 'Badges Unlocked', value: 0, icon: <Sparkles className="w-5 h-5" />, color: 'orange' },
-        { label: 'Rank', value: effectivePoints > 500 ? 'Pro' : 'Novice', icon: <Zap className="w-5 h-5" />, color: 'green' },
     ];
 
     const badgeMap = [
         {
             id: 'spark-starter',
-            name: 'Spark Starter',
+            name: 'Debut Spark',
             icon: <Rocket className="w-5 h-5" />,
-            description: 'New member joined the club',
-            color: 'from-blue-400 to-yellow-400',
+            description: 'Earned your first verified certificate',
+            color: 'from-blue-400 to-emerald-400',
             glow: 'shadow-blue-200',
-            unlocked: true
+            unlocked: certCount >= 1
         },
         {
             id: 'active-spark',
-            name: 'Active Spark',
+            name: 'Rising Catalyst',
             icon: <div className="relative"><Rocket className="w-5 h-5" /><Zap className="w-3 h-3 absolute -top-1 -right-1 text-yellow-400 fill-yellow-400" /></div>,
-            description: 'Regular logins & 1-2 events',
+            description: '10+ verified participations (1000 XP)',
             color: 'from-blue-500 via-yellow-400 to-blue-600',
             glow: 'shadow-yellow-200',
-            unlocked: (user.points >= 50 || user.badges?.includes('active-spark'))
+            unlocked: certCount >= 10
         },
         {
             id: 'builder-spark',
-            name: 'Builder Spark',
+            name: 'Elite Contributor',
             icon: <div className="relative"><Settings className="w-5 h-5" /><CodeXml className="w-3 h-3 absolute -top-1 -right-1 text-yellow-500" /></div>,
-            description: 'Submitted a project or hackathon',
+            description: '25+ verified participations (2500 XP)',
             color: 'from-blue-600 via-indigo-600 to-yellow-500',
             glow: 'shadow-indigo-200',
-            unlocked: (user.points >= 150 || user.badges?.includes('builder-spark'))
+            unlocked: certCount >= 25
         },
         {
             id: 'pro-spark',
-            name: 'Pro Spark',
+            name: 'Institutional Legend',
             icon: <div className="relative"><BookOpen className="w-5 h-5" /><Brain className="w-3 h-3 absolute -top-1 -right-1 text-cyan-400" /></div>,
-            description: 'Multiple projects & mentor',
+            description: '50+ verified participations (5000 XP)',
             color: 'from-indigo-800 via-blue-700 to-cyan-400',
             glow: 'shadow-cyan-400/50',
-            unlocked: (user.points >= 500 || user.badges?.includes('pro-spark'))
+            unlocked: certCount >= 50
         },
         {
             id: 'spark-leader',
-            name: 'Spark Leader',
+            name: 'TechSpark Architect',
             icon: <div className="relative"><Crown className="w-5 h-5" /><Sparkles className="w-3 h-3 absolute -top-1 -right-1 text-yellow-400" /></div>,
-            description: 'Core team or admin role',
+            description: '100 certificates (10000 XP) or Leadership role',
             color: 'from-blue-900 via-yellow-500 to-yellow-300',
             glow: 'shadow-yellow-400/50',
-            unlocked: user.role === 'admin' || user.role === 'core' || user.badges?.includes('spark-leader')
+            unlocked: certCount >= 100 || user.role === 'admin' || user.role === 'core'
         }
     ];
 
-    stats[2].value = badgeMap.filter(b => b.unlocked).length;
+    stats[3].value = badgeMap.filter(b => b.unlocked).length;
 
     return (
         <div className="min-h-screen bg-slate-50 pt-24 pb-12 px-4 md:px-8">
@@ -564,7 +846,14 @@ const StudentDashboard = () => {
                                                     (eventActualData?.status === 'CLOSED' ? 'CLOSED' : (reg.status || 'Upcoming')));
 
                                             return (
-                                                <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl group hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 transition-all duration-300">
+                                                <div
+                                                    key={idx}
+                                                    onClick={() => {
+                                                        setSelectedRegDetails(reg);
+                                                        fetchTeamDetails(reg);
+                                                    }}
+                                                    className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl group hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 transition-all duration-300 cursor-pointer"
+                                                >
                                                     <div className="flex items-center gap-4">
                                                         <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold">
                                                             <span className="uppercase">{reg.eventDate?.split(' ')[0]}</span>
@@ -581,17 +870,23 @@ const StudentDashboard = () => {
                                                                         <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 uppercase italic">
                                                                             Squad: {reg.teamName}
                                                                         </span>
-                                                                        {reg.teamRole === 'LEADER' && (
-                                                                            <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 uppercase italic flex items-center gap-1">
-                                                                                <Crown className="w-3 h-3" /> Code: {reg.teamCode}
-                                                                            </span>
-                                                                        )}
                                                                     </div>
                                                                 )}
                                                                 {isCheckedIn && (
                                                                     <span className="text-[8px] text-emerald-600 flex items-center gap-0.5 font-black uppercase">
                                                                         <CheckCircle className="w-2 h-2" /> Verified Entry
                                                                     </span>
+                                                                )}
+                                                                {!isCheckedIn && currentStatus === 'Upcoming' && (
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            window.open(generateCalendarUrl(reg), '_blank');
+                                                                        }}
+                                                                        className="text-[9px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100 hover:bg-blue-100 transition-colors flex items-center gap-1 uppercase"
+                                                                    >
+                                                                        <CalendarPlus className="w-3 h-3" /> Add to Calendar
+                                                                    </button>
                                                                 )}
                                                             </div>
                                                         </div>
@@ -605,7 +900,8 @@ const StudentDashboard = () => {
                                                                     </span>
                                                                 ) : (
                                                                     <button
-                                                                        onClick={() => {
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
                                                                             setActiveFeedbackEvent({ id: reg.eventId, title: reg.eventTitle });
                                                                             setShowFeedbackModal(true);
                                                                         }}
@@ -620,12 +916,32 @@ const StudentDashboard = () => {
                                                                 </span>
                                                             )
                                                         ) : (
-                                                            <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${isCheckedIn ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' :
-                                                                currentStatus === 'Upcoming' ? 'bg-orange-50 text-orange-600' :
-                                                                    'bg-slate-100 text-slate-500'
-                                                                }`}>
-                                                                {currentStatus?.toUpperCase()}
-                                                            </span>
+                                                            <div className="flex items-center gap-2">
+                                                                {/* Quiz: Start Quiz Button */}
+                                                                {eventActualData?.type === 'Quiz' && currentStatus === 'Upcoming' && generateQuizUrl(reg) && (
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setActiveQuizUrl(generateQuizUrl(reg));
+                                                                            setActiveQuizTitle(reg.eventTitle);
+                                                                            setActiveQuizRegId(reg.id);
+                                                                            setIframeLoadCount(0);
+                                                                            quizStartTime.current = null;
+                                                                            setShowQuizModal(true);
+                                                                        }}
+                                                                        className="px-4 py-1.5 bg-purple-600 text-white rounded-xl text-[10px] font-black uppercase hover:bg-purple-700 transition-colors shadow-lg shadow-purple-200 flex items-center gap-1.5"
+                                                                    >
+                                                                        <Rocket className="w-3 h-3" /> START QUIZ
+                                                                    </button>
+                                                                )}
+                                                                <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${isCheckedIn ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' :
+                                                                    currentStatus === 'Upcoming' ? 'bg-orange-50 text-orange-600' :
+                                                                        'bg-slate-100 text-slate-500'
+                                                                    }`}>
+                                                                    {currentStatus?.toUpperCase()}
+                                                                </span>
+                                                                <ExternalLink className="w-3.5 h-3.5 text-slate-300 group-hover:text-blue-500 transition-colors" />
+                                                            </div>
                                                         )}
                                                     </div>
                                                 </div>
@@ -1103,34 +1419,41 @@ const StudentDashboard = () => {
                                     Spark Badges
                                 </h2>
                                 <div className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
-                                    {effectivePoints} XP
+                                    {calculatedPoints} XP
                                 </div>
                             </div>
                             <div className="space-y-4">
-                                {badgeMap.map((badge) => (
-                                    <motion.div key={badge.id} whileHover={{ x: 4 }} className={`flex items-center gap-4 p-4 rounded-2xl border transition-all duration-300 ${badge.unlocked ? 'bg-slate-50 border-slate-100' : 'bg-white border-dashed border-slate-200 opacity-40 grayscale group'}`}>
-                                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br ${badge.color} text-white shadow-lg ${badge.unlocked ? badge.glow : ''}`}>
-                                            {badge.icon}
-                                        </div>
-                                        <div className="flex-1 min-w-0 text-left">
-                                            <div className="flex items-center gap-1.5">
-                                                <h3 className="text-sm font-bold text-slate-800 uppercase truncate">{badge.name}</h3>
-                                                {!badge.unlocked && <Lock className="w-3 h-3 text-slate-400" />}
-                                                {badge.unlocked && <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />}
+                                {certsLoading ? (
+                                    <div className="py-8 flex flex-col items-center gap-3">
+                                        <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Synchronizing Achievement Data...</p>
+                                    </div>
+                                ) : (
+                                    badgeMap.map((badge) => (
+                                        <motion.div key={badge.id} whileHover={{ x: 4 }} className={`flex items-center gap-4 p-4 rounded-2xl border transition-all duration-300 ${badge.unlocked ? 'bg-slate-50 border-slate-100' : 'bg-white border-dashed border-slate-200 opacity-40 grayscale group'}`}>
+                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br ${badge.color} text-white shadow-lg ${badge.unlocked ? badge.glow : ''}`}>
+                                                {badge.icon}
                                             </div>
-                                            <p className="text-[10px] text-slate-500 font-medium leading-tight">{badge.unlocked ? badge.description : `Unlock: ${badge.description}`}</p>
-                                        </div>
-                                    </motion.div>
-                                ))}
+                                            <div className="flex-1 min-w-0 text-left">
+                                                <div className="flex items-center gap-1.5">
+                                                    <h3 className="text-sm font-bold text-slate-800 uppercase truncate">{badge.name}</h3>
+                                                    {!badge.unlocked && <Lock className="w-3 h-3 text-slate-400" />}
+                                                    {badge.unlocked && <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />}
+                                                </div>
+                                                <p className="text-[10px] text-slate-500 font-medium leading-tight">{badge.unlocked ? badge.description : `Unlock: ${badge.description}`}</p>
+                                            </div>
+                                        </motion.div>
+                                    ))
+                                )}
                             </div>
                             <div className="mt-8 pt-6 border-t border-slate-100">
                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest text-center mb-4">Points Progress</p>
                                 <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                    <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min((effectivePoints / 1000) * 100, 100)}%` }} className="h-full bg-gradient-to-r from-blue-600 to-indigo-600" />
+                                    <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min((calculatedPoints / 10000) * 100, 100)}%` }} className="h-full bg-gradient-to-r from-blue-600 to-indigo-600" />
                                 </div>
                                 <div className="flex justify-between mt-2 text-[10px] text-slate-500 font-bold uppercase tracking-tighter">
-                                    <span>{effectivePoints} XP</span>
-                                    <span>1000 XP Goal</span>
+                                    <span>{calculatedPoints} XP</span>
+                                    <span>10000 XP Goal</span>
                                 </div>
                             </div>
                         </div>
@@ -1355,6 +1678,272 @@ const StudentDashboard = () => {
                                     </div>
                                 </div>
                             </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
+
+                {/* Registration Intelligence Modal */}
+                <AnimatePresence>
+                    {selectedRegDetails && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                onClick={() => setSelectedRegDetails(null)}
+                                className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+                            />
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                                className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh] border border-slate-100"
+                            >
+                                {/* Header */}
+                                <div className="p-8 bg-slate-900 text-white text-left relative shrink-0">
+                                    <button
+                                        onClick={() => setSelectedRegDetails(null)}
+                                        className="absolute top-6 right-6 p-3 hover:bg-white/10 rounded-2xl transition-all group"
+                                    >
+                                        <X className="w-6 h-6 text-slate-400 group-hover:text-white" />
+                                    </button>
+                                    <div className="flex items-center gap-6">
+                                        <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/20">
+                                            <ShieldCheck className="w-8 h-8 text-white" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-2xl font-black uppercase italic tracking-tight">Mission Intelligence</h3>
+                                            <div className="flex items-center gap-3 mt-1">
+                                                <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-[0.2em]">{selectedRegDetails.status === 'Upcoming' ? 'ACTIVE RESERVATION' : 'LOGGED ENTRY'}</span>
+                                                <div className="w-1 h-1 bg-slate-700 rounded-full" />
+                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">ID: {selectedRegDetails.id?.slice(-8).toUpperCase()}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="p-8 space-y-8 overflow-y-auto custom-scrollbar bg-slate-50/50">
+                                    {/* Operational Summary */}
+                                    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                            <div>
+                                                <p className="text-[10px] text-blue-600 font-black uppercase tracking-widest mb-1">Target Mission</p>
+                                                <h4 className="text-xl font-black text-slate-800 uppercase tracking-tight leading-none">{selectedRegDetails.eventTitle}</h4>
+                                            </div>
+                                            <div className="flex items-center gap-2 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100">
+                                                <Calendar className="w-4 h-4 text-blue-600" />
+                                                <span className="text-xs font-black text-blue-600 uppercase italic">{selectedRegDetails.eventDate}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-6 pt-6 border-t border-slate-100">
+                                            <div className="space-y-1">
+                                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
+                                                    <Clock className="w-3 h-3" /> Scheduled Time
+                                                </p>
+                                                <p className="text-xs font-black text-slate-700 uppercase">{selectedRegDetails.eventTime}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
+                                                    <Building2 className="w-3 h-3" /> Tactical Venue
+                                                </p>
+                                                <p className="text-xs font-black text-slate-700 uppercase">{allEvents.find(e => e.id === selectedRegDetails.eventId)?.venue || 'CAMPUS HUB'}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
+                                                    <Award className="w-3 h-3" /> Status Link
+                                                </p>
+                                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg uppercase italic ${selectedRegDetails.isAttended || selectedRegDetails.status === 'Present' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>
+                                                    {selectedRegDetails.isAttended || selectedRegDetails.status === 'Present' ? 'VERIFIED' : 'UPCOMING'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Squad Infrastructure */}
+                                    {selectedRegDetails.isTeamRegistration && (
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-2 ml-1">
+                                                <div className="w-2 h-5 bg-blue-600 rounded-full" />
+                                                <h5 className="text-[11px] font-black text-slate-900 uppercase tracking-widest italic">Squad Infrastructure Details</h5>
+                                            </div>
+                                            <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden group shadow-2xl shadow-blue-500/10">
+                                                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 blur-[50px]" />
+                                                <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8">
+                                                    <div className="flex items-center gap-5">
+                                                        <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center shadow-xl shadow-blue-500/20">
+                                                            <Rocket className="w-7 h-7 text-white" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest mb-1">Squad Designation</p>
+                                                            <h4 className="text-2xl font-black italic tracking-tighter leading-none">{selectedRegDetails.teamName}</h4>
+                                                        </div>
+                                                    </div>
+                                                    <div className="bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-sm self-stretch md:self-auto flex items-center gap-3">
+                                                        <div className="text-right">
+                                                            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Auth Code</p>
+                                                            <p className="text-base font-black text-blue-400 font-mono tracking-wider leading-none mt-1">{selectedRegDetails.teamCode}</p>
+                                                        </div>
+                                                        <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
+                                                            <Lock className="w-4 h-4 text-blue-400" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-4">
+                                                    <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest ml-1">Tactical Deployment (Active Agents)</p>
+                                                    {isFetchingTeam ? (
+                                                        <div className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl">
+                                                            <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
+                                                            <span className="text-[10px] font-bold text-slate-400 uppercase">Synchronizing squad link...</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                            {teamMembers.map((member, i) => (
+                                                                <div key={i} className={`flex items-center gap-3 p-3.5 bg-white/5 border rounded-2xl transition-all ${member.userId === user.uid ? 'border-blue-500/50 bg-blue-500/10' : 'border-white/5'}`}>
+                                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black ${member.teamRole === 'LEADER' ? 'bg-amber-400 text-amber-900' : 'bg-slate-700 text-slate-300'}`}>
+                                                                        {member.teamRole === 'LEADER' ? <Crown className="w-4 h-4" /> : i + 1}
+                                                                    </div>
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <p className="text-[11px] font-black text-white truncate uppercase">{member.studentName}</p>
+                                                                            {member.userId === user.uid && <span className="text-[8px] bg-blue-600 text-white px-1 py-0.5 rounded font-black italic">YOU</span>}
+                                                                        </div>
+                                                                        <p className="text-[9px] text-slate-500 font-bold uppercase font-mono">{member.studentRoll}</p>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Directive Info (Problem Statement) */}
+                                    {selectedRegDetails.problemStatement && (
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-2 ml-1">
+                                                <div className="w-2 h-5 bg-emerald-600 rounded-full" />
+                                                <h5 className="text-[11px] font-black text-slate-900 uppercase tracking-widest italic">Mission Objective (Problem Statement)</h5>
+                                            </div>
+                                            <div className="bg-emerald-50 border border-emerald-100 p-8 rounded-[2.5rem] relative group cursor-help">
+                                                <div className="absolute top-4 right-4 text-emerald-600 opacity-20 group-hover:opacity-40 transition-opacity">
+                                                    <Brain className="w-12 h-12" />
+                                                </div>
+                                                <p className="text-xs font-bold text-emerald-900 leading-relaxed italic uppercase">
+                                                    "{selectedRegDetails.problemStatement}"
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Metadata Logistics */}
+                                    <div className="flex items-center justify-between p-6 bg-white border border-slate-100 rounded-[2rem] shadow-sm">
+                                        <div className="text-left">
+                                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Authorization Logged</p>
+                                            <p className="text-xs font-black text-slate-700">
+                                                {selectedRegDetails.registeredAt?.toDate ? selectedRegDetails.registeredAt.toDate().toLocaleString() : 'SYSTEM VERIFIED'}
+                                            </p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Operational Core</p>
+                                            <p className="text-xs font-black text-blue-600 uppercase italic">TS-RIT-{user.department}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="p-8 bg-white border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
+                                    <button
+                                        onClick={() => setSelectedRegDetails(null)}
+                                        className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.2em] shadow-xl shadow-slate-200 hover:bg-black transition-all flex items-center justify-center gap-3"
+                                    >
+                                        DISMISS DOSSIER <ShieldCheck className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
+
+                {/* Quiz Modal - Embedded Google Form */}
+                <AnimatePresence>
+                    {showQuizModal && activeQuizUrl && (
+                        <div className="fixed inset-0 bg-slate-900 z-[99999] flex flex-col" style={{ top: 0, left: 0, right: 0, bottom: 0, margin: 0, padding: 0 }}>
+                            <motion.div
+                                initial={{ opacity: 0, y: -20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                                className="w-full shrink-0 z-[100000]"
+                            >
+                                {/* Header */}
+                                <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-3 md:px-5 py-2 md:py-2.5 flex items-center justify-between shadow-lg border-b border-purple-500/30">
+                                    <div className="flex items-center gap-3 md:gap-5">
+                                        <img src={tsLogo} alt="TechSpark" className="h-10 md:h-14 w-auto object-contain shrink-0" style={{ filter: 'brightness(0) invert(1)' }} />
+                                        <div className="w-px h-8 bg-white/20 hidden md:block" />
+                                        <div className="min-w-0">
+                                            <h3 className="text-sm md:text-xl font-black text-white uppercase tracking-tight truncate">{activeQuizTitle}</h3>
+                                        </div>
+                                    </div>
+
+                                    {/* Live Clock */}
+                                    <div className="hidden lg:flex items-center gap-3 bg-black/20 px-4 py-1.5 rounded-full border border-white/10 backdrop-blur-sm">
+                                        <Clock className="w-4 h-4 text-purple-200 animate-pulse" />
+                                        <span className="text-white font-mono font-black text-lg tracking-wider">
+                                            {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+                                        </span>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 md:gap-3">
+                                        {/* Mobile Clock */}
+                                        <div className="lg:hidden bg-black/20 px-2 py-1 rounded-lg border border-white/10">
+                                            <span className="text-white font-mono font-bold text-[10px]">
+                                                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+                                            </span>
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                if (window.confirm('Are you sure you want to exit the quiz? Your progress may be lost.')) {
+                                                    setShowQuizModal(false);
+                                                    setActiveQuizUrl('');
+                                                    setActiveQuizTitle('');
+                                                    setActiveQuizRegId(null);
+                                                    setIframeLoadCount(0);
+                                                }
+                                            }}
+                                            className="px-3 md:px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg md:rounded-xl font-black text-[10px] md:text-xs uppercase tracking-widest transition-all flex items-center gap-1 md:gap-2 shrink-0"
+                                        >
+                                            <X className="w-3 h-3 md:w-4 md:h-4" />
+                                            <span className="hidden sm:inline">EXIT QUIZ</span>
+                                            <span className="sm:hidden">EXIT</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
+
+                            {/* Quiz Iframe */}
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="flex-1 w-full bg-white overflow-hidden"
+                            >
+                                <iframe
+                                    src={activeQuizUrl}
+                                    onLoad={handleIframeLoad}
+                                    title="TechSpark Quiz"
+                                    className="w-full h-full border-0"
+                                    style={{ minHeight: 'calc(100vh - 120px)' }}
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                />
+                            </motion.div>
+
+                            {/* Footer */}
+                            <div className="bg-slate-900 px-3 md:px-6 py-2 md:py-3 text-center shrink-0">
+                                <p className="text-[8px] md:text-[10px] text-slate-400 font-bold uppercase tracking-wider md:tracking-widest">
+                                    📋 Auto-filled • 🔒 Secure • ⏱️ Submit on time
+                                </p>
+                            </div>
                         </div>
                     )}
                 </AnimatePresence>

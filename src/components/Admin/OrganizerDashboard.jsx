@@ -70,6 +70,8 @@ const OrganizerDashboard = () => {
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [selectedEventFeedback, setSelectedEventFeedback] = useState([]);
     const [loadingFeedback, setLoadingFeedback] = useState(false);
+    const [submissions, setSubmissions] = useState([]);
+    const [loadingSubmissions, setLoadingSubmissions] = useState(false);
 
     // Registration Search & Filter State
     const [regSearchQuery, setRegSearchQuery] = useState('');
@@ -127,6 +129,14 @@ const OrganizerDashboard = () => {
         maxTeamSize: 4,
         problemStatements: [],
         allowOpenStatement: false,
+        // Quiz specific fields
+        quizFormUrl: '',
+        quizEntryName: '',
+        quizEntryRoll: '',
+        quizEntryDept: '',
+        quizEntryYear: '',
+        quizEntrySection: '',
+        quizEntryMobile: '',
         coordinatorName: '',
         coordinatorPhone: '',
         coordinatorEmail: '',
@@ -261,6 +271,34 @@ const OrganizerDashboard = () => {
         return () => unsubscribe();
     }, [selectedEvent?.id]);
 
+    // Real-time listener for Quiz Submissions
+    useEffect(() => {
+        if (currentView !== 'submissions' || !organizer?.username) return;
+
+        setLoadingSubmissions(true);
+        console.log("Establishing Live Score Link...");
+
+        const q = query(
+            collection(db, 'quizSubmissions'),
+            orderBy('timestamp', 'desc')
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const subsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // Filter submissions relevant to the organizer's events
+            const organizerEventIds = events.map(e => e.id);
+            const filteredSubs = subsList.filter(s => organizerEventIds.includes(s.eventId));
+            setSubmissions(filteredSubs);
+            setLoadingSubmissions(false);
+            console.log(`Live Intelligence Sync: ${filteredSubs.length} submissions detected.`);
+        }, (error) => {
+            console.error("Link Failure in Submissions sync:", error);
+            setLoadingSubmissions(false);
+        });
+
+        return () => unsubscribe();
+    }, [currentView, organizer?.username, events]);
+
     // Reactive Stats Calculation
     useEffect(() => {
         setStats({
@@ -342,6 +380,9 @@ const OrganizerDashboard = () => {
             startDate: '', startTime: '', endDate: '', endTime: '', venueType: 'Offline', venueName: '', googleMapLink: '',
             audienceType: 'Whole College', departments: [], years: [], sections: [],
             registrationRequired: true, regStartDateTime: '', regEndDateTime: '', maxParticipants: '', waitingList: false,
+            isTeamEvent: false, minTeamSize: 1, maxTeamSize: 4, problemStatements: [], allowOpenStatement: false,
+            quizFormUrl: '', quizEntryName: '', quizEntryRoll: '', quizEntryDept: '',
+            quizEntryYear: '', quizEntrySection: '', quizEntryMobile: '',
             coordinatorName: '', coordinatorPhone: '', coordinatorEmail: '', displayCoordinator: true,
             terms: '', acceptedTerms: false, internalNotes: ''
         });
@@ -384,7 +425,15 @@ const OrganizerDashboard = () => {
             terms: event.terms || '',
             acceptedTerms: false, // Reset for re-acceptance
             internalNotes: event.internalNotes || '',
-            remarks: event.remarks || ''
+            remarks: event.remarks || '',
+            // Quiz fields
+            quizFormUrl: event.quizFormUrl || '',
+            quizEntryName: event.quizEntryName || '',
+            quizEntryRoll: event.quizEntryRoll || '',
+            quizEntryDept: event.quizEntryDept || '',
+            quizEntryYear: event.quizEntryYear || '',
+            quizEntrySection: event.quizEntrySection || '',
+            quizEntryMobile: event.quizEntryMobile || ''
         });
 
         setEditingEventId(event.id);
@@ -900,6 +949,7 @@ const OrganizerDashboard = () => {
                         { id: 'create', label: 'Create Event', icon: <Plus className="w-5 h-5" /> },
                         { id: 'my_events', label: 'My Events', icon: <Briefcase className="w-5 h-5" /> },
                         { id: 'registrations', label: 'Registrations', icon: <Users className="w-5 h-5" /> },
+                        { id: 'submissions', label: 'Live Scores', icon: <Activity className="w-5 h-5" /> },
                         { id: 'reports', label: 'Reports', icon: <TrendingUp className="w-5 h-5" /> },
                         { id: 'profile', label: 'Profile', icon: <UserCog className="w-5 h-5" /> },
                     ].map((item) => (
@@ -1465,6 +1515,99 @@ const OrganizerDashboard = () => {
                                     </div>
                                 </div>
                             </motion.div>
+                        ) : currentView === 'submissions' ? (
+                            <motion.div key="submissions" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                                <div className="space-y-8 text-left">
+                                    <header className="flex items-center justify-between">
+                                        <div>
+                                            <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic">Live <span className="text-blue-600">Scores</span></h1>
+                                            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Real-time event performance and evaluation data</p>
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                if (submissions.length === 0) return;
+                                                const csv = [['Event', 'Student Name', 'Roll Number', 'Score', 'Submitted At'], ...submissions.map(s => [s.eventTitle, s.name, s.rollNumber, s.score, s.timestamp?.toDate ? s.timestamp.toDate().toLocaleString() : 'N/A'])].map(e => e.join(",")).join("\n");
+                                                const blob = new Blob([csv], { type: 'text/csv' });
+                                                const url = window.URL.createObjectURL(blob);
+                                                const a = document.createElement('a');
+                                                a.setAttribute('href', url);
+                                                a.setAttribute('download', 'techspark_quiz_results.csv');
+                                                a.click();
+                                            }}
+                                            className="px-6 py-4 bg-white border border-slate-200 text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm"
+                                        >
+                                            <Download className="w-4 h-4" /> Export Results
+                                        </button>
+                                    </header>
+
+                                    {loadingSubmissions ? (
+                                        <div className="h-64 flex flex-col items-center justify-center gap-4">
+                                            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Intercepting Incoming Packets...</p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 gap-6">
+                                            {submissions.length > 0 ? (
+                                                <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm overflow-hidden">
+                                                    <table className="w-full text-left">
+                                                        <thead className="bg-[#fcfdfe] text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                                                            <tr>
+                                                                <th className="px-8 py-6">Operation / Quiz</th>
+                                                                <th className="px-8 py-6">Agent Identity</th>
+                                                                <th className="px-8 py-6">Performance Metric</th>
+                                                                <th className="px-8 py-6 text-right">Submission Time</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-slate-50">
+                                                            {submissions.map((sub) => (
+                                                                <tr key={sub.id} className="hover:bg-slate-50/50 transition-colors group">
+                                                                    <td className="px-8 py-6">
+                                                                        <p className="text-sm font-black text-slate-800 uppercase tracking-tight italic">{sub.eventTitle || 'Untitled Quiz'}</p>
+                                                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{sub.eventId?.slice(0, 8)}</p>
+                                                                    </td>
+                                                                    <td className="px-8 py-6">
+                                                                        <p className="font-black text-slate-700 uppercase italic text-sm">{sub.name}</p>
+                                                                        <p className="text-[10px] font-bold text-blue-600 uppercase tabular-nums">{sub.rollNumber}</p>
+                                                                    </td>
+                                                                    <td className="px-8 py-6">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className="px-4 py-2 bg-blue-50 text-blue-600 rounded-xl font-black text-sm border border-blue-100 italic">
+                                                                                {sub.score || 0} PTS
+                                                                            </div>
+                                                                            <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                                                <div
+                                                                                    className="h-full bg-blue-600"
+                                                                                    style={{ width: `${Math.min((sub.score / 100) * 100, 100)}%` }}
+                                                                                />
+                                                                            </div>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="px-8 py-6 text-right">
+                                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                                            {sub.timestamp?.toDate ? sub.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                                                                        </p>
+                                                                        <p className="text-[9px] text-slate-300 font-bold uppercase tracking-widest">
+                                                                            {sub.timestamp?.toDate ? sub.timestamp.toDate().toLocaleDateString() : 'LOGGED'}
+                                                                        </p>
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            ) : (
+                                                <div className="h-96 bg-white border border-slate-200 border-dashed rounded-[3rem] flex flex-col items-center justify-center gap-6 opacity-40">
+                                                    <Activity className="w-16 h-16 text-slate-300" />
+                                                    <div className="text-center">
+                                                        <h3 className="text-xl font-black text-slate-900 uppercase italic">Awaiting Submissions</h3>
+                                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mt-2">No live data signals detected for your operations</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </motion.div>
                         ) : currentView === 'reports' ? (
                             <motion.div key="reports" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }}>
                                 <div className="space-y-8 text-left">
@@ -1604,6 +1747,7 @@ const OrganizerDashboard = () => {
                                                             <option>Workshop</option>
                                                             <option>Seminar</option>
                                                             <option>Hackathon</option>
+                                                            <option>Quiz</option>
                                                             <option>Webinar</option>
                                                             <option>Expo</option>
                                                         </select>
@@ -1703,6 +1847,159 @@ const OrganizerDashboard = () => {
                                                             >
                                                                 <Plus className="w-4 h-4" /> Add Problem Statement
                                                             </button>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+
+                                                {/* Quiz Specific: Google Form Integration */}
+                                                {formData.type === 'Quiz' && (
+                                                    <motion.div
+                                                        initial={{ opacity: 0, height: 0 }}
+                                                        animate={{ opacity: 1, height: 'auto' }}
+                                                        className="pt-6 border-t border-slate-100 space-y-6"
+                                                    >
+                                                        <div className="flex items-center gap-4 p-5 bg-purple-50 rounded-2xl border border-purple-100">
+                                                            <div className="w-10 h-10 bg-purple-600 rounded-xl flex items-center justify-center">
+                                                                <FileText className="w-5 h-5 text-white" />
+                                                            </div>
+                                                            <div>
+                                                                <h4 className="text-sm font-black text-purple-900 uppercase italic">Quiz Integration Setup</h4>
+                                                                <p className="text-[10px] text-purple-500 font-bold">Connect your Google Form for automated student verification</p>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="space-y-4">
+                                                            <div className="space-y-2">
+                                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Google Form URL *</label>
+                                                                <div className="relative">
+                                                                    <input
+                                                                        type="text"
+                                                                        placeholder="https://docs.google.com/forms/d/e/..."
+                                                                        value={formData.quizFormUrl}
+                                                                        onChange={(e) => {
+                                                                            const url = e.target.value;
+                                                                            let updatedData = { ...formData, quizFormUrl: url };
+
+                                                                            // Magic Extraction Logic
+                                                                            if (url.includes('entry.')) {
+                                                                                try {
+                                                                                    const urlObj = new URL(url);
+                                                                                    const searchParams = new URLSearchParams(urlObj.search);
+                                                                                    let extractedAny = false;
+
+                                                                                    // Create a map of values to look for
+                                                                                    const mappings = {
+                                                                                        quizEntryName: ['name', 'student', 'test', 'full'],
+                                                                                        quizEntryRoll: ['roll', 'reg', '123', 'number', 'id'],
+                                                                                        quizEntryDept: ['dept', 'branch', 'cse', 'it', 'department'],
+                                                                                        quizEntryYear: ['year', '1st', '2nd', '3rd', '4th'],
+                                                                                        quizEntrySection: ['sec', 'section', 'a', 'b', 'c'],
+                                                                                        quizEntryMobile: ['phone', 'mobile', 'contact', '987']
+                                                                                    };
+
+                                                                                    searchParams.forEach((value, key) => {
+                                                                                        if (key.startsWith('entry.')) {
+                                                                                            extractedAny = true;
+                                                                                            const lowerVal = value.toLowerCase();
+
+                                                                                            // Try to find which field this belongs to
+                                                                                            for (const [field, keywords] of Object.entries(mappings)) {
+                                                                                                if (keywords.some(k => k.length <= 1 ? lowerVal === k : lowerVal.includes(k))) {
+                                                                                                    updatedData[field] = key;
+                                                                                                    break;
+                                                                                                }
+                                                                                            }
+                                                                                        }
+                                                                                    });
+
+                                                                                    if (extractedAny) {
+                                                                                        // Set the base URL (strip params)
+                                                                                        updatedData.quizFormUrl = url.split('?')[0];
+                                                                                        alert("✨ Magic Extraction Successful! I've automatically identified and mapped your Form Entry IDs. Please verify them below.");
+                                                                                    }
+                                                                                } catch (err) {
+                                                                                    console.log("Extraction failed, proceeding with literal URL");
+                                                                                }
+                                                                            }
+
+                                                                            setFormData(updatedData);
+                                                                        }}
+                                                                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-sm text-slate-800 pr-12"
+                                                                    />
+                                                                    {(formData.quizFormUrl || '').includes('docs.google.com') && (
+                                                                        <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                                                                            <Zap className="w-5 h-5 text-amber-500 animate-pulse" />
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="p-5 bg-slate-900 rounded-2xl space-y-4">
+                                                                <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Pre-fill Entry IDs (from Google Form's "Get pre-filled link")</p>
+                                                                <div className="grid grid-cols-2 gap-4">
+                                                                    <div className="space-y-1">
+                                                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Name Field Entry ID</label>
+                                                                        <input
+                                                                            type="text"
+                                                                            placeholder="entry.123456789"
+                                                                            value={formData.quizEntryName}
+                                                                            onChange={(e) => setFormData({ ...formData, quizEntryName: e.target.value })}
+                                                                            className="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white placeholder:text-slate-600"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="space-y-1">
+                                                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Roll Number Entry ID</label>
+                                                                        <input
+                                                                            type="text"
+                                                                            placeholder="entry.987654321"
+                                                                            value={formData.quizEntryRoll}
+                                                                            onChange={(e) => setFormData({ ...formData, quizEntryRoll: e.target.value })}
+                                                                            className="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white placeholder:text-slate-600"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="space-y-1">
+                                                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Department Entry ID</label>
+                                                                        <input
+                                                                            type="text"
+                                                                            placeholder="entry.111222333"
+                                                                            value={formData.quizEntryDept}
+                                                                            onChange={(e) => setFormData({ ...formData, quizEntryDept: e.target.value })}
+                                                                            className="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white placeholder:text-slate-600"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="space-y-1">
+                                                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Year Entry ID</label>
+                                                                        <input
+                                                                            type="text"
+                                                                            placeholder="entry.444555666"
+                                                                            value={formData.quizEntryYear}
+                                                                            onChange={(e) => setFormData({ ...formData, quizEntryYear: e.target.value })}
+                                                                            className="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white placeholder:text-slate-600"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="space-y-1">
+                                                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Section Entry ID</label>
+                                                                        <input
+                                                                            type="text"
+                                                                            placeholder="entry.777888999"
+                                                                            value={formData.quizEntrySection}
+                                                                            onChange={(e) => setFormData({ ...formData, quizEntrySection: e.target.value })}
+                                                                            className="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white placeholder:text-slate-600"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="space-y-1">
+                                                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Mobile Entry ID</label>
+                                                                        <input
+                                                                            type="text"
+                                                                            placeholder="entry.000111222"
+                                                                            value={formData.quizEntryMobile}
+                                                                            onChange={(e) => setFormData({ ...formData, quizEntryMobile: e.target.value })}
+                                                                            className="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white placeholder:text-slate-600"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                <p className="text-[9px] text-slate-500 font-medium italic">💡 Get these IDs from Google Form → ⋮ Menu → "Get pre-filled link" → Fill dummy values → Copy link & extract entry.XXXXX IDs</p>
+                                                            </div>
                                                         </div>
                                                     </motion.div>
                                                 )}

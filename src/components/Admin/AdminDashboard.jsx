@@ -39,7 +39,8 @@ import {
     HelpCircle,
     Clock,
     MapPin,
-    UserCheck
+    UserCheck,
+    FileText
 } from 'lucide-react';
 import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, where, updateDoc, doc, increment, deleteDoc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -95,6 +96,9 @@ const AdminDashboard = () => {
         sectionWise: {}
     });
 
+    const [submissions, setSubmissions] = useState([]);
+    const [loadingSubmissions, setLoadingSubmissions] = useState(false);
+
     // Certificate Verification API URL
     const [certApiUrl, setCertApiUrl] = useState(
         localStorage.getItem('certApiUrl') || 'https://script.google.com/macros/s/AKfycbxVm9lozoblVwHV1iplRX5eGPtEAPX5XVQ5Zyg-GAmBA_9ZlMRxkvDz4H9AgW6QmOyf8Q/exec'
@@ -110,6 +114,20 @@ const AdminDashboard = () => {
     const [isSearchScannerOpen, setIsSearchScannerOpen] = useState(false);
     const [showApproveModal, setShowApproveModal] = useState(false);
     const [eventToApprove, setEventToApprove] = useState(null);
+
+    // Quiz Settings Modal State
+    const [showQuizSettingsModal, setShowQuizSettingsModal] = useState(false);
+    const [quizSettingsEvent, setQuizSettingsEvent] = useState(null);
+    const [quizSettings, setQuizSettings] = useState({
+        quizFormUrl: '',
+        quizEntryName: '',
+        quizEntryRoll: '',
+        quizEntryDept: '',
+        quizEntryYear: '',
+        quizEntrySection: '',
+        quizEntryMobile: ''
+    });
+    const [savingQuizSettings, setSavingQuizSettings] = useState(false);
 
     const fetchDashboardData = () => {
         console.log("Strategic Refresh Triggered");
@@ -421,6 +439,12 @@ const AdminDashboard = () => {
             setSecurityLogs(logsList);
         });
 
+        // 7. Listen to Quiz Submissions
+        const unsubscribeSubmissions = onSnapshot(query(collection(db, 'quizSubmissions'), orderBy('timestamp', 'desc')), (snapshot) => {
+            const subsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setSubmissions(subsList);
+        });
+
         return () => {
             unsubscribeStudents();
             unsubscribeEvents();
@@ -428,6 +452,7 @@ const AdminDashboard = () => {
             unsubscribeRegs();
             unsubscribeFeedback();
             unsubscribeSecurity();
+            unsubscribeSubmissions();
         };
     };
 
@@ -678,6 +703,46 @@ const AdminDashboard = () => {
         } catch (error) {
             console.error("Error deleting student:", error);
             alert("Failed to remove member.");
+        }
+    };
+
+    // Quiz Settings Handlers
+    const handleOpenQuizSettings = (event) => {
+        setQuizSettingsEvent(event);
+        setQuizSettings({
+            quizFormUrl: event.quizFormUrl || '',
+            quizEntryName: event.quizEntryName || '',
+            quizEntryRoll: event.quizEntryRoll || '',
+            quizEntryDept: event.quizEntryDept || '',
+            quizEntryYear: event.quizEntryYear || '',
+            quizEntrySection: event.quizEntrySection || '',
+            quizEntryMobile: event.quizEntryMobile || ''
+        });
+        setShowQuizSettingsModal(true);
+    };
+
+    const handleSaveQuizSettings = async () => {
+        if (!quizSettingsEvent) return;
+        setSavingQuizSettings(true);
+        try {
+            await updateDoc(doc(db, 'events', quizSettingsEvent.id), {
+                quizFormUrl: quizSettings.quizFormUrl,
+                quizEntryName: quizSettings.quizEntryName,
+                quizEntryRoll: quizSettings.quizEntryRoll,
+                quizEntryDept: quizSettings.quizEntryDept,
+                quizEntryYear: quizSettings.quizEntryYear,
+                quizEntrySection: quizSettings.quizEntrySection,
+                quizEntryMobile: quizSettings.quizEntryMobile,
+                type: 'Quiz' // Ensure type is Quiz
+            });
+            alert('✅ Quiz settings saved successfully!');
+            setShowQuizSettingsModal(false);
+            setQuizSettingsEvent(null);
+        } catch (error) {
+            console.error('Error saving quiz settings:', error);
+            alert('❌ Failed to save quiz settings');
+        } finally {
+            setSavingQuizSettings(false);
         }
     };
 
@@ -1380,14 +1445,26 @@ const AdminDashboard = () => {
                                                                 {event.attendeesCount || 0} Regs
                                                             </span>
                                                         </div>
-                                                        <button
-                                                            onClick={() => handleDeleteEvent(event.id)}
-                                                            className="px-3 py-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2"
-                                                            title="Delete Event"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                            <span className="text-[10px] font-black uppercase">Delete</span>
-                                                        </button>
+                                                        <div className="flex items-center gap-2">
+                                                            {event.type === 'Quiz' && (
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); handleOpenQuizSettings(event); }}
+                                                                    className="px-3 py-2 bg-purple-100 text-purple-600 rounded-xl hover:bg-purple-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                                                                    title="Quiz Settings"
+                                                                >
+                                                                    <FileText className="w-4 h-4" />
+                                                                    <span className="text-[10px] font-black uppercase">Settings</span>
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event.id); }}
+                                                                className="px-3 py-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                                                                title="Delete Event"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                                <span className="text-[10px] font-black uppercase">Delete</span>
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1725,7 +1802,8 @@ const AdminDashboard = () => {
                                         <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Organizer</th>
                                         <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Execution Date</th>
                                         <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Participation</th>
-                                        <th className="px-8 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                                        <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                                        <th className="px-8 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
@@ -1758,7 +1836,7 @@ const AdminDashboard = () => {
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-6 text-right">
+                                            <td className="px-8 py-6 text-center">
                                                 <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${event.status === 'LIVE' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
                                                     event.status === 'COMPLETED' ? 'bg-blue-50 text-blue-600 border-blue-100' :
                                                         event.status === 'REJECTED' ? 'bg-red-50 text-red-600 border-red-100' :
@@ -1766,6 +1844,20 @@ const AdminDashboard = () => {
                                                     }`}>
                                                     {event.status}
                                                 </span>
+                                            </td>
+                                            <td className="px-8 py-6 text-right">
+                                                {event.type === 'Quiz' ? (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleOpenQuizSettings(event); }}
+                                                        className="px-3 py-2 bg-purple-100 text-purple-600 rounded-xl hover:bg-purple-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2 ml-auto"
+                                                        title="Quiz Settings"
+                                                    >
+                                                        <FileText className="w-4 h-4" />
+                                                        <span className="text-[10px] font-black uppercase">Settings</span>
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-[10px] text-slate-300 font-bold uppercase">-</span>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
@@ -2266,6 +2358,78 @@ const AdminDashboard = () => {
                         </div>
                     </div>
                 );
+            case 'submissions':
+                return (
+                    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500 text-left">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="text-2xl font-black text-slate-800 uppercase italic">Quiz <span className="text-blue-600">Intelligence</span></h3>
+                                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Real-time global quiz performance monitoring</p>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    if (submissions.length === 0) return;
+                                    const csv = [['Event', 'Student Name', 'Roll Number', 'Score', 'Submitted At'], ...submissions.map(s => [s.eventTitle, s.name, s.rollNumber, s.score, s.timestamp?.toDate ? s.timestamp.toDate().toLocaleString() : 'N/A'])].map(e => e.join(",")).join("\n");
+                                    const blob = new Blob([csv], { type: 'text/csv' });
+                                    const url = window.URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.setAttribute('href', url);
+                                    a.setAttribute('download', 'techspark_global_quiz_results.csv');
+                                    a.click();
+                                }}
+                                className="px-6 py-4 bg-white border border-slate-200 text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm"
+                            >
+                                <Download className="w-4 h-4" /> Global Export
+                            </button>
+                        </div>
+
+                        <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm overflow-hidden min-h-[400px]">
+                            <table className="w-full text-left">
+                                <thead className="bg-[#fcfdfe] text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                                    <tr>
+                                        <th className="px-8 py-6">Operation / Event</th>
+                                        <th className="px-8 py-6">Identity Signature</th>
+                                        <th className="px-8 py-6">Score Metric</th>
+                                        <th className="px-8 py-6 text-right">Synchronization Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {submissions.length > 0 ? submissions.map((sub) => (
+                                        <tr key={sub.id} className="hover:bg-slate-50/50 transition-colors group">
+                                            <td className="px-8 py-6">
+                                                <p className="text-sm font-black text-slate-800 uppercase tracking-tight italic">{sub.eventTitle || 'Untitled Quiz'}</p>
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{sub.eventId?.slice(0, 8)}</p>
+                                            </td>
+                                            <td className="px-8 py-6">
+                                                <p className="font-black text-slate-700 uppercase italic text-sm">{sub.name}</p>
+                                                <p className="text-[10px] font-bold text-blue-600 uppercase tabular-nums">{sub.rollNumber}</p>
+                                            </td>
+                                            <td className="px-8 py-6">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg font-black text-xs border border-blue-100 italic">
+                                                        {sub.score || 0}
+                                                    </div>
+                                                    <div className="w-20 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                                        <div className="h-full bg-blue-600" style={{ width: `${Math.min((sub.score / 100) * 100, 100)}%` }} />
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-8 py-6 text-right">
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                    {sub.timestamp?.toDate ? sub.timestamp.toDate().toLocaleTimeString() : 'LOGGED'}
+                                                </p>
+                                            </td>
+                                        </tr>
+                                    )) : (
+                                        <tr>
+                                            <td colSpan="4" className="px-8 py-20 text-center text-slate-300 font-black uppercase italic text-xs">No global quiz signals intercepted</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                );
         }
     };
 
@@ -2292,6 +2456,7 @@ const AdminDashboard = () => {
                             { id: 'all_events', icon: <Calendar className="w-5 h-5" />, label: 'All Events' },
                             { id: 'registrations', icon: <ClipboardList className="w-5 h-5" />, label: 'Registrations' },
                             { id: 'reports', icon: <PieChart className="w-5 h-5" />, label: 'Reports' },
+                            { id: 'submissions', icon: <Activity className="w-5 h-5" />, label: 'Quiz Scores' },
                             { id: 'settings', icon: <Settings className="w-5 h-5" />, label: 'Settings' },
                             { id: 'logs', icon: <ShieldAlert className="w-5 h-5" />, label: 'Security Logs' }
                         ].map((item) => (
@@ -3075,6 +3240,161 @@ const AdminDashboard = () => {
                     </div>
                 )}
             </AnimatePresence>
+
+            {/* Quiz Settings Modal */}
+            {showQuizSettingsModal && quizSettingsEvent && (
+                <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        className="bg-white rounded-[2.5rem] w-full max-w-xl shadow-2xl overflow-hidden"
+                    >
+                        <div className="p-8 bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+                                        <FileText className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-black uppercase tracking-tight">Quiz Settings</h3>
+                                        <p className="text-[10px] text-purple-200 font-bold uppercase tracking-widest">{quizSettingsEvent.title}</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setShowQuizSettingsModal(false)} className="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+                        <div className="p-8 space-y-6">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Google Form URL *</label>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        placeholder="https://docs.google.com/forms/d/e/..."
+                                        value={quizSettings.quizFormUrl}
+                                        onChange={(e) => {
+                                            const url = e.target.value;
+                                            let updatedSettings = { ...quizSettings, quizFormUrl: url };
+
+                                            if (url.includes('entry.')) {
+                                                try {
+                                                    const urlObj = new URL(url);
+                                                    const searchParams = new URLSearchParams(urlObj.search);
+                                                    let extractedAny = false;
+
+                                                    const mappings = {
+                                                        quizEntryMobile: ['phone', 'mobile', 'contact', '987'],
+                                                        quizEntryName: ['name', 'student', 'test', 'full'],
+                                                        quizEntryRoll: ['roll', 'reg', '123', 'number', 'id'],
+                                                        quizEntryDept: ['dept', 'branch', 'cse', 'it', 'department'],
+                                                        quizEntryYear: ['year', '1st', '2nd', '3rd', '4th'],
+                                                        quizEntrySection: ['section', 'sec', 'a', 'b', 'c']
+                                                    };
+
+                                                    searchParams.forEach((value, key) => {
+                                                        if (key.startsWith('entry.')) {
+                                                            extractedAny = true;
+                                                            const lowerVal = value.toLowerCase();
+                                                            for (const [field, keywords] of Object.entries(mappings)) {
+                                                                if (keywords.some(k => k.length <= 1 ? lowerVal === k : lowerVal.includes(k))) {
+                                                                    updatedSettings[field] = key;
+                                                                    break;
+                                                                }
+                                                            }
+                                                        }
+                                                    });
+
+                                                    if (extractedAny) {
+                                                        updatedSettings.quizFormUrl = url.split('?')[0];
+                                                        alert("✨ Magic Extraction Successful!");
+                                                    }
+                                                } catch (err) { }
+                                            }
+                                            setQuizSettings(updatedSettings);
+                                        }}
+                                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-sm text-slate-800 pr-12"
+                                    />
+                                    {(quizSettings.quizFormUrl || '').includes('docs.google.com') && (
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                                            <div className="w-2 h-2 bg-amber-500 rounded-full animate-ping" />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="p-5 bg-slate-900 rounded-2xl space-y-4 text-left">
+                                <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Pre-fill Entry ID Mapping</p>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Name ID</label>
+                                        <input
+                                            type="text"
+                                            value={quizSettings.quizEntryName}
+                                            onChange={(e) => setQuizSettings({ ...quizSettings, quizEntryName: e.target.value })}
+                                            className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Roll ID</label>
+                                        <input
+                                            type="text"
+                                            value={quizSettings.quizEntryRoll}
+                                            onChange={(e) => setQuizSettings({ ...quizSettings, quizEntryRoll: e.target.value })}
+                                            className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Dept ID</label>
+                                        <input
+                                            type="text"
+                                            value={quizSettings.quizEntryDept}
+                                            onChange={(e) => setQuizSettings({ ...quizSettings, quizEntryDept: e.target.value })}
+                                            className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Year ID</label>
+                                        <input
+                                            type="text"
+                                            value={quizSettings.quizEntryYear}
+                                            onChange={(e) => setQuizSettings({ ...quizSettings, quizEntryYear: e.target.value })}
+                                            className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Section ID</label>
+                                        <input
+                                            type="text"
+                                            value={quizSettings.quizEntrySection}
+                                            onChange={(e) => setQuizSettings({ ...quizSettings, quizEntrySection: e.target.value })}
+                                            className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Mobile ID</label>
+                                        <input
+                                            type="text"
+                                            value={quizSettings.quizEntryMobile}
+                                            onChange={(e) => setQuizSettings({ ...quizSettings, quizEntryMobile: e.target.value })}
+                                            className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white"
+                                        />
+                                    </div>
+                                </div>
+                                <p className="text-[9px] text-slate-500 font-medium italic">💡 Paste a pre-filled link above to auto-magically map these IDs.</p>
+                            </div>
+                            <div className="flex gap-4 pt-4">
+                                <button onClick={() => setShowQuizSettingsModal(false)} className="flex-1 px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-sm uppercase hover:bg-slate-200 transition-all">Cancel</button>
+                                <button onClick={handleSaveQuizSettings} disabled={savingQuizSettings || !quizSettings.quizFormUrl} className="flex-1 px-6 py-4 bg-purple-600 text-white rounded-2xl font-black text-sm uppercase hover:bg-purple-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                                    {savingQuizSettings ? 'Saving...' : 'Save Settings'}
+                                </button>
+                            </div>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+
             <style jsx="true">{`
                 .custom-scrollbar::-webkit-scrollbar {
                     width: 6px;
