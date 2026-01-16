@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://techspark-club.vercel.app/sitemap.xml
+
+# Crawl-delay to be respectful
+Crawl-delay: 1
+
+# Block admin and private sections from indexing
+Disallow: /admin
+Disallow: /organizer
+Disallow: /checkin
