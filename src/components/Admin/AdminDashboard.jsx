@@ -2490,6 +2490,7 @@ const AdminDashboard = () => {
                                             className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black text-[11px] uppercase tracking-widest"
                                         >
                                             <option value="Event Organizer">Event Organizer</option>
+                                            <option value="Secretary">Secretary</option>
                                             <option value="Check-in Officer">Check-in Officer</option>
                                             <option value="Terminal Operator">Terminal Operator</option>
                                             <option value="Senior Coordinator">Senior Coordinator</option>

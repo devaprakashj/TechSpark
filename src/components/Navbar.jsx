@@ -147,8 +147,6 @@ const Navbar = () => {
                     <div className="hidden md:block">
                         {isAuthenticated ? (
                             <div className="flex items-center gap-3">
-                                {/* Temporarily disabled for debugging */}
-                                {/*
                                 <Link
                                     to="/dashboard"
                                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-full font-bold shadow-md hover:shadow-blue-200 transition-all hover:-translate-y-0.5"
@@ -156,7 +154,6 @@ const Navbar = () => {
                                     <LayoutDashboard className="w-4 h-4" />
                                     <span>Dashboard</span>
                                 </Link>
-                                */}
                                 <span className="text-sm text-gray-600">Logged in as {user?.fullName || 'User'}</span>
                                 <div className="w-px h-6 bg-gray-200 mx-1" />
                                 <button

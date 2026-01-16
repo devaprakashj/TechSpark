@@ -16,6 +16,7 @@ import AdminLogin from './components/Admin/AdminLogin';
 import AdminDashboard from './components/Admin/AdminDashboard';
 import OrganizerLogin from './components/Admin/OrganizerLogin';
 import OrganizerDashboard from './components/Admin/OrganizerDashboard';
+import SecretaryDashboard from './components/Admin/SecretaryDashboard';
 import CheckinConsole from './components/Admin/CheckinConsole';
 import CertificateVerification from './components/CertificateVerification';
 import './index.css';
@@ -51,6 +52,13 @@ const ProtectedAdminRoute = ({ children }) => {
 const ProtectedOrganizerRoute = ({ children }) => {
   const organizerToken = localStorage.getItem('organizerToken');
   return organizerToken ? children : <Navigate to="/organizer/login" />;
+};
+
+const ProtectedSecretaryRoute = ({ children }) => {
+  const organizerToken = localStorage.getItem('organizerToken');
+  if (!organizerToken) return <Navigate to="/organizer/login" />;
+  const data = JSON.parse(organizerToken);
+  return data.role === 'Secretary' ? children : <Navigate to="/organizer/dashboard" />;
 };
 
 const AuthOverlays = () => {
@@ -94,6 +102,15 @@ function App() {
                 <ProtectedOrganizerRoute>
                   <OrganizerDashboard />
                 </ProtectedOrganizerRoute>
+              }
+            />
+
+            <Route
+              path="/secretary/dashboard"
+              element={
+                <ProtectedSecretaryRoute>
+                  <SecretaryDashboard />
+                </ProtectedSecretaryRoute>
               }
             />
 

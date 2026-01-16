@@ -32,13 +32,20 @@ const OrganizerLogin = () => {
 
             if (!snapshot.empty) {
                 const organizerData = snapshot.docs[0].data();
+                const userRole = organizerData.role || 'organizer';
+
                 localStorage.setItem('organizerToken', JSON.stringify({
                     id: snapshot.docs[0].id,
                     username: organizerData.username,
-                    role: 'organizer',
+                    role: userRole,
                     lastLogin: new Date().toISOString()
                 }));
-                navigate('/organizer/dashboard');
+
+                if (userRole === 'Secretary') {
+                    navigate('/secretary/dashboard');
+                } else {
+                    navigate('/organizer/dashboard');
+                }
             } else {
                 setError('Invalid credentials for Event Organizer');
             }
