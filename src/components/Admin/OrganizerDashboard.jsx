@@ -18,6 +18,8 @@ import {
     UserMinus,
     ChevronRight,
     ChevronLeft,
+    ChevronUp,
+    ChevronDown,
     Upload,
     Globe,
     Building2,
@@ -147,9 +149,9 @@ const OrganizerDashboard = () => {
     });
 
     const [globalDemographics, setGlobalDemographics] = useState({
-        departments: ['CSE', 'IT', 'AI-DS', 'AI-ML', 'ECE', 'EEE', 'MECH', 'CIVIL'],
-        years: ['I', 'II', 'III', 'IV'],
-        sections: ['A', 'B', 'C', 'D']
+        departments: [],
+        years: [],
+        sections: []
     });
 
     const [profileData, setProfileData] = useState({
@@ -176,6 +178,7 @@ const OrganizerDashboard = () => {
         );
 
         let unsubscribeRegs = null;
+        let unsubscribeUsers = null;
 
         const unsubscribeEvents = onSnapshot(eventsQuery, (snapshot) => {
             const eventList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
@@ -192,31 +195,51 @@ const OrganizerDashboard = () => {
             if (unsubscribeRegs) unsubscribeRegs();
 
             // 3. Setup Registration Listener for these events
+            const eventIds = eventList.map(e => e.id);
             const allRegsQuery = query(collection(db, 'registrations'));
 
             unsubscribeRegs = onSnapshot(allRegsQuery, (regSnapshot) => {
                 const allSystemRegs = regSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                // Update global demographics based on all registered students in the system
-                const depts = new Set(['CSE', 'IT', 'AI-DS', 'AI-ML', 'ECE', 'EEE', 'MECH', 'CIVIL']);
-                const years = new Set(['I', 'II', 'III', 'IV']);
-                const sections = new Set(['A', 'B', 'C', 'D']);
-
-                allSystemRegs.forEach(reg => {
-                    if (reg.studentDept) depts.add(reg.studentDept);
-                    if (reg.studentYear) years.add(reg.studentYear);
-                    if (reg.studentSection) sections.add(reg.studentSection);
-                });
-
-                setGlobalDemographics({
-                    departments: Array.from(depts).sort(),
-                    years: Array.from(years).sort(),
-                    sections: Array.from(sections).sort()
-                });
-
                 const filteredRegs = allSystemRegs.filter(reg => eventIds.includes(reg.eventId));
                 setAllRegs(filteredRegs);
                 console.log(`Synced ${filteredRegs.length} total registrations across ${eventList.length} missions.`);
+            });
+
+            // 4. Listen to ALL Students (Users) for dynamic Eligibility Scope
+            const usersQuery = query(collection(db, 'users'));
+            unsubscribeUsers = onSnapshot(usersQuery, (userSnapshot) => {
+                const allUsers = userSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                const depts = new Set();
+                const yearsNumeric = new Set();
+                const sections = new Set();
+
+                // Year Mapper for professional display
+                const yearMap = { '1': 'I', '2': 'II', '3': 'III', '4': 'IV', 'Alumni': 'Alumni' };
+                const yearReverseMap = { 'I': '1', 'II': '2', 'III': '3', 'IV': '4' };
+
+                allUsers.forEach(u => {
+                    if (u.department) depts.add(u.department.toUpperCase());
+                    if (u.yearOfStudy) yearsNumeric.add(u.yearOfStudy.toString());
+                    if (u.section) sections.add(u.section.toUpperCase());
+                });
+
+                // Helper to safely sort and map years
+                const sortedYears = Array.from(yearsNumeric)
+                    .sort((a, b) => {
+                        if (a === 'Alumni') return 1;
+                        if (b === 'Alumni') return -1;
+                        return parseInt(a) - parseInt(b);
+                    })
+                    .map(y => yearMap[y] || y);
+
+                setGlobalDemographics({
+                    departments: Array.from(depts).sort(),
+                    years: sortedYears,
+                    sections: Array.from(sections).sort()
+                });
+
+                console.log(`Synced Demographics from ${allUsers.length} registered students.`);
             });
         }, (error) => {
             console.error("Operational Data Sync Error:", error);
@@ -226,6 +249,7 @@ const OrganizerDashboard = () => {
         return () => {
             unsubscribeEvents();
             if (unsubscribeRegs) unsubscribeRegs();
+            if (unsubscribeUsers) unsubscribeUsers();
         };
     };
 
@@ -2194,18 +2218,24 @@ const OrganizerDashboard = () => {
                                                                 <div className="space-y-4">
                                                                     <div className="grid grid-cols-2 gap-3">
                                                                         <select
-                                                                            onChange={(e) => setFormData({ ...formData, departments: [e.target.value] })}
-                                                                            className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[10px] font-black uppercase"
+                                                                            value={formData.departments[0] || ""}
+                                                                            onChange={(e) => setFormData({ ...formData, departments: e.target.value ? [e.target.value] : [] })}
+                                                                            className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[10px] font-black uppercase outline-none focus:border-blue-500 transition-colors"
                                                                         >
-                                                                            <option>Select Dept</option>
-                                                                            <option>CSE</option><option>IT</option><option>AI-DS</option>
+                                                                            <option value="">SELECT DEPT</option>
+                                                                            {globalDemographics.departments.map(dept => (
+                                                                                <option key={dept} value={dept}>{dept}</option>
+                                                                            ))}
                                                                         </select>
                                                                         <select
-                                                                            onChange={(e) => setFormData({ ...formData, years: [e.target.value] })}
-                                                                            className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[10px] font-black uppercase"
+                                                                            value={formData.years[0] || ""}
+                                                                            onChange={(e) => setFormData({ ...formData, years: e.target.value ? [e.target.value] : [] })}
+                                                                            className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[10px] font-black uppercase outline-none focus:border-blue-500 transition-colors"
                                                                         >
-                                                                            <option>Select Year</option>
-                                                                            <option>I</option><option>II</option><option>III</option><option>IV</option>
+                                                                            <option value="">SELECT YEAR</option>
+                                                                            {globalDemographics.years.map(year => (
+                                                                                <option key={year} value={year}>{year}</option>
+                                                                            ))}
                                                                         </select>
                                                                     </div>
                                                                     <div className="flex flex-wrap gap-2">
