@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import { toPng } from 'html-to-image';
 import ritLogo from '../assets/rit-logo.png';
 import tsLogo from '../assets/techspark-logo.png';
@@ -89,6 +90,13 @@ const StudentDashboard = () => {
     const quizStartTime = useRef(null);
     const [currentTime, setCurrentTime] = useState(new Date());
 
+    // --- PROCTORING SYSTEM STATE ---
+    const [tabSwitchCount, setTabSwitchCount] = useState(0);
+    const [proctorWarning, setProctorWarning] = useState('');
+    const MAX_VIOLATIONS = 3;
+    const [showQuizRulesModal, setShowQuizRulesModal] = useState(false);
+    const [pendingQuizData, setPendingQuizData] = useState(null);
+
     // Live Clock Effect
     useEffect(() => {
         const timer = setInterval(() => {
@@ -97,12 +105,13 @@ const StudentDashboard = () => {
         return () => clearInterval(timer);
     }, []);
 
-    // Hide body scroll and navbar when quiz modal is open
+    // Hide body scroll and navbar when ANY modal is open
     useEffect(() => {
         const navbar = document.querySelector('nav');
         const header = document.querySelector('header');
+        const isModalOpen = showQuizModal || showQuizRulesModal;
 
-        if (showQuizModal) {
+        if (isModalOpen) {
             document.body.style.overflow = 'hidden';
             document.body.style.position = 'fixed';
             document.body.style.width = '100%';
@@ -125,7 +134,115 @@ const StudentDashboard = () => {
             if (navbar) navbar.style.display = '';
             if (header) header.style.display = '';
         };
+    }, [showQuizModal, showQuizRulesModal]);
+
+    // --- PROCTORING: Tab Switch Detection ---
+    useEffect(() => {
+        if (!showQuizModal) return;
+
+        const handleVisibilityChange = async () => {
+            if (document.hidden && showQuizModal) {
+                const newCount = tabSwitchCount + 1;
+                setTabSwitchCount(newCount);
+                setProctorWarning(`⚠️ TAB SWITCH DETECTED! Violation ${newCount}/${MAX_VIOLATIONS}`);
+
+                // Log violation to Firestore
+                if (activeQuizRegId) {
+                    try {
+                        const regRef = doc(db, 'registrations', activeQuizRegId);
+                        await updateDoc(regRef, {
+                            proctorViolations: newCount,
+                            lastViolationAt: serverTimestamp()
+                        });
+                    } catch (err) {
+                        console.error('Failed to log violation:', err);
+                    }
+                }
+
+                // Auto-terminate on max violations
+                if (newCount >= MAX_VIOLATIONS) {
+                    setProctorWarning('🚨 QUIZ TERMINATED: Too many violations!');
+                    if (activeQuizRegId) {
+                        try {
+                            const regRef = doc(db, 'registrations', activeQuizRegId);
+                            await updateDoc(regRef, {
+                                status: 'FLAGGED',
+                                proctorViolations: newCount,
+                                terminatedAt: serverTimestamp(),
+                                terminationReason: 'Exceeded tab switch limit'
+                            });
+                        } catch (err) {
+                            console.error('Failed to terminate quiz:', err);
+                        }
+                    }
+                    setTimeout(() => {
+                        alert('🚨 Your quiz has been terminated due to multiple tab switches. This attempt has been flagged for review.');
+                        setShowQuizModal(false);
+                        setActiveQuizUrl('');
+                        setActiveQuizTitle('');
+                        setActiveQuizRegId(null);
+                        setIframeLoadCount(0);
+                        setShowFinishButton(false);
+                        setTabSwitchCount(0);
+                        setProctorWarning('');
+                    }, 100);
+                } else {
+                    // Clear warning after 5 seconds
+                    setTimeout(() => setProctorWarning(''), 5000);
+                }
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [showQuizModal, tabSwitchCount, activeQuizRegId]);
+
+    // --- PROCTORING: Disable Copy/Paste/Cut/Right-Click ---
+    useEffect(() => {
+        if (!showQuizModal) return;
+
+        const preventCopy = (e) => {
+            e.preventDefault();
+            setProctorWarning('⚠️ Copy/Paste is disabled during the quiz!');
+            setTimeout(() => setProctorWarning(''), 3000);
+        };
+
+        const preventContextMenu = (e) => {
+            e.preventDefault();
+            setProctorWarning('⚠️ Right-click is disabled during the quiz!');
+            setTimeout(() => setProctorWarning(''), 3000);
+        };
+
+        const preventKeyShortcuts = (e) => {
+            // Block Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+A, Ctrl+P (print)
+            if (e.ctrlKey && ['c', 'v', 'x', 'a', 'p'].includes(e.key.toLowerCase())) {
+                e.preventDefault();
+                setProctorWarning('⚠️ Keyboard shortcuts are disabled!');
+                setTimeout(() => setProctorWarning(''), 3000);
+            }
+            // Block F12, Ctrl+Shift+I (DevTools)
+            if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i')) {
+                e.preventDefault();
+                setProctorWarning('⚠️ Developer tools are disabled!');
+                setTimeout(() => setProctorWarning(''), 3000);
+            }
+        };
+
+        document.addEventListener('copy', preventCopy);
+        document.addEventListener('cut', preventCopy);
+        document.addEventListener('paste', preventCopy);
+        document.addEventListener('contextmenu', preventContextMenu);
+        document.addEventListener('keydown', preventKeyShortcuts);
+
+        return () => {
+            document.removeEventListener('copy', preventCopy);
+            document.removeEventListener('cut', preventCopy);
+            document.removeEventListener('paste', preventCopy);
+            document.removeEventListener('contextmenu', preventContextMenu);
+            document.removeEventListener('keydown', preventKeyShortcuts);
+        };
     }, [showQuizModal]);
+
 
     // Quiz Auto-Completion Logic
     const handleQuizCompletion = async () => {
@@ -840,9 +957,12 @@ const StudentDashboard = () => {
                                         {registrations.map((reg, idx) => {
                                             const eventActualData = allEvents.find(e => e.id === reg.eventId);
                                             const isCheckedIn = reg.isAttended || reg.status === 'Present';
+                                            const isFlagged = reg.status === 'FLAGGED' || reg.proctorViolations > 0;
                                             const currentStatus = isCheckedIn ? 'CHECKED-IN' :
-                                                (eventActualData?.status === 'COMPLETED' ? 'COMPLETED' :
-                                                    (eventActualData?.status === 'CLOSED' ? 'CLOSED' : (reg.status || 'Upcoming')));
+                                                isFlagged ? 'FLAGGED' :
+                                                    (eventActualData?.status === 'COMPLETED' ? 'COMPLETED' :
+                                                        (eventActualData?.status === 'CLOSED' ? 'CLOSED' :
+                                                            (reg.status === 'Registered' || !reg.status ? 'Upcoming' : reg.status)));
 
                                             return (
                                                 <div
@@ -916,30 +1036,39 @@ const StudentDashboard = () => {
                                                             )
                                                         ) : (
                                                             <div className="flex items-center gap-2">
-                                                                {/* Quiz: Start Quiz Button */}
-                                                                {eventActualData?.type === 'Quiz' && currentStatus === 'Upcoming' && generateQuizUrl(reg) && (
+                                                                {/* Quiz: Start Quiz Button - Shows Rules First (Only for non-flagged, upcoming) */}
+                                                                {eventActualData?.type === 'Quiz' && currentStatus === 'Upcoming' && !isFlagged && generateQuizUrl(reg) && (
                                                                     <button
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
-                                                                            setActiveQuizUrl(generateQuizUrl(reg));
-                                                                            setActiveQuizTitle(reg.eventTitle);
-                                                                            setActiveQuizRegId(reg.id);
-                                                                            setIframeLoadCount(0);
-                                                                            setShowFinishButton(false);
-                                                                            quizStartTime.current = null;
-                                                                            setShowQuizModal(true);
+                                                                            // Store quiz data and show rules modal first
+                                                                            setPendingQuizData({
+                                                                                url: generateQuizUrl(reg),
+                                                                                title: reg.eventTitle,
+                                                                                regId: reg.id
+                                                                            });
+                                                                            setShowQuizRulesModal(true);
                                                                         }}
                                                                         className="px-4 py-1.5 bg-purple-600 text-white rounded-xl text-[10px] font-black uppercase hover:bg-purple-700 transition-colors shadow-lg shadow-purple-200 flex items-center gap-1.5"
                                                                     >
                                                                         <Rocket className="w-3 h-3" /> START QUIZ
                                                                     </button>
                                                                 )}
-                                                                <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${isCheckedIn ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' :
-                                                                    currentStatus === 'Upcoming' ? 'bg-orange-50 text-orange-600' :
-                                                                        'bg-slate-100 text-slate-500'
-                                                                    }`}>
-                                                                    {currentStatus?.toUpperCase()}
-                                                                </span>
+                                                                {/* FLAGGED Status for Quiz */}
+                                                                {currentStatus === 'FLAGGED' && (
+                                                                    <span className="px-3 py-1 bg-red-500 text-white rounded-full text-[10px] font-black uppercase shadow-lg shadow-red-200 animate-pulse flex items-center gap-1">
+                                                                        🚩 FLAGGED
+                                                                    </span>
+                                                                )}
+                                                                {/* Normal Status Badge */}
+                                                                {currentStatus !== 'FLAGGED' && (
+                                                                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${isCheckedIn ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' :
+                                                                        currentStatus === 'Upcoming' ? 'bg-orange-50 text-orange-600' :
+                                                                            'bg-slate-100 text-slate-500'
+                                                                        }`}>
+                                                                        {currentStatus?.toUpperCase()}
+                                                                    </span>
+                                                                )}
                                                                 <ExternalLink className="w-3.5 h-3.5 text-slate-300 group-hover:text-blue-500 transition-colors" />
                                                             </div>
                                                         )}
@@ -1894,6 +2023,19 @@ const StudentDashboard = () => {
                                         </span>
                                     </div>
 
+                                    {/* Proctor Status Indicator */}
+                                    <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border backdrop-blur-sm transition-all ${tabSwitchCount === 0 ? 'bg-emerald-500/20 border-emerald-400/30 text-emerald-300' :
+                                        tabSwitchCount < MAX_VIOLATIONS ? 'bg-amber-500/20 border-amber-400/30 text-amber-300 animate-pulse' :
+                                            'bg-red-500/20 border-red-400/30 text-red-300'
+                                        }`}>
+                                        <div className={`w-2 h-2 rounded-full ${tabSwitchCount === 0 ? 'bg-emerald-400' :
+                                            tabSwitchCount < MAX_VIOLATIONS ? 'bg-amber-400 animate-ping' : 'bg-red-400'
+                                            }`} />
+                                        <span className="text-[10px] font-black uppercase tracking-wider">
+                                            {tabSwitchCount === 0 ? 'PROCTORED' : `⚠ ${tabSwitchCount}/${MAX_VIOLATIONS}`}
+                                        </span>
+                                    </div>
+
                                     <div className="flex items-center gap-2 md:gap-3">
                                         {/* Mobile Clock */}
                                         <div className="lg:hidden bg-black/20 px-2 py-1 rounded-lg border border-white/10">
@@ -1938,6 +2080,22 @@ const StudentDashboard = () => {
                                 </div>
                             </motion.div>
 
+                            {/* Proctor Warning Overlay */}
+                            <AnimatePresence>
+                                {proctorWarning && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: -50 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -50 }}
+                                        className="absolute top-20 left-1/2 -translate-x-1/2 z-[100001] px-6 py-3 bg-gradient-to-r from-red-600 to-orange-600 rounded-xl shadow-2xl shadow-red-500/50 border border-red-400"
+                                    >
+                                        <p className="text-white font-black text-sm md:text-base uppercase tracking-wide text-center">
+                                            {proctorWarning}
+                                        </p>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
                             {/* Quiz Iframe */}
                             <motion.div
                                 initial={{ opacity: 0 }}
@@ -1958,14 +2116,119 @@ const StudentDashboard = () => {
                             {/* Footer */}
                             <div className="bg-slate-900 px-3 md:px-6 py-2 md:py-3 text-center shrink-0">
                                 <p className="text-[8px] md:text-[10px] text-slate-400 font-bold uppercase tracking-wider md:tracking-widest">
-                                    📋 Auto-filled • 🔒 Secure • ⏱️ Submit on time
+                                    🔒 Proctored Quiz • 🚫 Tab Switch = Violation • ⌨️ Copy/Paste Disabled • ⏱️ Submit on time
                                 </p>
                             </div>
                         </div>
                     )}
                 </AnimatePresence>
+
+                {/* Quiz Rules & Proctoring Instructions Modal */}
+                {createPortal(
+                    <AnimatePresence>
+                        {showQuizRulesModal && pendingQuizData && (
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+                            >
+                                <motion.div
+                                    initial={{ scale: 0.9, opacity: 0, y: -20 }}
+                                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                                    exit={{ scale: 0.9, opacity: 0, y: -20 }}
+                                    className="bg-white rounded-[2rem] max-w-md w-full shadow-2xl overflow-hidden flex flex-col"
+                                >
+                                    {/* Header - Compact */}
+                                    <div className="bg-gradient-to-r from-red-600 to-orange-600 p-4 text-white text-center shrink-0">
+                                        <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                                            <ShieldCheck className="w-6 h-6" />
+                                        </div>
+                                        <h2 className="text-lg font-black uppercase tracking-wide">⚠️ Proctored Quiz</h2>
+                                        <p className="text-xs text-white/80 mt-1 font-medium">{pendingQuizData.title}</p>
+                                    </div>
+
+                                    {/* Rules List - Scrollable */}
+                                    <div className="p-4 space-y-3 overflow-y-auto flex-1">
+                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest text-center mb-2">
+                                            📋 Read Carefully Before Starting
+                                        </p>
+
+                                        {/* Rule Items - Compact */}
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-3 p-3 bg-red-50 rounded-xl border border-red-100">
+                                                <div className="w-8 h-8 bg-red-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">🚫</div>
+                                                <div>
+                                                    <p className="text-xs font-black text-red-700 uppercase">No Tab Switching</p>
+                                                    <p className="text-[10px] text-red-600">3 violations = Quiz Terminated</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-xl border border-orange-100">
+                                                <div className="w-8 h-8 bg-orange-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">⌨️</div>
+                                                <div>
+                                                    <p className="text-xs font-black text-orange-700 uppercase">Copy/Paste Disabled</p>
+                                                    <p className="text-[10px] text-orange-600">Ctrl+C, Ctrl+V, Right-click blocked</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100">
+                                                <div className="w-8 h-8 bg-amber-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">⚠️</div>
+                                                <div>
+                                                    <p className="text-xs font-black text-amber-700 uppercase">Activity Monitored</p>
+                                                    <p className="text-[10px] text-amber-600">Violations logged & reported</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                                                <div className="w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">✅</div>
+                                                <div>
+                                                    <p className="text-xs font-black text-blue-700 uppercase">How to Complete</p>
+                                                    <p className="text-[10px] text-blue-600">Submit form & click "VERIFY & FINISH"</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Action Buttons - Compact */}
+                                    <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-3 shrink-0">
+                                        <button
+                                            onClick={() => {
+                                                setShowQuizRulesModal(false);
+                                                setPendingQuizData(null);
+                                            }}
+                                            className="flex-1 py-3 px-4 bg-white border border-slate-200 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all"
+                                        >
+                                            ← Cancel
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                // Start the quiz
+                                                setActiveQuizUrl(pendingQuizData.url);
+                                                setActiveQuizTitle(pendingQuizData.title);
+                                                setActiveQuizRegId(pendingQuizData.regId);
+                                                setIframeLoadCount(0);
+                                                setShowFinishButton(false);
+                                                setTabSwitchCount(0);
+                                                setProctorWarning('');
+                                                quizStartTime.current = null;
+                                                setShowQuizModal(true);
+                                                setShowQuizRulesModal(false);
+                                                setPendingQuizData(null);
+                                            }}
+                                            className="flex-1 py-3 px-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <Rocket className="w-3 h-3" /> Start Quiz
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>,
+                    document.body
+                )}
             </div>
-        </div>
+        </div >
     );
 };
 

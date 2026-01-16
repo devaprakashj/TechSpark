@@ -79,6 +79,7 @@ const OrganizerDashboard = () => {
     const [regSearchQuery, setRegSearchQuery] = useState('');
     const [regDeptFilter, setRegDeptFilter] = useState('all');
     const [regYearFilter, setRegYearFilter] = useState('all');
+    const [showFlaggedOnly, setShowFlaggedOnly] = useState(false);
 
     // Custom Export System
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -711,6 +712,41 @@ const OrganizerDashboard = () => {
         }
     };
 
+    // Remove Flag from student (Give another chance)
+    const handleRemoveFlag = async (regId, studentName) => {
+        if (!window.confirm(`Remove FLAG from "${studentName}" and give them another chance?\n\nThis will clear all proctoring violations.`)) return;
+
+        try {
+            await updateDoc(doc(db, 'registrations', regId), {
+                status: 'Registered',
+                proctorViolations: 0,
+                terminatedAt: null,
+                terminationReason: null,
+                lastViolationType: null,
+                lastViolationAt: null,
+                flagRemoved: true,
+                flagRemovedAt: serverTimestamp(),
+                flagRemovedBy: profileData?.username || 'Organizer'
+            });
+
+            // Update local state
+            setRegistrations(prev => prev.map(r =>
+                r.id === regId ? {
+                    ...r,
+                    status: 'Registered',
+                    proctorViolations: 0,
+                    terminatedAt: null,
+                    terminationReason: null
+                } : r
+            ));
+
+            alert(`✅ FLAG removed from "${studentName}". They can now attempt the quiz again.`);
+        } catch (error) {
+            console.error("Error removing flag:", error);
+            alert("Failed to remove flag.");
+        }
+    };
+
     // Get filtered registrations based on search and filters
     const getFilteredRegistrations = () => {
         return registrations.filter(reg => {
@@ -727,7 +763,11 @@ const OrganizerDashboard = () => {
             const yearMatch = regYearFilter === 'all' ||
                 reg.studentYear?.toString() === regYearFilter?.toString();
 
-            return searchMatch && deptMatch && yearMatch;
+            // Flagged filter - show only students with proctoring violations
+            const flaggedMatch = !showFlaggedOnly ||
+                reg.status === 'FLAGGED' || reg.proctorViolations > 0;
+
+            return searchMatch && deptMatch && yearMatch && flaggedMatch;
         });
     };
 
@@ -796,11 +836,15 @@ const OrganizerDashboard = () => {
             const teamAttendance = attended.filter(r => r.isTeamRegistration).length;
             const individualAttendance = attended.length - teamAttendance;
 
+            // Malpractice count for Quiz events
+            const malpracticeCount = eventRegs.filter(r => r.status === 'FLAGGED' || r.proctorViolations > 0).length;
+
             summaryMetrics = [
                 ['CONFIRMED ATTENDEES', attended.length.toString()],
                 ['ATTENDANCE EFFICIENCY', `${attendanceRate}% OF REGISTRATIONS`],
                 ['ENGAGEMENT MIX', `${teamAttendance} TEAM | ${individualAttendance} INDIVIDUAL`],
-                ['ABSENTEE COUNT', (eventRegs.length - attended.length).toString()],
+                ['ABSENTEE COUNT', (eventRegs.length - attended.length - malpracticeCount).toString()],
+                ...(event.type === 'Quiz' ? [['🚩 MALPRACTICE CASES', malpracticeCount > 0 ? `${malpracticeCount} FLAGGED` : '0 - ALL CLEAR']] : []),
                 ['PEAK ENGAGEMENT (DEPT)', `${topAttendedDept?.[0] || 'N/A'} (${topAttendedDept?.[1] || 0} PRESENT)`],
                 ['PEAK ENGAGEMENT (YEAR)', `${topAttendedYear?.[0] || 'N/A'} YEAR (${topAttendedYear?.[1] || 0} PRESENT)`],
                 ['TACTICAL SPREAD', `${Object.keys(b.depts).length} DEPTS REPRESENTED`]
@@ -837,7 +881,16 @@ const OrganizerDashboard = () => {
             if (selectedFields.includes('role') && event.isTeamEvent) row.push(r.isTeamRegistration ? (r.teamRole || 'MEMBER') : 'N/A');
             if (selectedFields.includes('problem') && event.type === 'Hackathon') row.push(r.problemStatement || 'N/A');
             if (selectedFields.includes('date')) row.push(r.registeredAt?.toDate?.() ? new Date(r.registeredAt.toDate()).toLocaleDateString() : 'N/A');
-            if (selectedFields.includes('status')) row.push((r.isAttended || r.status === 'Present') ? 'PRESENT' : 'ABSENT');
+            if (selectedFields.includes('status')) {
+                // Check for MALPRACTICE (flagged proctoring violation)
+                if (r.status === 'FLAGGED' || r.proctorViolations > 0) {
+                    row.push('MALPRACTICE');
+                } else if (r.isAttended || r.status === 'Present') {
+                    row.push('PRESENT');
+                } else {
+                    row.push('ABSENT');
+                }
+            }
             return row;
         });
 
@@ -911,7 +964,12 @@ const OrganizerDashboard = () => {
                 margin: { left: 10, right: 10 },
                 didParseCell: (data) => {
                     if (data.section === 'body' && data.cell.text[0] === 'ABSENT') {
-                        data.cell.styles.textColor = [220, 38, 38];
+                        data.cell.styles.textColor = [220, 38, 38]; // Red
+                        data.cell.styles.fontStyle = 'bold';
+                    }
+                    if (data.section === 'body' && data.cell.text[0] === 'MALPRACTICE') {
+                        data.cell.styles.textColor = [234, 88, 12]; // Orange
+                        data.cell.styles.fillColor = [254, 243, 199]; // Light orange bg
                         data.cell.styles.fontStyle = 'bold';
                     }
                 }
@@ -1255,6 +1313,16 @@ const OrganizerDashboard = () => {
                                                                     <option key={year} value={year}>{year} Year</option>
                                                                 ))}
                                                             </select>
+
+                                                            {/* Flagged Only Toggle - Only for Quiz Events */}
+                                                            {selectedEvent?.type === 'Quiz' && (
+                                                                <button
+                                                                    onClick={() => setShowFlaggedOnly(!showFlaggedOnly)}
+                                                                    className={`px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 border ${showFlaggedOnly ? 'bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/20' : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-red-300 hover:text-red-500'}`}
+                                                                >
+                                                                    🚩 {showFlaggedOnly ? 'FLAGGED ONLY' : 'SHOW FLAGGED'}
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </div>
 
@@ -1277,6 +1345,12 @@ const OrganizerDashboard = () => {
                                                                             {(reg.status === 'Present' || reg.isAttended) && (
                                                                                 <span className="px-2 py-0.5 bg-emerald-500 text-white text-[8px] font-black rounded uppercase tracking-widest">
                                                                                     CHECKED-IN
+                                                                                </span>
+                                                                            )}
+                                                                            {/* Proctoring FLAG Indicator - Only for Quiz Events */}
+                                                                            {selectedEvent?.type === 'Quiz' && (reg.status === 'FLAGGED' || reg.proctorViolations > 0) && (
+                                                                                <span className="px-2 py-0.5 bg-red-500 text-white text-[8px] font-black rounded uppercase tracking-widest flex items-center gap-1 animate-pulse">
+                                                                                    🚩 FLAGGED {reg.proctorViolations ? `(${reg.proctorViolations})` : ''}
                                                                                 </span>
                                                                             )}
                                                                         </div>
@@ -1309,6 +1383,15 @@ const OrganizerDashboard = () => {
                                                                 {/* Participant Actions - Only show if event is NOT completed */}
                                                                 {selectedEvent?.status !== 'COMPLETED' ? (
                                                                     <div className="flex items-center gap-2">
+                                                                        {/* Remove Flag Button - Only for Quiz Events with Flagged Students */}
+                                                                        {selectedEvent?.type === 'Quiz' && (reg.status === 'FLAGGED' || reg.proctorViolations > 0) && (
+                                                                            <button
+                                                                                onClick={() => handleRemoveFlag(reg.id, reg.studentName)}
+                                                                                className="px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all flex items-center gap-2 border border-amber-100 shadow-sm"
+                                                                            >
+                                                                                🔄 REMOVE FLAG
+                                                                            </button>
+                                                                        )}
                                                                         {(reg.status === 'Present' || reg.isAttended) && (
                                                                             <button
                                                                                 onClick={() => handleUndoCheckIn(reg.id)}
@@ -2237,6 +2320,17 @@ const OrganizerDashboard = () => {
                                                                                 <option key={year} value={year}>{year}</option>
                                                                             ))}
                                                                         </select>
+
+                                                                        {/* Flagged Only Toggle */}
+                                                                        <button
+                                                                            onClick={() => setShowFlaggedOnly(!showFlaggedOnly)}
+                                                                            className={`px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 border ${showFlaggedOnly
+                                                                                ? 'bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/20'
+                                                                                : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-red-300 hover:text-red-500'
+                                                                                }`}
+                                                                        >
+                                                                            🚩 {showFlaggedOnly ? 'SHOWING FLAGGED' : 'FLAGGED'}
+                                                                        </button>
                                                                     </div>
                                                                     <div className="flex flex-wrap gap-2">
                                                                         {globalDemographics.sections.map(sec => (
