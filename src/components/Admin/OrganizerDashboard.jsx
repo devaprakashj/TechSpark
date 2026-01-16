@@ -146,6 +146,12 @@ const OrganizerDashboard = () => {
         internalNotes: ''
     });
 
+    const [globalDemographics, setGlobalDemographics] = useState({
+        departments: ['CSE', 'IT', 'AI-DS', 'AI-ML', 'ECE', 'EEE', 'MECH', 'CIVIL'],
+        years: ['I', 'II', 'III', 'IV'],
+        sections: ['A', 'B', 'C', 'D']
+    });
+
     const [profileData, setProfileData] = useState({
         fullName: '',
         email: '',
@@ -186,21 +192,32 @@ const OrganizerDashboard = () => {
             if (unsubscribeRegs) unsubscribeRegs();
 
             // 3. Setup Registration Listener for these events
-            if (eventList.length > 0) {
-                const eventIds = eventList.map(e => e.id);
-                const regsQuery = query(collection(db, 'registrations'));
+            const allRegsQuery = query(collection(db, 'registrations'));
 
-                unsubscribeRegs = onSnapshot(regsQuery, (regSnapshot) => {
-                    const filteredRegs = regSnapshot.docs
-                        .map(doc => ({ id: doc.id, ...doc.data() }))
-                        .filter(reg => eventIds.includes(reg.eventId));
+            unsubscribeRegs = onSnapshot(allRegsQuery, (regSnapshot) => {
+                const allSystemRegs = regSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                    setAllRegs(filteredRegs);
-                    console.log(`Synced ${filteredRegs.length} total registrations across ${eventList.length} missions.`);
+                // Update global demographics based on all registered students in the system
+                const depts = new Set(['CSE', 'IT', 'AI-DS', 'AI-ML', 'ECE', 'EEE', 'MECH', 'CIVIL']);
+                const years = new Set(['I', 'II', 'III', 'IV']);
+                const sections = new Set(['A', 'B', 'C', 'D']);
+
+                allSystemRegs.forEach(reg => {
+                    if (reg.studentDept) depts.add(reg.studentDept);
+                    if (reg.studentYear) years.add(reg.studentYear);
+                    if (reg.studentSection) sections.add(reg.studentSection);
                 });
-            } else {
-                setAllRegs([]);
-            }
+
+                setGlobalDemographics({
+                    departments: Array.from(depts).sort(),
+                    years: Array.from(years).sort(),
+                    sections: Array.from(sections).sort()
+                });
+
+                const filteredRegs = allSystemRegs.filter(reg => eventIds.includes(reg.eventId));
+                setAllRegs(filteredRegs);
+                console.log(`Synced ${filteredRegs.length} total registrations across ${eventList.length} missions.`);
+            });
         }, (error) => {
             console.error("Operational Data Sync Error:", error);
             setLoadingData(false);
@@ -418,6 +435,9 @@ const OrganizerDashboard = () => {
             regEndDateTime: event.regEndDateTime || '',
             maxParticipants: event.maxParticipants || '',
             waitingList: event.waitingList || false,
+            isTeamEvent: event.isTeamEvent || false,
+            minTeamSize: event.minTeamSize || 1,
+            maxTeamSize: event.maxTeamSize || 4,
             coordinatorName: event.coordinatorName || '',
             coordinatorPhone: event.coordinatorPhone || '',
             coordinatorEmail: event.coordinatorEmail || '',
@@ -2091,7 +2111,7 @@ const OrganizerDashboard = () => {
                                     )}
 
                                     {/* Step 3: Audience & Registration */}
-                                    {activeStep === 3 && (activeStep === 3) && (
+                                    {activeStep === 3 && (
                                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
                                             <div className="flex items-center gap-4 p-6 bg-emerald-50 rounded-3xl border border-emerald-100">
                                                 <div className="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
@@ -2126,7 +2146,7 @@ const OrganizerDashboard = () => {
                                                                 <div className="space-y-3">
                                                                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Select Departments</label>
                                                                     <div className="flex flex-wrap gap-2">
-                                                                        {['CSE', 'IT', 'AI-DS', 'AI-ML', 'ECE', 'EEE', 'MECH', 'CIVIL'].map(dept => (
+                                                                        {globalDemographics.departments.map(dept => (
                                                                             <button
                                                                                 key={dept}
                                                                                 type="button"
@@ -2149,8 +2169,8 @@ const OrganizerDashboard = () => {
                                                             {formData.audienceType === 'Year Wise' && (
                                                                 <div className="space-y-3">
                                                                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Target Years</label>
-                                                                    <div className="flex gap-3">
-                                                                        {['I', 'II', 'III', 'IV'].map(year => (
+                                                                    <div className="flex gap-3 flex-wrap">
+                                                                        {globalDemographics.years.map(year => (
                                                                             <button
                                                                                 key={year}
                                                                                 type="button"
@@ -2189,7 +2209,7 @@ const OrganizerDashboard = () => {
                                                                         </select>
                                                                     </div>
                                                                     <div className="flex flex-wrap gap-2">
-                                                                        {['A', 'B', 'C', 'D'].map(sec => (
+                                                                        {globalDemographics.sections.map(sec => (
                                                                             <button
                                                                                 key={sec}
                                                                                 type="button"
@@ -2224,50 +2244,62 @@ const OrganizerDashboard = () => {
                                                     <div className="p-8 bg-slate-900 rounded-[2.5rem] shadow-xl text-white">
                                                         <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">Capacity Terminal</h5>
                                                         <div className="space-y-6">
-                                                            <div className="flex items-center justify-between">
-                                                                <label className="text-[10px] font-black uppercase tracking-widest">Entry Registration</label>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setFormData({ ...formData, registrationRequired: !formData.registrationRequired })}
-                                                                    className={`w-12 h-6 rounded-full transition-all relative ${formData.registrationRequired ? 'bg-blue-600' : 'bg-slate-700'}`}
+                                                            <div className="flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-all cursor-pointer group" onClick={() => setFormData({ ...formData, registrationRequired: !formData.registrationRequired })}>
+                                                                <label className="text-[10px] font-black uppercase tracking-widest cursor-pointer group-hover:text-blue-400 transition-colors">Entry Registration</label>
+                                                                <div
+                                                                    className={`w-12 h-6 rounded-full transition-all relative ${formData.registrationRequired ? 'bg-blue-600 shadow-lg shadow-blue-500/20' : 'bg-slate-700'}`}
                                                                 >
                                                                     <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${formData.registrationRequired ? 'right-1' : 'left-1'}`} />
-                                                                </button>
+                                                                </div>
                                                             </div>
                                                             <div className="space-y-2">
                                                                 <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Max Deployment Units (Participants)</label>
-                                                                <input
-                                                                    type="number"
-                                                                    placeholder="100"
-                                                                    value={formData.maxParticipants}
-                                                                    onChange={(e) => setFormData({ ...formData, maxParticipants: e.target.value })}
-                                                                    className="w-full px-5 py-4 bg-white/5 border border-white/10 rounded-xl font-black text-sm text-white outline-none"
-                                                                />
+                                                                <div className="relative">
+                                                                    <input
+                                                                        type="number"
+                                                                        placeholder="100"
+                                                                        value={formData.maxParticipants}
+                                                                        onChange={(e) => setFormData({ ...formData, maxParticipants: e.target.value })}
+                                                                        className="w-full px-5 py-4 bg-white/5 border border-white/10 rounded-xl font-black text-sm text-white outline-none focus:border-blue-500/50 transition-all"
+                                                                    />
+                                                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col gap-0.5">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setFormData(prev => ({ ...prev, maxParticipants: (parseInt(prev.maxParticipants) || 0) + 10 }))}
+                                                                            className="p-1 hover:bg-white/10 rounded text-slate-500 hover:text-white transition-all"
+                                                                        >
+                                                                            <ChevronUp className="w-3 h-3" />
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setFormData(prev => ({ ...prev, maxParticipants: Math.max(0, (parseInt(prev.maxParticipants) || 0) - 10) }))}
+                                                                            className="p-1 hover:bg-white/10 rounded text-slate-500 hover:text-white transition-all"
+                                                                        >
+                                                                            <ChevronDown className="w-3 h-3" />
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
                                                             </div>
-                                                            <div className="flex items-center justify-between">
-                                                                <label className="text-[10px] font-black uppercase tracking-widest">Enable Awaiting List</label>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setFormData({ ...formData, waitingList: !formData.waitingList })}
-                                                                    className={`w-12 h-6 rounded-full transition-all relative ${formData.waitingList ? 'bg-indigo-600' : 'bg-slate-700'}`}
+                                                            <div className="flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-all cursor-pointer group" onClick={() => setFormData({ ...formData, waitingList: !formData.waitingList })}>
+                                                                <label className="text-[10px] font-black uppercase tracking-widest cursor-pointer group-hover:text-indigo-400 transition-colors">Enable Awaiting List</label>
+                                                                <div
+                                                                    className={`w-12 h-6 rounded-full transition-all relative ${formData.waitingList ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20' : 'bg-slate-700'}`}
                                                                 >
                                                                     <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${formData.waitingList ? 'right-1' : 'left-1'}`} />
-                                                                </button>
+                                                                </div>
                                                             </div>
 
                                                             <div className="pt-4 mt-4 border-t border-white/10 space-y-6">
-                                                                <div className="flex items-center justify-between">
+                                                                <div className="flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-all cursor-pointer group" onClick={() => setFormData({ ...formData, isTeamEvent: !formData.isTeamEvent })}>
                                                                     <div>
-                                                                        <label className="text-[10px] font-black uppercase tracking-widest block text-blue-400">Team Participation</label>
+                                                                        <label className="text-[10px] font-black uppercase tracking-widest block text-blue-400 cursor-pointer group-hover:text-emerald-400 transition-colors">Team Participation</label>
                                                                         <p className="text-[9px] text-slate-500 font-medium">Require students to register as teams</p>
                                                                     </div>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => setFormData({ ...formData, isTeamEvent: !formData.isTeamEvent })}
-                                                                        className={`w-12 h-6 rounded-full transition-all relative ${formData.isTeamEvent ? 'bg-emerald-600' : 'bg-slate-700'}`}
+                                                                    <div
+                                                                        className={`w-12 h-6 rounded-full transition-all relative ${formData.isTeamEvent ? 'bg-emerald-600 shadow-lg shadow-emerald-500/20' : 'bg-slate-700'}`}
                                                                     >
                                                                         <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${formData.isTeamEvent ? 'right-1' : 'left-1'}`} />
-                                                                    </button>
+                                                                    </div>
                                                                 </div>
 
                                                                 {formData.isTeamEvent && (
