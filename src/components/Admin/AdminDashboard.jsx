@@ -36,7 +36,10 @@ import {
     Terminal,
     RotateCcw,
     ChevronRight,
-    HelpCircle
+    HelpCircle,
+    Clock,
+    MapPin,
+    UserCheck
 } from 'lucide-react';
 import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, where, updateDoc, doc, increment, deleteDoc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -105,6 +108,8 @@ const AdminDashboard = () => {
     const [eventStatusFilter, setEventStatusFilter] = useState('ALL');
     const [eventSearchQuery, setEventSearchQuery] = useState('');
     const [isSearchScannerOpen, setIsSearchScannerOpen] = useState(false);
+    const [showApproveModal, setShowApproveModal] = useState(false);
+    const [eventToApprove, setEventToApprove] = useState(null);
 
     const fetchDashboardData = () => {
         console.log("Strategic Refresh Triggered");
@@ -636,6 +641,32 @@ const AdminDashboard = () => {
             fetchDashboardData();
         } catch (error) {
             console.error("Delete error:", error);
+        }
+    };
+
+    const handleDeleteEvent = async (eventId) => {
+        if (!confirm('⚠️ WARNING: This will permanently delete the event and ALL associated registrations and feedback. Are you sure?')) return;
+
+        try {
+            // Delete the event
+            await deleteDoc(doc(db, 'events', eventId));
+
+            // Delete all registrations for this event
+            const regsQuery = query(collection(db, 'registrations'), where('eventId', '==', eventId));
+            const regsSnapshot = await getDocs(regsQuery);
+            const deleteRegsPromises = regsSnapshot.docs.map(doc => deleteDoc(doc.ref));
+            await Promise.all(deleteRegsPromises);
+
+            // Delete all feedback for this event
+            const feedbackQuery = query(collection(db, 'feedback'), where('eventId', '==', eventId));
+            const feedbackSnapshot = await getDocs(feedbackQuery);
+            const deleteFeedbackPromises = feedbackSnapshot.docs.map(doc => deleteDoc(doc.ref));
+            await Promise.all(deleteFeedbackPromises);
+
+            alert(`✅ Event deleted successfully!\n- Event removed\n- ${regsSnapshot.size} registrations deleted\n- ${feedbackSnapshot.size} feedback entries deleted`);
+        } catch (error) {
+            console.error('Error deleting event:', error);
+            alert('❌ Failed to delete event. Please try again.');
         }
     };
 
@@ -1296,7 +1327,8 @@ const AdminDashboard = () => {
                                             <th className="px-8 py-5">Event</th>
                                             <th className="px-8 py-5">Organizer</th>
                                             <th className="px-8 py-5 text-center">Registrations</th>
-                                            <th className="px-8 py-5 text-right">Status</th>
+                                            <th className="px-8 py-5 text-center">Status</th>
+                                            <th className="px-8 py-5 text-right">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
@@ -1312,7 +1344,7 @@ const AdminDashboard = () => {
                                                         {event.attendeesCount || 0}
                                                     </span>
                                                 </td>
-                                                <td className="px-8 py-5 text-right">
+                                                <td className="px-8 py-5 text-center">
                                                     <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${event.status === 'LIVE' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
                                                         event.status === 'PENDING' ? 'bg-orange-50 text-orange-600 border border-orange-100' :
                                                             'bg-slate-100 text-slate-500'
@@ -1320,10 +1352,88 @@ const AdminDashboard = () => {
                                                         {event.status}
                                                     </span>
                                                 </td>
+                                                <td className="px-8 py-5 text-right">
+                                                    <button
+                                                        onClick={() => handleDeleteEvent(event.id)}
+                                                        className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all duration-300 hover:scale-110 group"
+                                                        title="Delete Event"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
+                            </div>
+                        </div>
+
+                        {/* All Events Management Grid */}
+                        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-50 to-white">
+                                <div>
+                                    <h3 className="font-black text-slate-800 text-xl uppercase tracking-tight flex items-center gap-3">
+                                        <Calendar className="w-6 h-6 text-blue-600" />
+                                        All Events Management
+                                    </h3>
+                                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mt-1">
+                                        {events.length} Total Events • Delete Any Event
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="p-8">
+                                {events.length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        {events.map((event) => (
+                                            <div key={event.id} className="bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden hover:shadow-lg transition-all group">
+                                                <div className="p-6">
+                                                    <div className="flex items-start justify-between mb-4">
+                                                        <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${event.status === 'LIVE' ? 'bg-emerald-100 text-emerald-700' :
+                                                            event.status === 'PENDING' ? 'bg-orange-100 text-orange-700' :
+                                                                'bg-slate-200 text-slate-600'
+                                                            }`}>
+                                                            {event.status}
+                                                        </span>
+                                                        <span className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase ${event.type === 'WORKSHOP' ? 'bg-blue-100 text-blue-700' :
+                                                            event.type === 'HACKATHON' ? 'bg-purple-100 text-purple-700' :
+                                                                event.type === 'SEMINAR' ? 'bg-emerald-100 text-emerald-700' :
+                                                                    'bg-pink-100 text-pink-700'
+                                                            }`}>
+                                                            {event.type}
+                                                        </span>
+                                                    </div>
+                                                    <h4 className="text-sm font-black text-slate-800 uppercase mb-2 leading-tight">
+                                                        {event.title}
+                                                    </h4>
+                                                    <p className="text-xs text-slate-600 mb-4">
+                                                        Organizer: <span className="font-bold">{event.createdBy || 'Admin'}</span>
+                                                    </p>
+                                                    <div className="flex items-center justify-between pt-4 border-t border-slate-200">
+                                                        <div className="flex items-center gap-2">
+                                                            <Users className="w-4 h-4 text-slate-400" />
+                                                            <span className="text-xs font-bold text-slate-600">
+                                                                {event.attendeesCount || 0} Regs
+                                                            </span>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleDeleteEvent(event.id)}
+                                                            className="px-3 py-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                                                            title="Delete Event"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                            <span className="text-[10px] font-black uppercase">Delete</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-20">
+                                        <Calendar className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+                                        <p className="text-slate-400 font-bold uppercase tracking-widest text-sm">No Events Found</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -1584,20 +1694,13 @@ const AdminDashboard = () => {
                                                 {event.status === 'PENDING' ? 'REJECT' : 'REVERT TO LIVE'}
                                             </button>
                                             <button
-                                                onClick={async () => {
-                                                    const confirmMsg = event.status === 'PENDING' ? "Authorize this event for LIVE broadcast?" : "Mark this operation as COMPLETED & Archivable?";
-                                                    if (!window.confirm(confirmMsg)) return;
-                                                    await updateDoc(doc(db, 'events', event.id), {
-                                                        status: event.status === 'PENDING' ? 'LIVE' : 'COMPLETED',
-                                                        remarks: event.status === 'PENDING' ? 'Approved by Super Admin' : 'Verified by Super Admin',
-                                                        lastActionBy: admin.username,
-                                                        lastActionAt: serverTimestamp()
-                                                    });
-                                                    fetchDashboardData();
+                                                onClick={() => {
+                                                    setEventToApprove(event);
+                                                    setShowApproveModal(true);
                                                 }}
                                                 className={`py-3 ${event.status === 'PENDING' ? 'bg-emerald-600 shadow-emerald-500/20' : 'bg-indigo-600 shadow-indigo-500/20'} text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-lg`}
                                             >
-                                                {event.status === 'PENDING' ? 'APPROVE LIVE' : 'VERIFY & CLOSE'}
+                                                {event.status === 'PENDING' ? 'REVIEW & APPROVE' : 'VERIFY & CLOSE'}
                                             </button>
                                         </div>
                                     </div>
@@ -2553,6 +2656,162 @@ const AdminDashboard = () => {
                                         </tbody>
                                     </table>
                                 </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Event Approval Review Modal */}
+            <AnimatePresence>
+                {showApproveModal && eventToApprove && (
+                    <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowApproveModal(false)}
+                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="relative w-full max-w-4xl bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-100"
+                        >
+                            {/* Header */}
+                            <div className="p-8 bg-slate-50 border-b border-slate-100 flex items-center justify-between font-black uppercase tracking-widest italic">
+                                <div>
+                                    <h3 className="text-2xl font-black text-slate-800 uppercase italic">Event Review & Authorization</h3>
+                                    <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-1">Inspecting organizer deployment details before broadcast</p>
+                                </div>
+                                <button onClick={() => setShowApproveModal(false)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                                    <X className="w-6 h-6 text-slate-400" />
+                                </button>
+                            </div>
+
+                            {/* Detailed Content */}
+                            <div className="flex-1 overflow-y-auto p-8 space-y-8 text-left bg-[#fcfdfe]">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    {/* Core Details */}
+                                    <div className="space-y-6">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Event Title</label>
+                                            <p className="text-xl font-black text-slate-800 uppercase leading-tight">{eventToApprove.title}</p>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</label>
+                                                <span className="block px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-black w-fit uppercase">{eventToApprove.type}</span>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Organizer</label>
+                                                <p className="text-sm font-bold text-slate-700 uppercase">{eventToApprove.createdBy}</p>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Description</label>
+                                            <p className="text-sm text-slate-600 leading-relaxed font-medium">{eventToApprove.description}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Logistics & Constraints */}
+                                    <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 space-y-6">
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <div className="space-y-2">
+                                                <div className="flex items-center gap-2 text-blue-600">
+                                                    <Calendar className="w-4 h-4" />
+                                                    <label className="text-[10px] font-black uppercase tracking-widest">Date</label>
+                                                </div>
+                                                <p className="text-sm font-black text-slate-800">{eventToApprove.date}</p>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <div className="flex items-center gap-2 text-indigo-600">
+                                                    <Clock className="w-4 h-4" />
+                                                    <label className="text-[10px] font-black uppercase tracking-widest">Time</label>
+                                                </div>
+                                                <p className="text-sm font-black text-slate-800">{eventToApprove.time || 'N/A'}</p>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2 text-emerald-600">
+                                                <MapPin className="w-4 h-4" />
+                                                <label className="text-[10px] font-black uppercase tracking-widest">Venue / Base</label>
+                                            </div>
+                                            <p className="text-sm font-black text-slate-800 uppercase">{eventToApprove.venue || 'Block-B, Lab 402'}</p>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Max Capacity</label>
+                                                <p className="text-sm font-black text-slate-800">{eventToApprove.maxNo || 100} Members</p>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Audience</label>
+                                                <p className="text-sm font-black text-slate-800 uppercase">{eventToApprove.targetAudience || 'All Departments'}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Coordinator Details */}
+                                <div className="p-6 bg-white border border-slate-100 rounded-3xl">
+                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                        <UserCheck className="w-4 h-4 text-blue-600" /> Operational Coordinators
+                                    </h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-blue-600 font-black">C1</div>
+                                            <div>
+                                                <p className="text-sm font-bold text-slate-800 uppercase">{eventToApprove.coord1Name || 'Not Specified'}</p>
+                                                <p className="text-[10px] text-slate-400 font-mono font-medium">{eventToApprove.coord1Phone || 'No Trace'}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-blue-600 font-black">C2</div>
+                                            <div>
+                                                <p className="text-sm font-bold text-slate-800 uppercase">{eventToApprove.coord2Name || 'Not Specified'}</p>
+                                                <p className="text-[10px] text-slate-400 font-mono font-medium">{eventToApprove.coord2Phone || 'No Trace'}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Action Footer */}
+                            <div className="p-8 bg-slate-50 border-t border-slate-100 flex items-center gap-4">
+                                <button
+                                    onClick={async () => {
+                                        const remarks = prompt("Enter rejection/revert remarks (MANDATORY):");
+                                        if (!remarks) return alert("Remarks are mandatory for rejection.");
+                                        await updateDoc(doc(db, 'events', eventToApprove.id), {
+                                            status: 'REJECTED',
+                                            remarks,
+                                            lastActionBy: admin.username,
+                                            lastActionAt: serverTimestamp()
+                                        });
+                                        setShowApproveModal(false);
+                                        fetchDashboardData();
+                                    }}
+                                    className="px-8 py-4 bg-red-50 text-red-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-all flex items-center gap-2"
+                                >
+                                    <Trash2 className="w-4 h-4" /> Reject Submission
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        if (!window.confirm("Authorize this event for LIVE broadcast? This will make it visible to all students.")) return;
+                                        await updateDoc(doc(db, 'events', eventToApprove.id), {
+                                            status: 'LIVE',
+                                            remarks: 'Approved by Super Admin after technical review',
+                                            lastActionBy: admin.username,
+                                            lastActionAt: serverTimestamp()
+                                        });
+                                        setShowApproveModal(false);
+                                        fetchDashboardData();
+                                    }}
+                                    className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-emerald-500/20 hover:scale-[1.02] transition-all flex items-center justify-center gap-3"
+                                >
+                                    <ShieldCheck className="w-5 h-5" /> Approve Live
+                                </button>
                             </div>
                         </motion.div>
                     </div>
