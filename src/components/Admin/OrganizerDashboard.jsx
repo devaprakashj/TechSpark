@@ -1086,12 +1086,20 @@ const OrganizerDashboard = () => {
                                                                                 </span>
                                                                             )}
                                                                         </div>
-                                                                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                                                                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
                                                                             <span className="text-blue-600">{reg.studentRoll}</span>
                                                                             <span className="w-1 h-1 bg-slate-300 rounded-full" />
                                                                             <span>{reg.studentDept}</span>
                                                                             <span className="w-1 h-1 bg-slate-300 rounded-full" />
                                                                             <span>{reg.studentYear} Year</span>
+                                                                            {reg.isTeamRegistration && (
+                                                                                <>
+                                                                                    <span className="w-1 h-1 bg-blue-300 rounded-full" />
+                                                                                    <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded italic">
+                                                                                        Squad: {reg.teamName} ({reg.teamRole})
+                                                                                    </span>
+                                                                                </>
+                                                                            )}
                                                                         </div>
                                                                     </div>
                                                                 </div>

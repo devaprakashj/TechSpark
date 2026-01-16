@@ -70,20 +70,32 @@ const Events = () => {
         setVerificationError('');
         setIsRegLoading(true);
         try {
+            // Optimization: Query by teamCode only to avoid needing complex composite indexes
+            // This is safe because team codes are reasonably unique
             const q = query(
                 collection(db, 'registrations'),
-                where('eventId', '==', eventToRegister.id),
-                where('teamCode', '==', teamCodeInput.toUpperCase()),
-                where('teamRole', '==', 'LEADER')
+                where('teamCode', '==', teamCodeInput.toUpperCase())
             );
             const querySnapshot = await getDocs(q);
 
-            if (querySnapshot.empty) {
-                setVerificationError("Invalid Team Code. Please verify with your leader.");
+            // Filter in-memory for the specific event and teammate count
+            const teammates = querySnapshot.docs.filter(doc => doc.data().eventId === eventToRegister.id);
+            const leaderDoc = teammates.find(doc => doc.data().teamRole === 'LEADER');
+
+            if (!leaderDoc) {
+                setVerificationError("Invalid Team Code for this event. Please verify with your leader.");
             } else {
-                const teamData = querySnapshot.docs[0].data();
-                setTeamName(teamData.teamName);
-                alert(`Team Found: ${teamData.teamName}. Proceed to join!`);
+                const teamData = leaderDoc.data();
+                const currentSize = teammates.length;
+                const maxSize = eventToRegister.maxTeamSize || 4;
+
+                if (currentSize >= maxSize) {
+                    setVerificationError(`This squad (${teamData.teamName}) is already full (${currentSize}/${maxSize}).`);
+                    setTeamName('');
+                } else {
+                    setTeamName(teamData.teamName);
+                    alert(`Team Found: ${teamData.teamName}. Current members: ${currentSize}/${maxSize}. Proceed to join!`);
+                }
             }
         } catch (error) {
             console.error("Team Verification Error:", error);
@@ -160,7 +172,13 @@ const Events = () => {
             });
 
             setIsConfirmModalOpen(false);
-            alert(`🎉 Successfully registered for ${eventToRegister.title}! Check your dashboard.`);
+            if (registrationData.teamRole === 'LEADER') {
+                alert(`🎉 Successfully created team "${registrationData.teamName}"!\n\nYOUR TEAM CODE: ${registrationData.teamCode}\n\nShare this code with your teammates so they can join your squad! 🚀`);
+            } else if (registrationData.teamRole === 'MEMBER') {
+                alert(`🎉 Successfully joined team "${registrationData.teamName}"! Check your dashboard. 🚀`);
+            } else {
+                alert(`🎉 Successfully registered for ${eventToRegister.title}! Check your dashboard.`);
+            }
         } catch (error) {
             console.error("Registration finalization error:", error);
             alert("Something went wrong. Please try again later.");
@@ -501,7 +519,11 @@ const Events = () => {
                                                             type="text"
                                                             placeholder="e.g. TS-ABCD"
                                                             value={teamCodeInput}
-                                                            onChange={(e) => setTeamCodeInput(e.target.value)}
+                                                            onChange={(e) => {
+                                                                setTeamCodeInput(e.target.value);
+                                                                setTeamName('');
+                                                                setVerificationError('');
+                                                            }}
                                                             className="flex-1 px-5 py-4 bg-white border border-slate-200 rounded-2xl outline-none font-bold text-slate-800 text-sm focus:ring-4 focus:ring-blue-500/5 transition-all uppercase"
                                                         />
                                                         <button

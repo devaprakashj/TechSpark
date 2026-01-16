@@ -254,15 +254,16 @@ const SecretaryDashboard = () => {
                 i + 1,
                 r.studentRoll,
                 (r.studentName || 'N/A').toUpperCase(),
+                r.isTeamRegistration ? `${r.teamName} (${r.teamRole})` : 'INDIVIDUAL',
                 r.registeredAt?.toDate ? new Date(r.registeredAt.toDate()).toLocaleString() : 'SYSTEM VERIFIED'
             ]);
 
             autoTable(doc, {
                 startY: 60,
-                head: [['S.NO', 'STUDENT identity', 'FULL NAME', 'VERIFIED TIMESTAMP']],
+                head: [['S.NO', 'ROLL NO', 'FULL NAME', 'SQUAD/TEAM', 'TIMESTAMP']],
                 body: regTableData,
                 headStyles: { fillColor: [15, 23, 42] },
-                styles: { fontSize: 8 }
+                styles: { fontSize: 7 } // Slightly smaller font to fit more columns
             });
 
             // --- PAGE 4: ATTACHMENT 2 - ATTENDANCE AUDIT (SECTION 4) ---
@@ -279,13 +280,14 @@ const SecretaryDashboard = () => {
                 i + 1,
                 r.studentName.toUpperCase(),
                 r.studentRoll,
+                r.isTeamRegistration ? r.teamName : 'N/A',
                 r.studentDept,
                 'PRESENT'
             ]);
 
             autoTable(doc, {
                 startY: 55,
-                head: [['#', 'STUDENT NAME', 'ROLL NO', 'DEPT', 'STATUS']],
+                head: [['#', 'STUDENT NAME', 'ROLL NO', 'SQUAD', 'DEPT', 'STATUS']],
                 body: attendedList,
                 headStyles: { fillColor: [16, 185, 129] },
                 styles: { fontSize: 7 }

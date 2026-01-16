@@ -37,7 +37,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, orderBy, doc, getDoc, setDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, onSnapshot, orderBy, doc, getDoc, setDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
 
 const StudentDashboard = () => {
     const { user, logout } = useAuth();
@@ -65,6 +65,10 @@ const StudentDashboard = () => {
         recommend: 'Yes'
     });
     const [submittingFeedback, setSubmittingFeedback] = useState(false);
+    const [regMode, setRegMode] = useState('INDIVIDUAL');
+    const [teamName, setTeamName] = useState('');
+    const [teamCodeInput, setTeamCodeInput] = useState('');
+    const [verificationError, setVerificationError] = useState('');
     const idCardRef = useRef(null);
     const navigate = useNavigate();
 
@@ -250,9 +254,50 @@ const StudentDashboard = () => {
 
             // Open confirmation flow
             setEventToRegister(event);
+            setRegMode(event.isTeamEvent ? 'TEAM_CREATE' : 'INDIVIDUAL');
+            setTeamName('');
+            setTeamCodeInput('');
+            setVerificationError('');
             setIsConfirming(true);
         } catch (error) {
             console.error("Auth check error:", error);
+        }
+    };
+
+    const handleVerifyTeamCode = async () => {
+        if (!teamCodeInput || !eventToRegister) return;
+        setVerificationError('');
+        setIsRegLoading(true);
+        try {
+            const q = query(
+                collection(db, 'registrations'),
+                where('teamCode', '==', teamCodeInput.toUpperCase())
+            );
+            const querySnapshot = await getDocs(q);
+
+            const teammates = querySnapshot.docs.filter(doc => doc.data().eventId === eventToRegister.id);
+            const leaderDoc = teammates.find(doc => doc.data().teamRole === 'LEADER');
+
+            if (!leaderDoc) {
+                setVerificationError("Invalid Team Code for this event. Please verify with your leader.");
+            } else {
+                const teamData = leaderDoc.data();
+                const currentSize = teammates.length;
+                const maxSize = eventToRegister.maxTeamSize || 4;
+
+                if (currentSize >= maxSize) {
+                    setVerificationError(`This squad (${teamData.teamName}) is already full (${currentSize}/${maxSize}).`);
+                    setTeamName('');
+                } else {
+                    setTeamName(teamData.teamName);
+                    alert(`Team Found: ${teamData.teamName}. Current members: ${currentSize}/${maxSize}. Proceed to join!`);
+                }
+            }
+        } catch (error) {
+            console.error("Team Verification Error:", error);
+            setVerificationError("Encryption breach during verification. Try again.");
+        } finally {
+            setIsRegLoading(false);
         }
     };
 
@@ -263,6 +308,22 @@ const StudentDashboard = () => {
         try {
             const regId = `${eventToRegister.id}_${user.uid}`;
             const regRef = doc(db, 'registrations', regId);
+
+            let generatedTeamCode = '';
+            if (regMode === 'TEAM_CREATE') {
+                if (!teamName.trim()) {
+                    alert("A squad name is required for tactical deployment!");
+                    setIsRegLoading(false);
+                    return;
+                }
+                generatedTeamCode = `TS-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+            }
+
+            if (regMode === 'TEAM_JOIN' && !teamName) {
+                alert("Please verify your squad code before authorizing.");
+                setIsRegLoading(false);
+                return;
+            }
 
             // Register for the event
             await setDoc(regRef, {
@@ -279,7 +340,13 @@ const StudentDashboard = () => {
                 studentYear: user.yearOfStudy,
                 studentSection: user.section || 'N/A',
                 registeredAt: serverTimestamp(),
-                status: 'Upcoming'
+                status: 'Upcoming',
+
+                // Team Info
+                isTeamRegistration: regMode !== 'INDIVIDUAL',
+                teamRole: regMode === 'TEAM_CREATE' ? 'LEADER' : (regMode === 'TEAM_JOIN' ? 'MEMBER' : 'INDIVIDUAL'),
+                teamName: regMode !== 'INDIVIDUAL' ? (teamName || 'Solo Ops') : '',
+                teamCode: regMode === 'TEAM_CREATE' ? generatedTeamCode : (regMode === 'TEAM_JOIN' ? teamCodeInput.toUpperCase() : '')
             });
 
             // 2. Update attendee count atomically
@@ -292,15 +359,21 @@ const StudentDashboard = () => {
             const userRef = doc(db, 'users', user.uid);
             await updateDoc(userRef, {
                 points: increment(50),
-                // Auto-unlock 'Active Spark' if they reach the threshold
                 badges: (user.points + 50) >= 50 && !user.badges?.includes('active-spark')
                     ? [...(user.badges || []), 'active-spark']
                     : (user.badges || [])
             });
 
             setIsConfirming(false);
+
+            if (regMode === 'TEAM_CREATE') {
+                alert(`🚀 TEAM CREATED! Your Squad Name: ${teamName}. Share Code: ${generatedTeamCode} with your teammates.`);
+            } else if (regMode === 'TEAM_JOIN') {
+                alert(`🎉 Successfully joined squad: ${teamName}!`);
+            } else {
+                alert(`🎉 Successfully registered for ${eventToRegister.title}! +50 Spark Points gained. 🚀`);
+            }
             setEventToRegister(null);
-            alert(`🎉 Successfully registered for ${eventToRegister.title}! +50 Spark Points gained. 🚀`);
         } catch (error) {
             console.error("Registration error:", error);
             alert("Mission failed. Please try again.");
@@ -490,14 +563,28 @@ const StudentDashboard = () => {
                                                         </div>
                                                         <div>
                                                             <h3 className="font-bold text-slate-800 group-hover:text-blue-600 transition-colors uppercase">{reg.eventTitle}</h3>
-                                                            <p className="text-xs text-slate-500 flex items-center gap-1 font-medium">
-                                                                <Clock className="w-3 h-3" /> {reg.eventTime}
+                                                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
+                                                                <p className="text-xs text-slate-500 flex items-center gap-1 font-medium">
+                                                                    <Clock className="w-3 h-3" /> {reg.eventTime}
+                                                                </p>
+                                                                {reg.isTeamRegistration && (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 uppercase italic">
+                                                                            Squad: {reg.teamName}
+                                                                        </span>
+                                                                        {reg.teamRole === 'LEADER' && (
+                                                                            <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 uppercase italic flex items-center gap-1">
+                                                                                <Crown className="w-3 h-3" /> Code: {reg.teamCode}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                )}
                                                                 {isCheckedIn && (
-                                                                    <span className="ml-2 text-[8px] text-emerald-600 flex items-center gap-0.5 font-black uppercase">
+                                                                    <span className="text-[8px] text-emerald-600 flex items-center gap-0.5 font-black uppercase">
                                                                         <CheckCircle className="w-2 h-2" /> Verified Entry
                                                                     </span>
                                                                 )}
-                                                            </p>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-3">
@@ -585,6 +672,65 @@ const StudentDashboard = () => {
                                                 <p className="text-[10px] md:text-sm font-black text-blue-600 italic font-mono uppercase tracking-tighter bg-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl border border-blue-100">{eventToRegister.date}</p>
                                             </div>
                                         </div>
+
+                                        {eventToRegister.isTeamEvent && (
+                                            <div className="space-y-4">
+                                                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest ml-1">Team Deployment Strategy</p>
+                                                <div className="flex bg-slate-100 p-1.5 rounded-[1.2rem] gap-1.5">
+                                                    <button
+                                                        onClick={() => setRegMode('TEAM_CREATE')}
+                                                        className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase transition-all ${regMode === 'TEAM_CREATE' ? 'bg-white text-blue-600 shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
+                                                    >
+                                                        Create Team
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setRegMode('TEAM_JOIN')}
+                                                        className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase transition-all ${regMode === 'TEAM_JOIN' ? 'bg-white text-blue-600 shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
+                                                    >
+                                                        Join Team
+                                                    </button>
+                                                </div>
+
+                                                {regMode === 'TEAM_CREATE' ? (
+                                                    <div className="animate-in fade-in slide-in-from-top-2">
+                                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block italic">Assign Squad Designation (Team Name)</label>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="e.g. CYBER KNIGHTS"
+                                                            value={teamName}
+                                                            onChange={(e) => setTeamName(e.target.value)}
+                                                            className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-slate-800 text-sm focus:bg-white focus:ring-4 focus:ring-blue-500/5 transition-all uppercase"
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <div className="animate-in fade-in slide-in-from-top-2 space-y-3">
+                                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block italic">Enter Authorization Code (Team Code)</label>
+                                                        <div className="flex gap-2">
+                                                            <input
+                                                                type="text"
+                                                                placeholder="e.g. TS-ABCD"
+                                                                value={teamCodeInput}
+                                                                onChange={(e) => {
+                                                                    setTeamCodeInput(e.target.value);
+                                                                    setTeamName('');
+                                                                    setVerificationError('');
+                                                                }}
+                                                                className="flex-1 px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-slate-800 text-sm focus:bg-white focus:ring-4 focus:ring-blue-500/5 transition-all uppercase"
+                                                            />
+                                                            <button
+                                                                onClick={handleVerifyTeamCode}
+                                                                disabled={isRegLoading || !teamCodeInput}
+                                                                className="px-6 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-blue-600 transition-all disabled:opacity-50"
+                                                            >VERIFY</button>
+                                                        </div>
+                                                        {verificationError && <p className="text-[9px] text-red-500 font-bold ml-1 uppercase">{verificationError}</p>}
+                                                        {teamName && <p className="text-[10px] text-emerald-600 font-black ml-1 uppercase italic flex items-center gap-2 tracking-widest">
+                                                            <CheckCircle className="w-4 h-4" /> AUTHENTICATED: {teamName}
+                                                        </p>}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                                             <div className="space-y-6">
