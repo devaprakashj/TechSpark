@@ -85,6 +85,7 @@ const StudentDashboard = () => {
     const [activeQuizTitle, setActiveQuizTitle] = useState('');
     const [activeQuizRegId, setActiveQuizRegId] = useState(null);
     const [iframeLoadCount, setIframeLoadCount] = useState(0);
+    const [showFinishButton, setShowFinishButton] = useState(false);
     const quizStartTime = useRef(null);
     const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -139,16 +140,14 @@ const StudentDashboard = () => {
                 lastUpdated: serverTimestamp()
             });
 
-            // Brief delay to let the user see the Google Form "Thank You" message
-            setTimeout(() => {
-                setShowQuizModal(false);
-                setActiveQuizUrl('');
-                setActiveQuizTitle('');
-                setActiveQuizRegId(null);
-                setIframeLoadCount(0);
-                quizStartTime.current = null;
-                alert("✨ BRAVO! Quiz Submission Detected. Your participation has been recorded and your dashboard is now updated to COMPLETED! 🚀");
-            }, 2000);
+            setShowQuizModal(false);
+            setActiveQuizUrl('');
+            setActiveQuizTitle('');
+            setActiveQuizRegId(null);
+            setIframeLoadCount(0);
+            setShowFinishButton(false);
+            quizStartTime.current = null;
+            alert("✨ BRAVO! Quiz Submission Verified. Your participation has been recorded and your dashboard is now updated to COMPLETED! 🚀");
         } catch (error) {
             console.error("Error updating quiz status:", error);
         }
@@ -164,18 +163,18 @@ const StudentDashboard = () => {
             quizStartTime.current = Date.now();
             setIframeLoadCount(1);
         } else {
-            // Subsequent loads: Could be draft recovery OR final submission redirect
+            // Subsequent loads: Could be draft recovery, "Next" section, OR final submission
             const timeSpent = (Date.now() - quizStartTime.current) / 1000;
             console.log(`Time spent in quiz: ${timeSpent} seconds`);
 
-            // Heuristic: If they spent more than 10 seconds, it's likely a real submission
-            // Google Forms draft recovery reloads happen almost instantly after opening
+            // Heuristic: If they spent more than 10 seconds, they've likely interacted.
+            // For multi-section forms, this happens on "Next". For 1-page, it's "Submit".
+            // Instead of auto-closing (which breaks multi-section), we show a "Finish" button.
             if (timeSpent > 10) {
-                handleQuizCompletion();
-            } else {
-                console.log("Transient reload detected (likely draft recovery). Ignoring for completion.");
-                setIframeLoadCount(prev => prev + 1);
+                setShowFinishButton(true);
+                console.log("Activity detected. Completion button enabled.");
             }
+            setIframeLoadCount(prev => prev + 1);
         }
     };
 
@@ -926,6 +925,7 @@ const StudentDashboard = () => {
                                                                             setActiveQuizTitle(reg.eventTitle);
                                                                             setActiveQuizRegId(reg.id);
                                                                             setIframeLoadCount(0);
+                                                                            setShowFinishButton(false);
                                                                             quizStartTime.current = null;
                                                                             setShowQuizModal(true);
                                                                         }}
@@ -1901,6 +1901,22 @@ const StudentDashboard = () => {
                                                 {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
                                             </span>
                                         </div>
+
+                                        {/* Smart Finish Button */}
+                                        {showFinishButton && (
+                                            <motion.button
+                                                initial={{ scale: 0.5, opacity: 0 }}
+                                                animate={{ scale: 1, opacity: 1 }}
+                                                whileHover={{ scale: 1.05 }}
+                                                whileTap={{ scale: 0.95 }}
+                                                onClick={handleQuizCompletion}
+                                                className="px-4 md:px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg md:rounded-xl font-black text-[10px] md:text-xs uppercase tracking-[0.15em] transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/30 border border-emerald-400 group"
+                                            >
+                                                <div className="w-2 h-2 bg-white rounded-full animate-ping" />
+                                                VERIFY & FINISH
+                                            </motion.button>
+                                        )}
+
                                         <button
                                             onClick={() => {
                                                 if (window.confirm('Are you sure you want to exit the quiz? Your progress may be lost.')) {
@@ -1909,6 +1925,7 @@ const StudentDashboard = () => {
                                                     setActiveQuizTitle('');
                                                     setActiveQuizRegId(null);
                                                     setIframeLoadCount(0);
+                                                    setShowFinishButton(false);
                                                 }
                                             }}
                                             className="px-3 md:px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg md:rounded-xl font-black text-[10px] md:text-xs uppercase tracking-widest transition-all flex items-center gap-1 md:gap-2 shrink-0"
