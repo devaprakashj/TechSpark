@@ -98,7 +98,6 @@ const StudentDashboard = () => {
     const MAX_VIOLATIONS = 3;
     const [showQuizRulesModal, setShowQuizRulesModal] = useState(false);
     const [pendingQuizData, setPendingQuizData] = useState(null);
-    const [fullscreenLockOverlay, setFullscreenLockOverlay] = useState(false); // VIT Style lock overlay
 
     // Live Clock Effect
     useEffect(() => {
@@ -199,482 +198,6 @@ const StudentDashboard = () => {
         document.addEventListener('visibilitychange', handleVisibilityChange);
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
     }, [showQuizModal, tabSwitchCount, activeQuizRegId]);
-
-    // --- PROCTORING: Disable Copy/Paste/Cut/Right-Click ---
-    useEffect(() => {
-        if (!showQuizModal) return;
-
-        const preventCopy = (e) => {
-            e.preventDefault();
-            setProctorWarning('⚠️ Copy/Paste is disabled during the quiz!');
-            setTimeout(() => setProctorWarning(''), 3000);
-        };
-
-        const preventContextMenu = (e) => {
-            e.preventDefault();
-            setProctorWarning('⚠️ Right-click is disabled during the quiz!');
-            setTimeout(() => setProctorWarning(''), 3000);
-        };
-
-        const preventKeyShortcuts = (e) => {
-            // Block Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+A, Ctrl+P (print)
-            if (e.ctrlKey && ['c', 'v', 'x', 'a', 'p'].includes(e.key.toLowerCase())) {
-                e.preventDefault();
-                setProctorWarning('⚠️ Keyboard shortcuts are disabled!');
-                setTimeout(() => setProctorWarning(''), 3000);
-            }
-            // Block F12, Ctrl+Shift+I (DevTools)
-            if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i')) {
-                e.preventDefault();
-                setProctorWarning('⚠️ Developer tools are disabled!');
-                setTimeout(() => setProctorWarning(''), 3000);
-            }
-            // Block Escape key to prevent exiting fullscreen
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                setProctorWarning('⚠️ You cannot exit fullscreen during the quiz!');
-                setTimeout(() => setProctorWarning(''), 3000);
-            }
-            // Block Alt+Tab, Windows key
-            if (e.altKey && e.key === 'Tab') {
-                e.preventDefault();
-            }
-        };
-
-        document.addEventListener('copy', preventCopy);
-        document.addEventListener('cut', preventCopy);
-        document.addEventListener('paste', preventCopy);
-        document.addEventListener('contextmenu', preventContextMenu);
-        document.addEventListener('keydown', preventKeyShortcuts);
-
-        return () => {
-            document.removeEventListener('copy', preventCopy);
-            document.removeEventListener('cut', preventCopy);
-            document.removeEventListener('paste', preventCopy);
-            document.removeEventListener('contextmenu', preventContextMenu);
-            document.removeEventListener('keydown', preventKeyShortcuts);
-        };
-    }, [showQuizModal]);
-
-    // --- PROCTORING: VIT EXAM PORTAL STYLE FULLSCREEN LOCKDOWN ---
-    useEffect(() => {
-        if (!showQuizModal) return;
-
-        let isLocked = true;
-        let lastFullscreenTime = Date.now();
-
-        // Force fullscreen function
-        const forceFullscreen = async () => {
-            if (!isLocked || !showQuizModal) return;
-
-            try {
-                const elem = document.documentElement;
-                if (!document.fullscreenElement) {
-                    // Show blocking overlay
-                    setFullscreenLockOverlay(true);
-
-                    if (elem.requestFullscreen) {
-                        await elem.requestFullscreen({ navigationUI: 'hide' });
-                    } else if (elem.webkitRequestFullscreen) {
-                        await elem.webkitRequestFullscreen();
-                    } else if (elem.mozRequestFullScreen) {
-                        await elem.mozRequestFullScreen();
-                    } else if (elem.msRequestFullscreen) {
-                        await elem.msRequestFullscreen();
-                    }
-
-                    // Hide overlay after successful fullscreen
-                    setFullscreenLockOverlay(false);
-                    lastFullscreenTime = Date.now();
-                }
-            } catch (err) {
-                console.log('Fullscreen request failed, showing overlay...', err);
-                // Show overlay - user must click to re-enter
-                setFullscreenLockOverlay(true);
-            }
-        };
-
-        // Initial fullscreen request
-        forceFullscreen();
-
-        // VERY aggressive fullscreen check every 50ms
-        const fullscreenInterval = setInterval(() => {
-            if (!document.fullscreenElement && isLocked && showQuizModal) {
-                // Show overlay immediately
-                setFullscreenLockOverlay(true);
-            } else if (document.fullscreenElement) {
-                setFullscreenLockOverlay(false);
-            }
-        }, 50);
-
-        // Handle fullscreen exit
-        const handleFullscreenChange = async () => {
-            if (!document.fullscreenElement && isLocked && showQuizModal) {
-                // Only count as violation if more than 500ms since last fullscreen
-                // (to avoid counting the initial entry)
-                if (Date.now() - lastFullscreenTime > 500) {
-                    const newCount = tabSwitchCount + 1;
-                    setTabSwitchCount(newCount);
-
-                    // Show overlay IMMEDIATELY
-                    setFullscreenLockOverlay(true);
-
-                    setProctorWarning(`🚨 FULLSCREEN EXIT! Violation ${newCount}/${MAX_VIOLATIONS} - CLICK TO RESUME!`);
-
-                    // Log violation
-                    if (activeQuizRegId) {
-                        try {
-                            const regRef = doc(db, 'registrations', activeQuizRegId);
-                            await updateDoc(regRef, {
-                                proctorViolations: newCount,
-                                lastViolationAt: serverTimestamp(),
-                                violationType: 'fullscreen_exit'
-                            });
-                        } catch (err) {
-                            console.error('Failed to log violation:', err);
-                        }
-                    }
-
-                    // Check for termination
-                    if (newCount >= MAX_VIOLATIONS) {
-                        isLocked = false;
-                        clearInterval(fullscreenInterval);
-                        setFullscreenLockOverlay(false);
-                        setProctorWarning('🚨 QUIZ TERMINATED!');
-
-                        if (activeQuizRegId) {
-                            try {
-                                const regRef = doc(db, 'registrations', activeQuizRegId);
-                                await updateDoc(regRef, {
-                                    status: 'FLAGGED',
-                                    proctorViolations: newCount,
-                                    terminatedAt: serverTimestamp(),
-                                    terminationReason: 'Repeated fullscreen exit attempts'
-                                });
-                            } catch (err) {
-                                console.error('Failed to terminate quiz:', err);
-                            }
-                        }
-
-                        setTimeout(() => {
-                            alert('🚨 QUIZ TERMINATED!\n\nYou exited fullscreen too many times.\nThis has been FLAGGED for malpractice review.');
-                            setShowQuizModal(false);
-                            setActiveQuizUrl('');
-                            setActiveQuizTitle('');
-                            setActiveQuizRegId(null);
-                            setIframeLoadCount(0);
-                            setShowFinishButton(false);
-                            setTabSwitchCount(0);
-                            setProctorWarning('');
-                            if (document.fullscreenElement) {
-                                document.exitFullscreen().catch(() => { });
-                            }
-                        }, 500);
-                    }
-                }
-            } else if (document.fullscreenElement) {
-                // Back in fullscreen - hide overlay
-                setFullscreenLockOverlay(false);
-                lastFullscreenTime = Date.now();
-                setTimeout(() => setProctorWarning(''), 3000);
-            }
-        };
-
-        // Block keys
-        const blockKeys = (e) => {
-            if (showQuizModal) {
-                if (e.key === 'Escape' || e.key === 'F11') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.stopImmediatePropagation();
-                    setProctorWarning('🔒 This key is BLOCKED during quiz!');
-                    setTimeout(() => setProctorWarning(''), 2000);
-                    return false;
-                }
-            }
-        };
-
-        document.addEventListener('fullscreenchange', handleFullscreenChange);
-        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-        document.addEventListener('keydown', blockKeys, true);
-        document.addEventListener('keyup', blockKeys, true);
-
-        return () => {
-            isLocked = false;
-            clearInterval(fullscreenInterval);
-            setFullscreenLockOverlay(false);
-            document.removeEventListener('fullscreenchange', handleFullscreenChange);
-            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-            document.removeEventListener('keydown', blockKeys, true);
-            document.removeEventListener('keyup', blockKeys, true);
-            // Exit fullscreen when quiz closes properly
-            if (document.fullscreenElement) {
-                document.exitFullscreen().catch(() => { });
-            }
-        };
-    }, [showQuizModal, tabSwitchCount, activeQuizRegId]);
-
-    // --- PROCTORING: Window Focus/Blur Detection (Split Screen / Alt+Tab) ---
-    useEffect(() => {
-        if (!showQuizModal) return;
-
-        const handleWindowBlur = async () => {
-            if (showQuizModal) {
-                const newCount = tabSwitchCount + 1;
-                setTabSwitchCount(newCount);
-                setProctorWarning(`⚠️ WINDOW FOCUS LOST! Violation ${newCount}/${MAX_VIOLATIONS}`);
-
-                // Log violation
-                if (activeQuizRegId) {
-                    try {
-                        const regRef = doc(db, 'registrations', activeQuizRegId);
-                        await updateDoc(regRef, {
-                            proctorViolations: newCount,
-                            lastViolationAt: serverTimestamp()
-                        });
-                    } catch (err) {
-                        console.error('Failed to log violation:', err);
-                    }
-                }
-
-                // Check for termination
-                if (newCount >= MAX_VIOLATIONS) {
-                    setProctorWarning('🚨 QUIZ TERMINATED: Too many violations!');
-                    if (activeQuizRegId) {
-                        try {
-                            const regRef = doc(db, 'registrations', activeQuizRegId);
-                            await updateDoc(regRef, {
-                                status: 'FLAGGED',
-                                proctorViolations: newCount,
-                                terminatedAt: serverTimestamp(),
-                                terminationReason: 'Window focus lost multiple times'
-                            });
-                        } catch (err) {
-                            console.error('Failed to terminate quiz:', err);
-                        }
-                    }
-                    setTimeout(() => {
-                        alert('🚨 Your quiz has been terminated due to suspicious activity (using other windows/apps). This attempt has been flagged for review.');
-                        setShowQuizModal(false);
-                        setActiveQuizUrl('');
-                        setActiveQuizTitle('');
-                        setActiveQuizRegId(null);
-                        setIframeLoadCount(0);
-                        setShowFinishButton(false);
-                        setTabSwitchCount(0);
-                        setProctorWarning('');
-                        // Exit fullscreen
-                        if (document.fullscreenElement) {
-                            document.exitFullscreen().catch(() => { });
-                        }
-                    }, 100);
-                } else {
-                    setTimeout(() => setProctorWarning(''), 5000);
-                }
-            }
-        };
-
-        window.addEventListener('blur', handleWindowBlur);
-
-        return () => {
-            window.removeEventListener('blur', handleWindowBlur);
-        };
-    }, [showQuizModal, tabSwitchCount, activeQuizRegId]);
-
-    // --- PROCTORING: Window Resize Detection (Split Screen) ---
-    useEffect(() => {
-        if (!showQuizModal) return;
-
-        const initialWidth = window.innerWidth;
-        const initialHeight = window.innerHeight;
-
-        const handleResize = async () => {
-            const currentWidth = window.innerWidth;
-            const currentHeight = window.innerHeight;
-
-            // Detect significant resize (split screen detection)
-            const widthRatio = currentWidth / initialWidth;
-            const heightRatio = currentHeight / initialHeight;
-
-            // If window is less than 80% of original size, it's likely split screen
-            if (widthRatio < 0.8 || heightRatio < 0.8) {
-                const newCount = tabSwitchCount + 1;
-                setTabSwitchCount(newCount);
-                setProctorWarning(`⚠️ SPLIT SCREEN DETECTED! Violation ${newCount}/${MAX_VIOLATIONS}. Please use fullscreen.`);
-
-                // Log violation
-                if (activeQuizRegId) {
-                    try {
-                        const regRef = doc(db, 'registrations', activeQuizRegId);
-                        await updateDoc(regRef, {
-                            proctorViolations: newCount,
-                            lastViolationAt: serverTimestamp()
-                        });
-                    } catch (err) {
-                        console.error('Failed to log violation:', err);
-                    }
-                }
-
-                setTimeout(() => setProctorWarning(''), 5000);
-            }
-        };
-
-        window.addEventListener('resize', handleResize);
-
-        return () => {
-            window.removeEventListener('resize', handleResize);
-        };
-    }, [showQuizModal, tabSwitchCount, activeQuizRegId]);
-
-    // --- PROCTORING: Disable Picture-in-Picture ---
-    useEffect(() => {
-        if (!showQuizModal) return;
-
-        // Disable PiP on all video elements
-        const disablePiP = () => {
-            document.querySelectorAll('video').forEach(video => {
-                video.disablePictureInPicture = true;
-            });
-        };
-
-        disablePiP();
-
-        // Also prevent PiP API
-        if ('pictureInPictureEnabled' in document) {
-            Object.defineProperty(document, 'pictureInPictureEnabled', {
-                get: () => false
-            });
-        }
-
-        // Observer to disable PiP on dynamically added videos
-        const observer = new MutationObserver(disablePiP);
-        observer.observe(document.body, { childList: true, subtree: true });
-
-        return () => observer.disconnect();
-    }, [showQuizModal]);
-
-    // --- PROCTORING: Mobile Floating Window Detection (Continuous Polling) ---
-    useEffect(() => {
-        if (!showQuizModal) return;
-
-        // Store initial screen dimensions
-        const fullScreenWidth = window.screen.width;
-        const fullScreenHeight = window.screen.height;
-
-        // Continuous check every 500ms
-        const checkInterval = setInterval(async () => {
-            const currentWidth = window.innerWidth;
-            const currentHeight = window.innerHeight;
-
-            // Calculate ratio of current window to full screen
-            const widthRatio = currentWidth / fullScreenWidth;
-            const heightRatio = currentHeight / fullScreenHeight;
-
-            // If window is less than 60% of screen size, it's likely floating window or split view
-            // This is more aggressive for mobile
-            if (widthRatio < 0.6 || heightRatio < 0.6) {
-                const newCount = tabSwitchCount + 1;
-                setTabSwitchCount(newCount);
-                setProctorWarning(`🚨 FLOATING WINDOW DETECTED! Violation ${newCount}/${MAX_VIOLATIONS}. Use full screen!`);
-
-                // Log violation
-                if (activeQuizRegId) {
-                    try {
-                        const regRef = doc(db, 'registrations', activeQuizRegId);
-                        await updateDoc(regRef, {
-                            proctorViolations: newCount,
-                            lastViolationAt: serverTimestamp(),
-                            violationType: 'floating_window'
-                        });
-                    } catch (err) {
-                        console.error('Failed to log violation:', err);
-                    }
-                }
-
-                // Check for termination
-                if (newCount >= MAX_VIOLATIONS) {
-                    clearInterval(checkInterval);
-                    setProctorWarning('🚨 QUIZ TERMINATED: Floating window detected!');
-                    if (activeQuizRegId) {
-                        try {
-                            const regRef = doc(db, 'registrations', activeQuizRegId);
-                            await updateDoc(regRef, {
-                                status: 'FLAGGED',
-                                proctorViolations: newCount,
-                                terminatedAt: serverTimestamp(),
-                                terminationReason: 'Floating window / split screen detected'
-                            });
-                        } catch (err) {
-                            console.error('Failed to terminate quiz:', err);
-                        }
-                    }
-                    setTimeout(() => {
-                        alert('🚨 Your quiz has been terminated! Floating window or split screen usage is not allowed.');
-                        setShowQuizModal(false);
-                        setActiveQuizUrl('');
-                        setActiveQuizTitle('');
-                        setActiveQuizRegId(null);
-                        setIframeLoadCount(0);
-                        setShowFinishButton(false);
-                        setTabSwitchCount(0);
-                        setProctorWarning('');
-                        if (document.fullscreenElement) {
-                            document.exitFullscreen().catch(() => { });
-                        }
-                    }, 100);
-                }
-            }
-
-            // Also check if document is not focused (works better on mobile)
-            if (!document.hasFocus()) {
-                // Don't count as violation immediately, but show warning
-                setProctorWarning('⚠️ Please keep this window in focus!');
-            }
-        }, 500);
-
-        return () => clearInterval(checkInterval);
-    }, [showQuizModal, tabSwitchCount, activeQuizRegId]);
-
-    // --- PROCTORING: Intersection Observer (Detect if quiz is not fully visible) ---
-    useEffect(() => {
-        if (!showQuizModal) return;
-
-        const quizContainer = document.getElementById('quiz-proctored-container');
-        if (!quizContainer) return;
-
-        const observer = new IntersectionObserver(
-            async (entries) => {
-                entries.forEach(async (entry) => {
-                    // If quiz container is less than 90% visible
-                    if (entry.intersectionRatio < 0.9 && showQuizModal) {
-                        const newCount = tabSwitchCount + 1;
-                        setTabSwitchCount(newCount);
-                        setProctorWarning(`⚠️ QUIZ NOT FULLY VISIBLE! Violation ${newCount}/${MAX_VIOLATIONS}`);
-
-                        if (activeQuizRegId) {
-                            try {
-                                const regRef = doc(db, 'registrations', activeQuizRegId);
-                                await updateDoc(regRef, {
-                                    proctorViolations: newCount,
-                                    lastViolationAt: serverTimestamp()
-                                });
-                            } catch (err) {
-                                console.error('Failed to log violation:', err);
-                            }
-                        }
-
-                        setTimeout(() => setProctorWarning(''), 5000);
-                    }
-                });
-            },
-            { threshold: [0.9, 1.0] }
-        );
-
-        observer.observe(quizContainer);
-
-        return () => observer.disconnect();
-    }, [showQuizModal, tabSwitchCount, activeQuizRegId]);
-
 
     // Quiz Auto-Completion Logic
     const handleQuizCompletion = async () => {
@@ -1038,7 +561,7 @@ const StudentDashboard = () => {
             try {
                 const savedUrl = localStorage.getItem('certApiUrl');
                 const defaultUrl = 'https://script.google.com/macros/s/AKfycbxZvWwaHjkFrS_yK3akleByW1FtmnWu7ht-UYt6ztPbTTnWUuGUmhjZ_HsOWdu5aHruFw/exec';
-                const apiUrl = (!savedUrl || savedUrl.includes('AKfycbxVm9lozobl') || savedUrl.includes('AKfycbzkMhn07pp') || savedUrl.includes('AKfycbS_2h3kCOMCtzGf'))
+                const apiUrl = (!savedUrl || savedUrl.includes('AKfycbVm9lozobl') || savedUrl.includes('AKfycbzkMhn07pp') || savedUrl.includes('AKfycbS_2h3kCOMCtzGf'))
                     ? defaultUrl
                     : savedUrl.trim();
 
@@ -2507,131 +2030,79 @@ const StudentDashboard = () => {
                     {showQuizModal && activeQuizUrl && (
                         <div id="quiz-proctored-container" className="fixed inset-0 bg-slate-900 z-[99999] flex flex-col" style={{ top: 0, left: 0, right: 0, bottom: 0, margin: 0, padding: 0 }}>
 
-                            {/* VIT STYLE FULLSCREEN LOCK OVERLAY */}
-                            <AnimatePresence>
-                                {fullscreenLockOverlay && (
-                                    <motion.div
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        exit={{ opacity: 0 }}
-                                        className="fixed inset-0 z-[999999] bg-red-900/98 backdrop-blur-xl flex flex-col items-center justify-center p-6"
-                                        onClick={async () => {
-                                            try {
-                                                const elem = document.documentElement;
-                                                if (elem.requestFullscreen) {
-                                                    await elem.requestFullscreen({ navigationUI: 'hide' });
-                                                } else if (elem.webkitRequestFullscreen) {
-                                                    await elem.webkitRequestFullscreen();
-                                                }
-                                                setFullscreenLockOverlay(false);
-                                            } catch (err) {
-                                                console.log('Fullscreen failed:', err);
-                                            }
-                                        }}
-                                    >
-                                        <div className="text-center max-w-md">
-                                            <div className="w-24 h-24 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
-                                                <span className="text-6xl">🔒</span>
-                                            </div>
-                                            <h2 className="text-3xl md:text-4xl font-black text-white uppercase tracking-wider mb-4">
-                                                FULLSCREEN REQUIRED
-                                            </h2>
-                                            <p className="text-lg text-red-200 font-bold mb-2">
-                                                You exited fullscreen mode!
-                                            </p>
-                                            <p className="text-sm text-red-300 mb-8">
-                                                Violation #{tabSwitchCount} of {MAX_VIOLATIONS} recorded
-                                            </p>
-                                            <div className="bg-white text-red-600 px-8 py-4 rounded-2xl font-black text-lg uppercase tracking-wider animate-bounce shadow-2xl cursor-pointer hover:bg-red-50 transition-colors">
-                                                👆 TAP HERE TO RESUME QUIZ
-                                            </div>
-                                            <p className="text-xs text-red-400 mt-6 font-medium">
-                                                VIT Exam Portal Style Security • Quiz content is hidden until fullscreen
-                                            </p>
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-                            <motion.div
-                                initial={{ opacity: 0, y: -20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
-                                className="w-full shrink-0 z-[100000]"
-                            >
-                                {/* Header */}
-                                <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-3 md:px-5 py-2 md:py-2.5 flex items-center justify-between shadow-lg border-b border-purple-500/30">
-                                    <div className="flex items-center gap-3 md:gap-5">
-                                        <img src={tsLogo} alt="TechSpark" className="h-10 md:h-14 w-auto object-contain shrink-0" style={{ filter: 'brightness(0) invert(1)' }} />
-                                        <div className="w-px h-8 bg-white/20 hidden md:block" />
-                                        <div className="min-w-0">
-                                            <h3 className="text-sm md:text-xl font-black text-white uppercase tracking-tight truncate">{activeQuizTitle}</h3>
-                                        </div>
+                            {/* Header */}
+                            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-3 md:px-5 py-2 md:py-2.5 flex items-center justify-between shadow-lg border-b border-purple-500/30">
+                                <div className="flex items-center gap-3 md:gap-5">
+                                    <img src={tsLogo} alt="TechSpark" className="h-10 md:h-14 w-auto object-contain shrink-0" style={{ filter: 'brightness(0) invert(1)' }} />
+                                    <div className="w-px h-8 bg-white/20 hidden md:block" />
+                                    <div className="min-w-0">
+                                        <h3 className="text-sm md:text-xl font-black text-white uppercase tracking-tight truncate">{activeQuizTitle}</h3>
                                     </div>
+                                </div>
 
-                                    {/* Live Clock */}
-                                    <div className="hidden lg:flex items-center gap-3 bg-black/20 px-4 py-1.5 rounded-full border border-white/10 backdrop-blur-sm">
-                                        <Clock className="w-4 h-4 text-purple-200 animate-pulse" />
-                                        <span className="text-white font-mono font-black text-lg tracking-wider">
+                                {/* Live Clock */}
+                                <div className="hidden lg:flex items-center gap-3 bg-black/20 px-4 py-1.5 rounded-full border border-white/10 backdrop-blur-sm">
+                                    <Clock className="w-4 h-4 text-purple-200 animate-pulse" />
+                                    <span className="text-white font-mono font-black text-lg tracking-wider">
+                                        {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+                                    </span>
+                                </div>
+
+                                {/* Proctor Status Indicator */}
+                                <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border backdrop-blur-sm transition-all ${tabSwitchCount === 0 ? 'bg-emerald-500/20 border-emerald-400/30 text-emerald-300' :
+                                    tabSwitchCount < MAX_VIOLATIONS ? 'bg-amber-500/20 border-amber-400/30 text-amber-300 animate-pulse' :
+                                        'bg-red-500/20 border-red-400/30 text-red-300'
+                                    }`}>
+                                    <div className={`w-2 h-2 rounded-full ${tabSwitchCount === 0 ? 'bg-emerald-400' :
+                                        tabSwitchCount < MAX_VIOLATIONS ? 'bg-amber-400 animate-ping' : 'bg-red-400'
+                                        }`} />
+                                    <span className="text-[10px] font-black uppercase tracking-wider">
+                                        {tabSwitchCount === 0 ? 'PROCTORED' : `⚠ ${tabSwitchCount}/${MAX_VIOLATIONS}`}
+                                    </span>
+                                </div>
+
+                                <div className="flex items-center gap-2 md:gap-3">
+                                    {/* Mobile Clock */}
+                                    <div className="lg:hidden bg-black/20 px-2 py-1 rounded-lg border border-white/10">
+                                        <span className="text-white font-mono font-bold text-[10px]">
                                             {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
                                         </span>
                                     </div>
 
-                                    {/* Proctor Status Indicator */}
-                                    <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border backdrop-blur-sm transition-all ${tabSwitchCount === 0 ? 'bg-emerald-500/20 border-emerald-400/30 text-emerald-300' :
-                                        tabSwitchCount < MAX_VIOLATIONS ? 'bg-amber-500/20 border-amber-400/30 text-amber-300 animate-pulse' :
-                                            'bg-red-500/20 border-red-400/30 text-red-300'
-                                        }`}>
-                                        <div className={`w-2 h-2 rounded-full ${tabSwitchCount === 0 ? 'bg-emerald-400' :
-                                            tabSwitchCount < MAX_VIOLATIONS ? 'bg-amber-400 animate-ping' : 'bg-red-400'
-                                            }`} />
-                                        <span className="text-[10px] font-black uppercase tracking-wider">
-                                            {tabSwitchCount === 0 ? 'PROCTORED' : `⚠ ${tabSwitchCount}/${MAX_VIOLATIONS}`}
-                                        </span>
-                                    </div>
-
-                                    <div className="flex items-center gap-2 md:gap-3">
-                                        {/* Mobile Clock */}
-                                        <div className="lg:hidden bg-black/20 px-2 py-1 rounded-lg border border-white/10">
-                                            <span className="text-white font-mono font-bold text-[10px]">
-                                                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
-                                            </span>
-                                        </div>
-
-                                        {/* Smart Finish Button */}
-                                        {showFinishButton && (
-                                            <motion.button
-                                                initial={{ scale: 0.5, opacity: 0 }}
-                                                animate={{ scale: 1, opacity: 1 }}
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
-                                                onClick={handleQuizCompletion}
-                                                className="px-4 md:px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg md:rounded-xl font-black text-[10px] md:text-xs uppercase tracking-[0.15em] transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/30 border border-emerald-400 group"
-                                            >
-                                                <div className="w-2 h-2 bg-white rounded-full animate-ping" />
-                                                VERIFY & FINISH
-                                            </motion.button>
-                                        )}
-
-                                        <button
-                                            onClick={() => {
-                                                if (window.confirm('Are you sure you want to exit the quiz? Your progress may be lost.')) {
-                                                    setShowQuizModal(false);
-                                                    setActiveQuizUrl('');
-                                                    setActiveQuizTitle('');
-                                                    setActiveQuizRegId(null);
-                                                    setIframeLoadCount(0);
-                                                    setShowFinishButton(false);
-                                                }
-                                            }}
-                                            className="px-3 md:px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg md:rounded-xl font-black text-[10px] md:text-xs uppercase tracking-widest transition-all flex items-center gap-1 md:gap-2 shrink-0"
+                                    {/* Smart Finish Button */}
+                                    {showFinishButton && (
+                                        <motion.button
+                                            initial={{ scale: 0.5, opacity: 0 }}
+                                            animate={{ scale: 1, opacity: 1 }}
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={handleQuizCompletion}
+                                            className="px-4 md:px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg md:rounded-xl font-black text-[10px] md:text-xs uppercase tracking-[0.15em] transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/30 border border-emerald-400 group"
                                         >
-                                            <X className="w-3 h-3 md:w-4 md:h-4" />
-                                            <span className="hidden sm:inline">EXIT QUIZ</span>
-                                            <span className="sm:hidden">EXIT</span>
-                                        </button>
-                                    </div>
+                                            <div className="w-2 h-2 bg-white rounded-full animate-ping" />
+                                            VERIFY & FINISH
+                                        </motion.button>
+                                    )}
+
+                                    <button
+                                        onClick={() => {
+                                            if (window.confirm('Are you sure you want to exit the quiz? Your progress may be lost.')) {
+                                                setShowQuizModal(false);
+                                                setActiveQuizUrl('');
+                                                setActiveQuizTitle('');
+                                                setActiveQuizRegId(null);
+                                                setIframeLoadCount(0);
+                                                setShowFinishButton(false);
+                                            }
+                                        }}
+                                        className="px-3 md:px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg md:rounded-xl font-black text-[10px] md:text-xs uppercase tracking-widest transition-all flex items-center gap-1 md:gap-2 shrink-0"
+                                    >
+                                        <X className="w-3 h-3 md:w-4 h-4" />
+                                        <span className="hidden sm:inline">EXIT QUIZ</span>
+                                        <span className="sm:hidden">EXIT</span>
+                                    </button>
                                 </div>
-                            </motion.div>
+                            </div>
 
                             {/* Proctor Warning Overlay */}
                             <AnimatePresence>
@@ -2653,13 +2124,13 @@ const StudentDashboard = () => {
                             <motion.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
-                                className="flex-1 w-full bg-white overflow-hidden"
+                                className="flex-1 w-full bg-white overflow-hidden relative z-[10] pointer-events-auto"
                             >
                                 <iframe
                                     src={activeQuizUrl}
                                     onLoad={handleIframeLoad}
                                     title="TechSpark Quiz"
-                                    className="w-full h-full border-0"
+                                    className="w-full h-full border-0 relative z-[11] pointer-events-auto"
                                     style={{ minHeight: 'calc(100vh - 120px)' }}
                                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                     allowFullScreen
@@ -2669,140 +2140,112 @@ const StudentDashboard = () => {
                             {/* Footer */}
                             <div className="bg-slate-900 px-3 md:px-6 py-2 md:py-3 text-center shrink-0">
                                 <p className="text-[8px] md:text-[10px] text-slate-400 font-bold uppercase tracking-wider md:tracking-widest">
-                                    🔒 Proctored Quiz • 🚫 Tab Switch = Violation • ⌨️ Copy/Paste Disabled • ⏱️ Submit on time
+                                    🔒 Proctored Quiz • 🚫 Tab Switch = Violation • ⌨️ Activity Monitored • ⏱️ Submit on time
                                 </p>
                             </div>
                         </div>
                     )}
                 </AnimatePresence>
 
-                {/* Quiz Rules & Proctoring Instructions Modal */}
-                {createPortal(
+                {/* Quiz Rules Modal */}
+                {showQuizRulesModal && pendingQuizData && createPortal(
                     <AnimatePresence>
-                        {showQuizRulesModal && pendingQuizData && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+                        >
                             <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+                                initial={{ scale: 0.9, opacity: 0, y: -20 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.9, opacity: 0, y: -20 }}
+                                className="bg-white rounded-[2rem] max-w-md w-full shadow-2xl overflow-hidden flex flex-col"
                             >
-                                <motion.div
-                                    initial={{ scale: 0.9, opacity: 0, y: -20 }}
-                                    animate={{ scale: 1, opacity: 1, y: 0 }}
-                                    exit={{ scale: 0.9, opacity: 0, y: -20 }}
-                                    className="bg-white rounded-[2rem] max-w-md w-full shadow-2xl overflow-hidden flex flex-col"
-                                >
-                                    {/* Header - Compact */}
-                                    <div className="bg-gradient-to-r from-red-600 to-orange-600 p-4 text-white text-center shrink-0">
-                                        <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                                            <ShieldCheck className="w-6 h-6" />
-                                        </div>
-                                        <h2 className="text-lg font-black uppercase tracking-wide">⚠️ Proctored Quiz</h2>
-                                        <p className="text-xs text-white/80 mt-1 font-medium">{pendingQuizData.title}</p>
+                                {/* Header - Compact */}
+                                <div className="bg-gradient-to-r from-red-600 to-orange-600 p-4 text-white text-center shrink-0">
+                                    <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                                        <ShieldCheck className="w-6 h-6" />
                                     </div>
+                                    <h2 className="text-lg font-black uppercase tracking-wide">⚠️ Proctored Quiz</h2>
+                                    <p className="text-xs text-white/80 mt-1 font-medium">{pendingQuizData.title}</p>
+                                </div>
 
-                                    {/* Rules List - Scrollable */}
-                                    <div className="p-4 space-y-3 overflow-y-auto flex-1 max-h-[50vh]">
-                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest text-center mb-2">
-                                            📋 Read Carefully Before Starting
-                                        </p>
+                                {/* Rules List - Scrollable */}
+                                <div className="p-4 space-y-3 overflow-y-auto flex-1 max-h-[50vh]">
+                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest text-center mb-2">
+                                        📋 Read Carefully Before Starting
+                                    </p>
 
-                                        {/* Rule Items - Compact */}
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-xl border border-purple-200 ring-2 ring-purple-300">
-                                                <div className="w-8 h-8 bg-purple-600 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">🔒</div>
-                                                <div>
-                                                    <p className="text-xs font-black text-purple-700 uppercase">FULLSCREEN LOCKED (VIT Style)</p>
-                                                    <p className="text-[10px] text-purple-600">You CANNOT exit until submit. ESC key disabled!</p>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-3 p-3 bg-red-50 rounded-xl border border-red-100">
-                                                <div className="w-8 h-8 bg-red-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">🚫</div>
-                                                <div>
-                                                    <p className="text-xs font-black text-red-700 uppercase">No Tab Switching / Alt+Tab</p>
-                                                    <p className="text-[10px] text-red-600">3 violations = Quiz Terminated</p>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-xl border border-orange-100">
-                                                <div className="w-8 h-8 bg-orange-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">📱</div>
-                                                <div>
-                                                    <p className="text-xs font-black text-orange-700 uppercase">No Split Screen / Floating Window</p>
-                                                    <p className="text-[10px] text-orange-600">Resizing or PiP detected = Violation</p>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-3 p-3 bg-rose-50 rounded-xl border border-rose-100">
-                                                <div className="w-8 h-8 bg-rose-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">⌨️</div>
-                                                <div>
-                                                    <p className="text-xs font-black text-rose-700 uppercase">Copy/Paste/DevTools Disabled</p>
-                                                    <p className="text-[10px] text-rose-600">Ctrl+C, Ctrl+V, F12, Right-click blocked</p>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100">
-                                                <div className="w-8 h-8 bg-amber-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">👁️</div>
-                                                <div>
-                                                    <p className="text-xs font-black text-amber-700 uppercase">Window Focus Monitored</p>
-                                                    <p className="text-[10px] text-amber-600">Using other apps = Instant violation</p>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
-                                                <div className="w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">✅</div>
-                                                <div>
-                                                    <p className="text-xs font-black text-blue-700 uppercase">How to Complete</p>
-                                                    <p className="text-[10px] text-blue-600">Submit form → Click "VERIFY & FINISH"</p>
-                                                </div>
+                                    {/* Rule Items - Compact */}
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-3 p-3 bg-red-50 rounded-xl border border-red-100">
+                                            <div className="w-8 h-8 bg-red-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">🚫</div>
+                                            <div>
+                                                <p className="text-xs font-black text-red-700 uppercase">No Tab Switching / Alt+Tab</p>
+                                                <p className="text-[10px] text-red-600">3 violations = Quiz Terminated</p>
                                             </div>
                                         </div>
 
-                                        <div className="mt-3 p-3 bg-slate-900 rounded-xl text-center">
-                                            <p className="text-[9px] text-white font-bold uppercase tracking-widest">
-                                                ⚠️ By clicking "Start Quiz", you agree to be monitored
-                                            </p>
+                                        <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100">
+                                            <div className="w-8 h-8 bg-amber-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">👁️</div>
+                                            <div>
+                                                <p className="text-xs font-black text-amber-700 uppercase">Activity Monitored</p>
+                                                <p className="text-[10px] text-amber-600">Session and visibility are logged</p>
+                                            </div>
                                         </div>
                                     </div>
-
-                                    {/* Action Buttons - Compact */}
-                                    <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-3 shrink-0">
-                                        <button
-                                            onClick={() => {
-                                                setShowQuizRulesModal(false);
-                                                setPendingQuizData(null);
-                                            }}
-                                            className="flex-1 py-3 px-4 bg-white border border-slate-200 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all"
-                                        >
-                                            ← Cancel
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                // Start the quiz
-                                                setActiveQuizUrl(pendingQuizData.url);
-                                                setActiveQuizTitle(pendingQuizData.title);
-                                                setActiveQuizRegId(pendingQuizData.regId);
-                                                setIframeLoadCount(0);
-                                                setShowFinishButton(false);
-                                                setTabSwitchCount(0);
-                                                setProctorWarning('');
-                                                quizStartTime.current = null;
-                                                setShowQuizModal(true);
-                                                setShowQuizRulesModal(false);
-                                                setPendingQuizData(null);
-                                            }}
-                                            className="flex-1 py-3 px-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
-                                        >
-                                            <Rocket className="w-3 h-3" /> Start Quiz
-                                        </button>
+                                    <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                                        <div className="w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">✅</div>
+                                        <div>
+                                            <p className="text-xs font-black text-blue-700 uppercase">How to Complete</p>
+                                            <p className="text-[10px] text-blue-600">Submit form → Click "VERIFY & FINISH"</p>
+                                        </div>
                                     </div>
-                                </motion.div>
+                                </div>
+
+                                <div className="mt-3 p-3 bg-slate-900 rounded-xl text-center">
+                                    <p className="text-[9px] text-white font-bold uppercase tracking-widest">
+                                        ⚠️ By clicking "Start Quiz", you agree to be monitored
+                                    </p>
+                                </div>
+
+                                {/* Action Buttons - Compact */}
+                                <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-3 shrink-0">
+                                    <button
+                                        onClick={() => {
+                                            setShowQuizRulesModal(false);
+                                            setPendingQuizData(null);
+                                        }}
+                                        className="flex-1 py-3 px-4 bg-white border border-slate-200 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all"
+                                    >
+                                        ← Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setActiveQuizUrl(pendingQuizData.url);
+                                            setActiveQuizTitle(pendingQuizData.title);
+                                            setActiveQuizRegId(pendingQuizData.regId);
+                                            setIframeLoadCount(0);
+                                            setShowFinishButton(false);
+                                            setTabSwitchCount(0);
+                                            setProctorWarning('');
+                                            quizStartTime.current = null;
+                                            setShowQuizModal(true);
+                                            setShowQuizRulesModal(false);
+                                            setPendingQuizData(null);
+                                        }}
+                                        className="flex-1 py-3 px-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Rocket className="w-3 h-3" /> Start Quiz
+                                    </button>
+                                </div>
                             </motion.div>
-                        )}
+                        </motion.div>
                     </AnimatePresence>,
                     document.body
                 )}
-            </div>
+            </div >
         </div >
     );
 };
