@@ -40,7 +40,8 @@ import {
     Clock,
     MapPin,
     UserCheck,
-    FileText
+    FileText,
+    FileSpreadsheet
 } from 'lucide-react';
 import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, where, updateDoc, doc, increment, deleteDoc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -132,6 +133,67 @@ const AdminDashboard = () => {
     const fetchDashboardData = () => {
         console.log("Strategic Refresh Triggered");
         // Real-time sync is active via initDashboardSync, no manual fetch required
+    };
+
+
+
+    const handleExportCertData = async (event) => {
+        if (!confirm(`Generate Certificate Data CSV for "${event.title}"?`)) return;
+        try {
+            // Fetch all successful registrations (Present or Attended)
+            const q = query(
+                collection(db, 'registrations'),
+                where('eventId', '==', event.id)
+            );
+            const snapshot = await getDocs(q);
+            const regs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                .filter(r => r.status === 'Present' || r.isAttended);
+
+            if (regs.length === 0) {
+                alert("No attended participants found for this event.");
+                return;
+            }
+
+            // CSV Header: rollNumber, studentName, eventName, eventType, eventDate, role, certificateId, certificateUrl, issuedAt
+            const header = ['rollNumber', 'studentName', 'eventName', 'eventType', 'eventDate', 'role', 'certificateId', 'certificateUrl', 'issuedAt'];
+
+            const rows = regs.map(r => {
+                const rollNumber = r.studentRoll;
+                const studentName = r.studentName;
+                const eventName = event.title;
+                const eventType = event.type || 'Workshop';
+                const eventDate = event.date || ''; // AdminDashboard uses event.date usually
+
+                let role = 'PARTICIPANT';
+                const certId = `TSCERT-${new Date().getFullYear()}-${Math.floor(Math.random() * 100000)}`;
+
+                return [
+                    rollNumber,
+                    studentName,
+                    eventName,
+                    eventType,
+                    eventDate,
+                    role,
+                    certId,
+                    '',
+                    ''
+                ].map(field => `"${field}"`).join(',');
+            });
+
+            const csvContent = [header.join(','), ...rows].join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `${event.title.replace(/\s+/g, '_')}_Certificate_Data.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+        } catch (error) {
+            console.error("Export Error:", error);
+            alert("Failed to export certificate data.");
+        }
     };
 
     const navigate = useNavigate();
@@ -1846,18 +1908,31 @@ const AdminDashboard = () => {
                                                 </span>
                                             </td>
                                             <td className="px-8 py-6 text-right">
-                                                {event.type === 'Quiz' ? (
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handleOpenQuizSettings(event); }}
-                                                        className="px-3 py-2 bg-purple-100 text-purple-600 rounded-xl hover:bg-purple-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2 ml-auto"
-                                                        title="Quiz Settings"
-                                                    >
-                                                        <FileText className="w-4 h-4" />
-                                                        <span className="text-[10px] font-black uppercase">Settings</span>
-                                                    </button>
-                                                ) : (
-                                                    <span className="text-[10px] text-slate-300 font-bold uppercase">-</span>
-                                                )}
+                                                <div className="flex items-center justify-end gap-2">
+                                                    {event.status === 'COMPLETED' && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleExportCertData(event); }}
+                                                            className="px-3 py-2 bg-emerald-100 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                                                            title="Export Certificate Data"
+                                                        >
+                                                            <FileSpreadsheet className="w-4 h-4" />
+                                                            <span className="text-[10px] font-black uppercase">Cert Data</span>
+                                                        </button>
+                                                    )}
+                                                    {event.type === 'Quiz' && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleOpenQuizSettings(event); }}
+                                                            className="px-3 py-2 bg-purple-100 text-purple-600 rounded-xl hover:bg-purple-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                                                            title="Quiz Settings"
+                                                        >
+                                                            <FileText className="w-4 h-4" />
+                                                            <span className="text-[10px] font-black uppercase">Settings</span>
+                                                        </button>
+                                                    )}
+                                                    {event.type !== 'Quiz' && event.status !== 'COMPLETED' && (
+                                                        <span className="text-[10px] text-slate-300 font-bold uppercase">-</span>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
