@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Calendar, MapPin, Clock, Filter, Tag, Users, Rocket, X, ShieldCheck, Smartphone, Hash, Building2, GraduationCap, CheckCircle, Users as UsersIcon, Trophy, Plus, LogIn, Zap } from 'lucide-react';
+import { Search, Calendar, MapPin, Clock, Filter, Tag, Users, Rocket, X, ShieldCheck, Smartphone, Hash, Building2, GraduationCap, CheckCircle, Users as UsersIcon, Trophy, Plus, LogIn, Zap, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { doc, getDoc, setDoc, serverTimestamp, collection, onSnapshot, query, orderBy, updateDoc, increment, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -293,13 +293,20 @@ const Events = () => {
                                 </div>
 
                                 <div className="p-8 pt-0 mt-auto">
-                                    <button
-                                        onClick={() => handleRegister(event)}
-                                        className="w-full py-4 bg-slate-900 group-hover:bg-blue-600 text-white rounded-2xl font-black text-xs tracking-widest uppercase shadow-lg shadow-slate-200 group-hover:shadow-blue-500/30 transition-all duration-300 flex items-center justify-center gap-2"
-                                    >
-                                        Register Now
-                                        <Rocket className="w-4 h-4" />
-                                    </button>
+                                    {(event.status === 'CLOSED' || event.registrationOpen === false) ? (
+                                        <div className="w-full py-4 bg-slate-100 text-slate-400 rounded-2xl font-black text-xs tracking-widest uppercase flex items-center justify-center gap-2 border border-slate-200">
+                                            <Lock className="w-4 h-4" />
+                                            Registration Closed
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => handleRegister(event)}
+                                            className="w-full py-4 bg-slate-900 group-hover:bg-blue-600 text-white rounded-2xl font-black text-xs tracking-widest uppercase shadow-lg shadow-slate-200 group-hover:shadow-blue-500/30 transition-all duration-300 flex items-center justify-center gap-2"
+                                        >
+                                            Register Now
+                                            <Rocket className="w-4 h-4" />
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ))}

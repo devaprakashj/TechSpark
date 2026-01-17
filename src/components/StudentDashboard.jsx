@@ -1381,7 +1381,7 @@ const StudentDashboard = () => {
                                                                 <div className="w-full py-3 bg-emerald-50 text-emerald-600 rounded-xl font-black text-[10px] uppercase tracking-[0.15em] flex items-center justify-center gap-2">
                                                                     <CheckCircle className="w-3.5 h-3.5" /> REGISTERED
                                                                 </div>
-                                                            ) : event.status === 'CLOSED' ? (
+                                                            ) : (event.status === 'CLOSED' || event.registrationOpen === false) ? (
                                                                 <div className="w-full py-3 bg-slate-50 text-slate-400 rounded-xl font-black text-[10px] uppercase tracking-[0.15em] flex items-center justify-center gap-2 border border-slate-100">
                                                                     <Lock className="w-3.5 h-3.5" /> REGISTRATION CLOSED
                                                                 </div>
