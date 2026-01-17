@@ -1498,7 +1498,18 @@ const StudentDashboard = () => {
                                                                 <Download className="w-3.5 h-3.5" /> Download
                                                             </a>
                                                             <a
-                                                                href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`https://techspark.club/certificateverify?query=${cert.certificateId || cert.certID}`)}`}
+                                                                href={(() => {
+                                                                    const certId = cert.certificateId || cert.certID;
+                                                                    const eventName = cert.eventName || 'TechSpark Event';
+                                                                    const roleText = isWinner ? `🏆 ${roleStyle.label.replace(/🥇|🥈|🥉|⭐|🎖️\s?/g, '')}` : '🎓 Certified Participant';
+                                                                    const verifyUrl = `https://techspark.club/certificateverify?query=${certId}`;
+                                                                    const companyUrl = 'https://www.linkedin.com/company/techspark-rit';
+
+                                                                    // LinkedIn share with title approach
+                                                                    const shareText = `I'm thrilled to share that I have successfully completed "${eventName}" conducted by TechSpark - RIT's Premier Tech Club! 🚀\n\n${roleText}\n\n🔗 Verify my certificate: ${verifyUrl}\n\n#TechSpark #RIT #Certificate #Achievement`;
+
+                                                                    return `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(shareText)}`;
+                                                                })()}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
                                                                 className="px-4 py-3 bg-[#0077B5] text-white border border-[#0077B5] rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-[#005885] hover:scale-[1.02] transition-all flex items-center justify-center gap-1.5"

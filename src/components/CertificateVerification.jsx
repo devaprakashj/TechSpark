@@ -441,7 +441,17 @@ const CertificateVerification = () => {
                                                                 <Download className="w-4 h-4" /> {isWinner ? 'Download Winner Cert' : 'Download Certificate'}
                                                             </a>
                                                             <a
-                                                                href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`https://techspark.club/certificateverify?query=${cert.certificateId || cert.certID}`)}`}
+                                                                href={(() => {
+                                                                    const certId = cert.certificateId || cert.certID;
+                                                                    const eventName = cert.eventName || 'TechSpark Event';
+                                                                    const studentName = cert.studentName || cert.name || '';
+                                                                    const roleText = isWinner ? `🏆 ${roleStyle.label.replace(/🥇|🥈|🥉|⭐|🎖️\s?/g, '')}` : '🎓 Certified Participant';
+                                                                    const verifyUrl = `https://techspark.club/certificateverify?query=${certId}`;
+
+                                                                    const shareText = `I'm thrilled to share that I have successfully completed "${eventName}" conducted by TechSpark - RIT's Premier Tech Club! 🚀\n\n${roleText}\n\n🔗 Verify my certificate: ${verifyUrl}\n\n#TechSpark #RIT #Certificate #Achievement`;
+
+                                                                    return `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(shareText)}`;
+                                                                })()}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
                                                                 className="px-8 py-4 bg-[#0077B5] text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#005885] hover:scale-[1.05] transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#0077B5]/20"
