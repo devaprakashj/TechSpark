@@ -113,6 +113,155 @@
    - Team events: Enter team name, code, and role
 5. **Confirmation:** See "REGISTERED" badge on event
 
+---
+
+### 📝 Student Account Registration Data Flow
+
+#### Step 1: Google Sign-In
+Student clicks "Continue with Google" and signs in with college email.
+
+**Validation:**
+- Email must end with `@ritchennai.edu.in`
+- Non-college emails are rejected with error message
+
+#### Step 2: Email Parsing (Automatic Data Extraction)
+
+**NEW Format (2024+ batch):**
+```
+name.rollnumber@dept.ritchennai.edu.in
+Example: devaprakash.240001@cse.ritchennai.edu.in
+```
+- **Department:** Extracted from subdomain (`cse` → `CSE`)
+- **Roll Number:** From local part after dot (`240001`)
+- **Admission Year:** First 2 digits of roll (`24` → `2024`)
+
+**OLD Format (2023 and earlier):**
+```
+name.initial.year.dept@ritchennai.edu.in
+Example: john.d.2023.ece@ritchennai.edu.in
+```
+- **Department:** Last segment of local part (`ece` → `ECE`)
+- **Year:** Second last segment (`2023`)
+
+#### Step 3: Registration Form Fields
+
+| Field | Source | Editable | Example |
+|-------|--------|----------|---------|
+| **Full Name** | Google Account | ❌ Read-only | Devaprakash J |
+| **Email** | Google Account | ❌ Read-only | devaprakash.240001@cse.ritchennai.edu.in |
+| **Register Number** | Manual/QR Scan | ✅ Required | 2400100110123 |
+| **Mobile Number** | Manual Entry | ✅ Required | 9876543210 |
+| **Department** | Email Subdomain | ❌ Auto-filled | CSE |
+| **Section** | Manual Selection | ✅ Required | A, B, C... K |
+| **Admission Year** | Roll Number | ✅ Pre-filled | 2024 |
+| **Year of Study** | Calculated | ❌ Auto | 1st, 2nd, 3rd, 4th, Alumni |
+
+#### Step 4: QR Scan Option
+
+Student can scan their **RIT ID Card QR** to auto-fill Register Number:
+1. Click QR icon
+2. Scan college ID (supports QR and barcodes)
+3. System extracts roll number from:
+   - Direct QR (plain roll number)
+   - RIT IMS verification URL (ims.ritchennai.edu.in)
+
+#### Step 5: Data Saved to Firebase
+
+**Collection:** `/users/{userId}`
+
+```javascript
+{
+  fullName: "Devaprakash J",
+  email: "devaprakash.240001@cse.ritchennai.edu.in",
+  rollNumber: "2400100110123",
+  department: "CSE",
+  section: "A",
+  phone: "9876543210",
+  admissionYear: 2024,
+  yearOfStudy: 1,        // Auto-calculated
+  role: "student",       // or "alumni" if yearOfStudy > 4
+  points: 10,            // Initial signup XP
+  badges: ["spark-starter"], // First badge
+  createdAt: Timestamp
+}
+```
+
+#### Step 6: Welcome Email (Optional)
+
+If EmailJS is configured, student receives welcome email with:
+- Name
+- Roll Number
+- Department
+- Section
+- Dashboard link
+
+---
+
+### 📋 Event Registration Data Flow
+
+When a student registers for an event:
+
+#### Solo Event Registration
+
+**Data Collected:**
+| Field | Value |
+|-------|-------|
+| eventId | Event's Firestore ID |
+| studentId | User's UID |
+| studentName | From user profile |
+| studentRoll | From user profile |
+| studentDept | From user profile |
+| studentYear | From user profile |
+| studentSection | From user profile |
+| studentPhone | From user profile |
+| isTeamRegistration | `false` |
+| isAttended | `false` (updated at check-in) |
+| status | `'Registered'` |
+| registeredAt | Timestamp |
+
+#### Team Event Registration
+
+**Additional Fields:**
+| Field | Value |
+|-------|-------|
+| isTeamRegistration | `true` |
+| teamName | User input (e.g., "Code Warriors") |
+| teamCode | User input (e.g., "CW2024") |
+| teamRole | "LEADER" or "MEMBER" |
+| problemStatement | Selected problem (Hackathon only) |
+
+**Saved to:** `/registrations/{regId}`
+
+---
+
+### 📊 Quiz Submission Data
+
+When student starts a Quiz event:
+
+1. **Quiz URL Generated:**
+   - Google Form URL with pre-filled fields
+   - Student info auto-filled: Name, Roll, Dept, Year, Section, Phone
+
+2. **Proctoring Data Tracked:**
+   | Field | Value |
+   |-------|-------|
+   | proctorViolations | Count (0, 1, 2, 3+) |
+   | lastViolationAt | Timestamp of last violation |
+   | status | 'Registered', 'Present', 'FLAGGED' |
+   | terminatedAt | If quiz terminated |
+   | terminationReason | e.g., "Exceeded tab switch limit" |
+
+3. **Quiz Submission Record:**
+   **Collection:** `/quizSubmissions/{subId}`
+   ```javascript
+   {
+     eventId: "event123",
+     studentRoll: "2400100110123",
+     studentName: "Devaprakash J",
+     timestamp: Timestamp
+   }
+   ```
+
 ### Attending Quiz Events
 
 1. **Navigate to registered quiz**
