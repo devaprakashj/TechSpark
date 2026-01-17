@@ -1504,7 +1504,7 @@ const StudentDashboard = () => {
                                                                     const eventType = cert.eventType || 'Workshop';
                                                                     const eventDate = cert.eventDate || cert.date || '';
                                                                     const roleLabel = roleStyle.label.replace(/🥇|🥈|🥉|⭐|🎖️\s?/g, '').trim();
-                                                                    const verifyUrl = `https://techspark.club/certificateverify?query=${certId}`;
+                                                                    const verifyUrl = `https://techspark-rit.vercel.app/certificateverify?query=${certId}`;
 
                                                                     // Build enhanced post text
                                                                     let shareText = `🎉 Excited to announce that I have successfully completed the "${eventName}"!\n\n`;

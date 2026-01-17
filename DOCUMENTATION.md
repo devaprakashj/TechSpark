@@ -2,8 +2,8 @@
 
 > **Version:** 2.0  
 > **Last Updated:** January 17, 2026  
-> **Website:** https://techspark.club  
-> **Organization:** TechSpark Club - RIT (Ramco Institute of Technology)
+> **Website:** https://techspark-rit.vercel.app  
+> **Organization:** TechSpark Club - RIT (Rajalakshmi Institute of Technology)
 
 ---
 
@@ -105,7 +105,7 @@
 
 ### Registration Process
 
-1. **Access Website:** Visit `https://techspark.club`
+1. **Access Website:** Visit `https://techspark-rit.vercel.app`
 2. **Login/Signup:** Use college roll number
 3. **Browse Events:** See all LIVE events on dashboard
 4. **Register:**
@@ -152,7 +152,7 @@
 
 ### Creating an Event
 
-1. **Login:** `techspark.club/organizer/login`
+1. **Login:** `techspark-rit.vercel.app/organizer/login`
 2. **Dashboard → Create New Event**
 3. **Fill Details (Step-by-Step):**
 
@@ -463,7 +463,7 @@ https://script.google.com/macros/s/[DEPLOYMENT_ID]/exec
 This hackathon was organized by @TechSpark Club - RIT, RIT's Premier Technical Club.
 
 ✅ Verify my certificate:
-https://techspark.club/certificateverify?query=TSCERT-2024-001
+https://techspark-rit.vercel.app/certificateverify?query=TSCERT-2024-001
 
 Thank you @TechSpark Club - RIT for this amazing opportunity! 🙏
 
@@ -472,7 +472,7 @@ Thank you @TechSpark Club - RIT for this amazing opportunity! 🙏
 
 ### Public Verification
 
-**URL:** `https://techspark.club/certificateverify?query=CERTIFICATE_ID`
+**URL:** `https://techspark-rit.vercel.app/certificateverify?query=CERTIFICATE_ID`
 
 Anyone can verify a certificate by:
 1. Entering certificate ID or roll number
@@ -732,7 +732,7 @@ No environment variables required - all config is in code.
 ## 📞 Support
 
 **TechSpark Club - RIT**
-- Website: https://techspark.club
+- Website: https://techspark-rit.vercel.app
 - LinkedIn: linkedin.com/company/techspark-rit
 - Email: techspark@ritchennai.edu.in
 
