@@ -228,6 +228,16 @@ const StudentDashboard = () => {
                 setProctorWarning('⚠️ Developer tools are disabled!');
                 setTimeout(() => setProctorWarning(''), 3000);
             }
+            // Block Escape key to prevent exiting fullscreen
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                setProctorWarning('⚠️ You cannot exit fullscreen during the quiz!');
+                setTimeout(() => setProctorWarning(''), 3000);
+            }
+            // Block Alt+Tab, Windows key
+            if (e.altKey && e.key === 'Tab') {
+                e.preventDefault();
+            }
         };
 
         document.addEventListener('copy', preventCopy);
@@ -243,6 +253,209 @@ const StudentDashboard = () => {
             document.removeEventListener('contextmenu', preventContextMenu);
             document.removeEventListener('keydown', preventKeyShortcuts);
         };
+    }, [showQuizModal]);
+
+    // --- PROCTORING: Fullscreen Enforcement ---
+    useEffect(() => {
+        if (!showQuizModal) return;
+
+        const enterFullscreen = async () => {
+            try {
+                const elem = document.documentElement;
+                if (elem.requestFullscreen) {
+                    await elem.requestFullscreen();
+                } else if (elem.webkitRequestFullscreen) {
+                    await elem.webkitRequestFullscreen();
+                } else if (elem.msRequestFullscreen) {
+                    await elem.msRequestFullscreen();
+                }
+            } catch (err) {
+                console.log('Fullscreen request failed:', err);
+            }
+        };
+
+        // Request fullscreen when quiz starts
+        enterFullscreen();
+
+        // Detect fullscreen exit
+        const handleFullscreenChange = async () => {
+            if (!document.fullscreenElement && showQuizModal) {
+                const newCount = tabSwitchCount + 1;
+                setTabSwitchCount(newCount);
+                setProctorWarning(`⚠️ FULLSCREEN EXIT DETECTED! Violation ${newCount}/${MAX_VIOLATIONS}`);
+
+                // Log violation
+                if (activeQuizRegId) {
+                    try {
+                        const regRef = doc(db, 'registrations', activeQuizRegId);
+                        await updateDoc(regRef, {
+                            proctorViolations: newCount,
+                            lastViolationAt: serverTimestamp()
+                        });
+                    } catch (err) {
+                        console.error('Failed to log violation:', err);
+                    }
+                }
+
+                // Re-enter fullscreen
+                setTimeout(() => enterFullscreen(), 500);
+
+                // Clear warning
+                setTimeout(() => setProctorWarning(''), 5000);
+            }
+        };
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+            // Exit fullscreen when quiz closes
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(() => { });
+            }
+        };
+    }, [showQuizModal, tabSwitchCount, activeQuizRegId]);
+
+    // --- PROCTORING: Window Focus/Blur Detection (Split Screen / Alt+Tab) ---
+    useEffect(() => {
+        if (!showQuizModal) return;
+
+        const handleWindowBlur = async () => {
+            if (showQuizModal) {
+                const newCount = tabSwitchCount + 1;
+                setTabSwitchCount(newCount);
+                setProctorWarning(`⚠️ WINDOW FOCUS LOST! Violation ${newCount}/${MAX_VIOLATIONS}`);
+
+                // Log violation
+                if (activeQuizRegId) {
+                    try {
+                        const regRef = doc(db, 'registrations', activeQuizRegId);
+                        await updateDoc(regRef, {
+                            proctorViolations: newCount,
+                            lastViolationAt: serverTimestamp()
+                        });
+                    } catch (err) {
+                        console.error('Failed to log violation:', err);
+                    }
+                }
+
+                // Check for termination
+                if (newCount >= MAX_VIOLATIONS) {
+                    setProctorWarning('🚨 QUIZ TERMINATED: Too many violations!');
+                    if (activeQuizRegId) {
+                        try {
+                            const regRef = doc(db, 'registrations', activeQuizRegId);
+                            await updateDoc(regRef, {
+                                status: 'FLAGGED',
+                                proctorViolations: newCount,
+                                terminatedAt: serverTimestamp(),
+                                terminationReason: 'Window focus lost multiple times'
+                            });
+                        } catch (err) {
+                            console.error('Failed to terminate quiz:', err);
+                        }
+                    }
+                    setTimeout(() => {
+                        alert('🚨 Your quiz has been terminated due to suspicious activity (using other windows/apps). This attempt has been flagged for review.');
+                        setShowQuizModal(false);
+                        setActiveQuizUrl('');
+                        setActiveQuizTitle('');
+                        setActiveQuizRegId(null);
+                        setIframeLoadCount(0);
+                        setShowFinishButton(false);
+                        setTabSwitchCount(0);
+                        setProctorWarning('');
+                        // Exit fullscreen
+                        if (document.fullscreenElement) {
+                            document.exitFullscreen().catch(() => { });
+                        }
+                    }, 100);
+                } else {
+                    setTimeout(() => setProctorWarning(''), 5000);
+                }
+            }
+        };
+
+        window.addEventListener('blur', handleWindowBlur);
+
+        return () => {
+            window.removeEventListener('blur', handleWindowBlur);
+        };
+    }, [showQuizModal, tabSwitchCount, activeQuizRegId]);
+
+    // --- PROCTORING: Window Resize Detection (Split Screen) ---
+    useEffect(() => {
+        if (!showQuizModal) return;
+
+        const initialWidth = window.innerWidth;
+        const initialHeight = window.innerHeight;
+
+        const handleResize = async () => {
+            const currentWidth = window.innerWidth;
+            const currentHeight = window.innerHeight;
+
+            // Detect significant resize (split screen detection)
+            const widthRatio = currentWidth / initialWidth;
+            const heightRatio = currentHeight / initialHeight;
+
+            // If window is less than 80% of original size, it's likely split screen
+            if (widthRatio < 0.8 || heightRatio < 0.8) {
+                const newCount = tabSwitchCount + 1;
+                setTabSwitchCount(newCount);
+                setProctorWarning(`⚠️ SPLIT SCREEN DETECTED! Violation ${newCount}/${MAX_VIOLATIONS}. Please use fullscreen.`);
+
+                // Log violation
+                if (activeQuizRegId) {
+                    try {
+                        const regRef = doc(db, 'registrations', activeQuizRegId);
+                        await updateDoc(regRef, {
+                            proctorViolations: newCount,
+                            lastViolationAt: serverTimestamp()
+                        });
+                    } catch (err) {
+                        console.error('Failed to log violation:', err);
+                    }
+                }
+
+                setTimeout(() => setProctorWarning(''), 5000);
+            }
+        };
+
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+        };
+    }, [showQuizModal, tabSwitchCount, activeQuizRegId]);
+
+    // --- PROCTORING: Disable Picture-in-Picture ---
+    useEffect(() => {
+        if (!showQuizModal) return;
+
+        // Disable PiP on all video elements
+        const disablePiP = () => {
+            document.querySelectorAll('video').forEach(video => {
+                video.disablePictureInPicture = true;
+            });
+        };
+
+        disablePiP();
+
+        // Also prevent PiP API
+        if ('pictureInPictureEnabled' in document) {
+            const originalPiP = document.pictureInPictureEnabled;
+            Object.defineProperty(document, 'pictureInPictureEnabled', {
+                get: () => false
+            });
+        }
+
+        // Observer to disable PiP on dynamically added videos
+        const observer = new MutationObserver(disablePiP);
+        observer.observe(document.body, { childList: true, subtree: true });
+
+        return () => observer.disconnect();
     }, [showQuizModal]);
 
 
@@ -2226,34 +2439,50 @@ const StudentDashboard = () => {
                                     </div>
 
                                     {/* Rules List - Scrollable */}
-                                    <div className="p-4 space-y-3 overflow-y-auto flex-1">
+                                    <div className="p-4 space-y-3 overflow-y-auto flex-1 max-h-[50vh]">
                                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest text-center mb-2">
                                             📋 Read Carefully Before Starting
                                         </p>
 
                                         {/* Rule Items - Compact */}
                                         <div className="space-y-2">
+                                            <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-xl border border-purple-100">
+                                                <div className="w-8 h-8 bg-purple-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">🖥️</div>
+                                                <div>
+                                                    <p className="text-xs font-black text-purple-700 uppercase">Fullscreen Mode Required</p>
+                                                    <p className="text-[10px] text-purple-600">Quiz will auto-enter fullscreen. Don't exit!</p>
+                                                </div>
+                                            </div>
+
                                             <div className="flex items-center gap-3 p-3 bg-red-50 rounded-xl border border-red-100">
                                                 <div className="w-8 h-8 bg-red-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">🚫</div>
                                                 <div>
-                                                    <p className="text-xs font-black text-red-700 uppercase">No Tab Switching</p>
+                                                    <p className="text-xs font-black text-red-700 uppercase">No Tab Switching / Alt+Tab</p>
                                                     <p className="text-[10px] text-red-600">3 violations = Quiz Terminated</p>
                                                 </div>
                                             </div>
 
                                             <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-xl border border-orange-100">
-                                                <div className="w-8 h-8 bg-orange-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">⌨️</div>
+                                                <div className="w-8 h-8 bg-orange-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">📱</div>
                                                 <div>
-                                                    <p className="text-xs font-black text-orange-700 uppercase">Copy/Paste Disabled</p>
-                                                    <p className="text-[10px] text-orange-600">Ctrl+C, Ctrl+V, Right-click blocked</p>
+                                                    <p className="text-xs font-black text-orange-700 uppercase">No Split Screen / Floating Window</p>
+                                                    <p className="text-[10px] text-orange-600">Resizing or PiP detected = Violation</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-3 p-3 bg-rose-50 rounded-xl border border-rose-100">
+                                                <div className="w-8 h-8 bg-rose-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">⌨️</div>
+                                                <div>
+                                                    <p className="text-xs font-black text-rose-700 uppercase">Copy/Paste/DevTools Disabled</p>
+                                                    <p className="text-[10px] text-rose-600">Ctrl+C, Ctrl+V, F12, Right-click blocked</p>
                                                 </div>
                                             </div>
 
                                             <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100">
-                                                <div className="w-8 h-8 bg-amber-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">⚠️</div>
+                                                <div className="w-8 h-8 bg-amber-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">👁️</div>
                                                 <div>
-                                                    <p className="text-xs font-black text-amber-700 uppercase">Activity Monitored</p>
-                                                    <p className="text-[10px] text-amber-600">Violations logged & reported</p>
+                                                    <p className="text-xs font-black text-amber-700 uppercase">Window Focus Monitored</p>
+                                                    <p className="text-[10px] text-amber-600">Using other apps = Instant violation</p>
                                                 </div>
                                             </div>
 
@@ -2261,9 +2490,15 @@ const StudentDashboard = () => {
                                                 <div className="w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">✅</div>
                                                 <div>
                                                     <p className="text-xs font-black text-blue-700 uppercase">How to Complete</p>
-                                                    <p className="text-[10px] text-blue-600">Submit form & click "VERIFY & FINISH"</p>
+                                                    <p className="text-[10px] text-blue-600">Submit form → Click "VERIFY & FINISH"</p>
                                                 </div>
                                             </div>
+                                        </div>
+
+                                        <div className="mt-3 p-3 bg-slate-900 rounded-xl text-center">
+                                            <p className="text-[9px] text-white font-bold uppercase tracking-widest">
+                                                ⚠️ By clicking "Start Quiz", you agree to be monitored
+                                            </p>
                                         </div>
                                     </div>
 
