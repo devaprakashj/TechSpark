@@ -98,6 +98,7 @@ const StudentDashboard = () => {
     const MAX_VIOLATIONS = 3;
     const [showQuizRulesModal, setShowQuizRulesModal] = useState(false);
     const [pendingQuizData, setPendingQuizData] = useState(null);
+    const [fullscreenLockOverlay, setFullscreenLockOverlay] = useState(false); // VIT Style lock overlay
 
     // Live Clock Effect
     useEffect(() => {
@@ -255,63 +256,158 @@ const StudentDashboard = () => {
         };
     }, [showQuizModal]);
 
-    // --- PROCTORING: Fullscreen Enforcement ---
+    // --- PROCTORING: VIT EXAM PORTAL STYLE FULLSCREEN LOCKDOWN ---
     useEffect(() => {
         if (!showQuizModal) return;
 
-        const enterFullscreen = async () => {
+        let isLocked = true;
+        let lastFullscreenTime = Date.now();
+
+        // Force fullscreen function
+        const forceFullscreen = async () => {
+            if (!isLocked || !showQuizModal) return;
+
             try {
                 const elem = document.documentElement;
-                if (elem.requestFullscreen) {
-                    await elem.requestFullscreen();
-                } else if (elem.webkitRequestFullscreen) {
-                    await elem.webkitRequestFullscreen();
-                } else if (elem.msRequestFullscreen) {
-                    await elem.msRequestFullscreen();
+                if (!document.fullscreenElement) {
+                    // Show blocking overlay
+                    setFullscreenLockOverlay(true);
+
+                    if (elem.requestFullscreen) {
+                        await elem.requestFullscreen({ navigationUI: 'hide' });
+                    } else if (elem.webkitRequestFullscreen) {
+                        await elem.webkitRequestFullscreen();
+                    } else if (elem.mozRequestFullScreen) {
+                        await elem.mozRequestFullScreen();
+                    } else if (elem.msRequestFullscreen) {
+                        await elem.msRequestFullscreen();
+                    }
+
+                    // Hide overlay after successful fullscreen
+                    setFullscreenLockOverlay(false);
+                    lastFullscreenTime = Date.now();
                 }
             } catch (err) {
-                console.log('Fullscreen request failed:', err);
+                console.log('Fullscreen request failed, showing overlay...', err);
+                // Show overlay - user must click to re-enter
+                setFullscreenLockOverlay(true);
             }
         };
 
-        // Request fullscreen when quiz starts
-        enterFullscreen();
+        // Initial fullscreen request
+        forceFullscreen();
 
-        // Detect fullscreen exit
+        // VERY aggressive fullscreen check every 50ms
+        const fullscreenInterval = setInterval(() => {
+            if (!document.fullscreenElement && isLocked && showQuizModal) {
+                // Show overlay immediately
+                setFullscreenLockOverlay(true);
+            } else if (document.fullscreenElement) {
+                setFullscreenLockOverlay(false);
+            }
+        }, 50);
+
+        // Handle fullscreen exit
         const handleFullscreenChange = async () => {
-            if (!document.fullscreenElement && showQuizModal) {
-                const newCount = tabSwitchCount + 1;
-                setTabSwitchCount(newCount);
-                setProctorWarning(`⚠️ FULLSCREEN EXIT DETECTED! Violation ${newCount}/${MAX_VIOLATIONS}`);
+            if (!document.fullscreenElement && isLocked && showQuizModal) {
+                // Only count as violation if more than 500ms since last fullscreen
+                // (to avoid counting the initial entry)
+                if (Date.now() - lastFullscreenTime > 500) {
+                    const newCount = tabSwitchCount + 1;
+                    setTabSwitchCount(newCount);
 
-                // Log violation
-                if (activeQuizRegId) {
-                    try {
-                        const regRef = doc(db, 'registrations', activeQuizRegId);
-                        await updateDoc(regRef, {
-                            proctorViolations: newCount,
-                            lastViolationAt: serverTimestamp()
-                        });
-                    } catch (err) {
-                        console.error('Failed to log violation:', err);
+                    // Show overlay IMMEDIATELY
+                    setFullscreenLockOverlay(true);
+
+                    setProctorWarning(`🚨 FULLSCREEN EXIT! Violation ${newCount}/${MAX_VIOLATIONS} - CLICK TO RESUME!`);
+
+                    // Log violation
+                    if (activeQuizRegId) {
+                        try {
+                            const regRef = doc(db, 'registrations', activeQuizRegId);
+                            await updateDoc(regRef, {
+                                proctorViolations: newCount,
+                                lastViolationAt: serverTimestamp(),
+                                violationType: 'fullscreen_exit'
+                            });
+                        } catch (err) {
+                            console.error('Failed to log violation:', err);
+                        }
+                    }
+
+                    // Check for termination
+                    if (newCount >= MAX_VIOLATIONS) {
+                        isLocked = false;
+                        clearInterval(fullscreenInterval);
+                        setFullscreenLockOverlay(false);
+                        setProctorWarning('🚨 QUIZ TERMINATED!');
+
+                        if (activeQuizRegId) {
+                            try {
+                                const regRef = doc(db, 'registrations', activeQuizRegId);
+                                await updateDoc(regRef, {
+                                    status: 'FLAGGED',
+                                    proctorViolations: newCount,
+                                    terminatedAt: serverTimestamp(),
+                                    terminationReason: 'Repeated fullscreen exit attempts'
+                                });
+                            } catch (err) {
+                                console.error('Failed to terminate quiz:', err);
+                            }
+                        }
+
+                        setTimeout(() => {
+                            alert('🚨 QUIZ TERMINATED!\n\nYou exited fullscreen too many times.\nThis has been FLAGGED for malpractice review.');
+                            setShowQuizModal(false);
+                            setActiveQuizUrl('');
+                            setActiveQuizTitle('');
+                            setActiveQuizRegId(null);
+                            setIframeLoadCount(0);
+                            setShowFinishButton(false);
+                            setTabSwitchCount(0);
+                            setProctorWarning('');
+                            if (document.fullscreenElement) {
+                                document.exitFullscreen().catch(() => { });
+                            }
+                        }, 500);
                     }
                 }
+            } else if (document.fullscreenElement) {
+                // Back in fullscreen - hide overlay
+                setFullscreenLockOverlay(false);
+                lastFullscreenTime = Date.now();
+                setTimeout(() => setProctorWarning(''), 3000);
+            }
+        };
 
-                // Re-enter fullscreen
-                setTimeout(() => enterFullscreen(), 500);
-
-                // Clear warning
-                setTimeout(() => setProctorWarning(''), 5000);
+        // Block keys
+        const blockKeys = (e) => {
+            if (showQuizModal) {
+                if (e.key === 'Escape' || e.key === 'F11') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    setProctorWarning('🔒 This key is BLOCKED during quiz!');
+                    setTimeout(() => setProctorWarning(''), 2000);
+                    return false;
+                }
             }
         };
 
         document.addEventListener('fullscreenchange', handleFullscreenChange);
         document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        document.addEventListener('keydown', blockKeys, true);
+        document.addEventListener('keyup', blockKeys, true);
 
         return () => {
+            isLocked = false;
+            clearInterval(fullscreenInterval);
+            setFullscreenLockOverlay(false);
             document.removeEventListener('fullscreenchange', handleFullscreenChange);
             document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-            // Exit fullscreen when quiz closes
+            document.removeEventListener('keydown', blockKeys, true);
+            document.removeEventListener('keyup', blockKeys, true);
+            // Exit fullscreen when quiz closes properly
             if (document.fullscreenElement) {
                 document.exitFullscreen().catch(() => { });
             }
@@ -2410,6 +2506,52 @@ const StudentDashboard = () => {
                 <AnimatePresence>
                     {showQuizModal && activeQuizUrl && (
                         <div id="quiz-proctored-container" className="fixed inset-0 bg-slate-900 z-[99999] flex flex-col" style={{ top: 0, left: 0, right: 0, bottom: 0, margin: 0, padding: 0 }}>
+
+                            {/* VIT STYLE FULLSCREEN LOCK OVERLAY */}
+                            <AnimatePresence>
+                                {fullscreenLockOverlay && (
+                                    <motion.div
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        className="fixed inset-0 z-[999999] bg-red-900/98 backdrop-blur-xl flex flex-col items-center justify-center p-6"
+                                        onClick={async () => {
+                                            try {
+                                                const elem = document.documentElement;
+                                                if (elem.requestFullscreen) {
+                                                    await elem.requestFullscreen({ navigationUI: 'hide' });
+                                                } else if (elem.webkitRequestFullscreen) {
+                                                    await elem.webkitRequestFullscreen();
+                                                }
+                                                setFullscreenLockOverlay(false);
+                                            } catch (err) {
+                                                console.log('Fullscreen failed:', err);
+                                            }
+                                        }}
+                                    >
+                                        <div className="text-center max-w-md">
+                                            <div className="w-24 h-24 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+                                                <span className="text-6xl">🔒</span>
+                                            </div>
+                                            <h2 className="text-3xl md:text-4xl font-black text-white uppercase tracking-wider mb-4">
+                                                FULLSCREEN REQUIRED
+                                            </h2>
+                                            <p className="text-lg text-red-200 font-bold mb-2">
+                                                You exited fullscreen mode!
+                                            </p>
+                                            <p className="text-sm text-red-300 mb-8">
+                                                Violation #{tabSwitchCount} of {MAX_VIOLATIONS} recorded
+                                            </p>
+                                            <div className="bg-white text-red-600 px-8 py-4 rounded-2xl font-black text-lg uppercase tracking-wider animate-bounce shadow-2xl cursor-pointer hover:bg-red-50 transition-colors">
+                                                👆 TAP HERE TO RESUME QUIZ
+                                            </div>
+                                            <p className="text-xs text-red-400 mt-6 font-medium">
+                                                VIT Exam Portal Style Security • Quiz content is hidden until fullscreen
+                                            </p>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                             <motion.div
                                 initial={{ opacity: 0, y: -20 }}
                                 animate={{ opacity: 1, y: 0 }}
@@ -2567,11 +2709,11 @@ const StudentDashboard = () => {
 
                                         {/* Rule Items - Compact */}
                                         <div className="space-y-2">
-                                            <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-xl border border-purple-100">
-                                                <div className="w-8 h-8 bg-purple-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">🖥️</div>
+                                            <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-xl border border-purple-200 ring-2 ring-purple-300">
+                                                <div className="w-8 h-8 bg-purple-600 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">🔒</div>
                                                 <div>
-                                                    <p className="text-xs font-black text-purple-700 uppercase">Fullscreen Mode Required</p>
-                                                    <p className="text-[10px] text-purple-600">Quiz will auto-enter fullscreen. Don't exit!</p>
+                                                    <p className="text-xs font-black text-purple-700 uppercase">FULLSCREEN LOCKED (VIT Style)</p>
+                                                    <p className="text-[10px] text-purple-600">You CANNOT exit until submit. ESC key disabled!</p>
                                                 </div>
                                             </div>
 
