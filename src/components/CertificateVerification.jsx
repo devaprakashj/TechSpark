@@ -442,13 +442,23 @@ const CertificateVerification = () => {
                                                             </a>
                                                             <a
                                                                 href={(() => {
-                                                                    const certId = cert.certificateId || cert.certID;
+                                                                    const certId = cert.certificateId || cert.certID || '';
                                                                     const eventName = cert.eventName || 'TechSpark Event';
-                                                                    const studentName = cert.studentName || cert.name || '';
-                                                                    const roleText = isWinner ? `🏆 ${roleStyle.label.replace(/🥇|🥈|🥉|⭐|🎖️\s?/g, '')}` : '🎓 Certified Participant';
+                                                                    const eventType = cert.eventType || 'Workshop';
+                                                                    const eventDate = cert.eventDate || cert.date || '';
+                                                                    const roleLabel = roleStyle.label.replace(/🥇|🥈|🥉|⭐|🎖️\s?/g, '').trim();
                                                                     const verifyUrl = `https://techspark.club/certificateverify?query=${certId}`;
 
-                                                                    const shareText = `I'm thrilled to share that I have successfully completed "${eventName}" conducted by TechSpark - RIT's Premier Tech Club! 🚀\n\n${roleText}\n\n🔗 Verify my certificate: ${verifyUrl}\n\n#TechSpark #RIT #Certificate #Achievement`;
+                                                                    // Build enhanced post text
+                                                                    let shareText = `🎉 Excited to announce that I have successfully completed the "${eventName}"!\n\n`;
+                                                                    shareText += `📌 Event Type: ${eventType}\n`;
+                                                                    if (eventDate) shareText += `📅 Date: ${eventDate}\n`;
+                                                                    shareText += `🏅 Achievement: ${isWinner ? '🏆 ' : ''}${roleLabel}\n`;
+                                                                    shareText += `🆔 Certificate ID: ${certId}\n\n`;
+                                                                    shareText += `This ${eventType.toLowerCase()} was organized by @TechSpark Club - RIT, RIT's Premier Technical Club, fostering innovation and technical excellence.\n\n`;
+                                                                    shareText += `✅ Verify my certificate:\n${verifyUrl}\n\n`;
+                                                                    shareText += `Thank you @TechSpark Club - RIT for this amazing opportunity! 🙏\n\n`;
+                                                                    shareText += `#TechSpark #RIT #${eventType.replace(/\s+/g, '')} #Certificate #TechCommunity #Learning #Achievement #Certification`;
 
                                                                     return `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(shareText)}`;
                                                                 })()}
