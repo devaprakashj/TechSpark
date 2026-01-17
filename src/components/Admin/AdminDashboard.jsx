@@ -1820,1657 +1820,1795 @@ const AdminDashboard = () => {
                     </div>
                 );
 
-            case 'all_events':
-                return (
-                    <div className="animate-in slide-in-from-bottom-4 duration-500 text-left">
-                        <div className="flex items-center justify-between mb-8">
-                            <div>
-                                <h3 className="text-3xl font-black text-slate-800 italic uppercase">Global Event Registry</h3>
-                                <p className="text-slate-500 font-medium">Read-only historical audit of all club operations</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <div className="relative w-64">
-                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                    <input
-                                        type="text"
-                                        placeholder="SEARCH MISSIONS..."
-                                        value={eventSearchQuery}
-                                        onChange={(e) => setEventSearchQuery(e.target.value)}
-                                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
-                                    />
-                                </div>
-                                <div className="relative w-48">
-                                    <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                    <select
-                                        value={eventStatusFilter}
-                                        onChange={(e) => setEventStatusFilter(e.target.value)}
-                                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none appearance-none cursor-pointer"
-                                    >
-                                        <option value="ALL">All Status</option>
-                                        <option value="LIVE">Live</option>
-                                        <option value="COMPLETED">Completed</option>
-                                        <option value="PENDING">Pending</option>
-                                        <option value="REJECTED">Rejected</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
-                            <table className="w-full">
-                                <thead className="bg-slate-50 border-b border-slate-100">
-                                    <tr>
-                                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Event Detail</th>
-                                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Organizer</th>
-                                        <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Execution Date</th>
-                                        <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Participation</th>
-                                        <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                                        <th className="px-8 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50">
-                                    {(filteredEventsRegistry || []).map((event) => (
-                                        <tr
-                                            key={event.id}
-                                            onClick={() => {
-                                                setSelectedEventDetails(event);
-                                                setShowEventDetailModal(true);
-                                            }}
-                                            className="group hover:bg-slate-50/80 transition-all cursor-pointer border-l-4 border-l-transparent hover:border-l-blue-600 shadow-sm hover:shadow-md"
-                                        >
-                                            <td className="px-8 py-6">
-                                                <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{event.title}</p>
-                                                <p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest">{event.type}</p>
-                                            </td>
-                                            <td className="px-8 py-6">
-                                                <p className="text-xs font-bold text-slate-600 uppercase italic">{event.createdBy}</p>
-                                            </td>
-                                            <td className="px-8 py-6 text-center">
-                                                <p className="text-xs font-black text-slate-800 uppercase tabular-nums">{event.date}</p>
-                                            </td>
-                                            <td className="px-8 py-6 text-center">
-                                                <div className="flex flex-col items-center gap-1">
-                                                    <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1.5 tabular-nums">
-                                                        <Activity className="w-3 h-3" /> {registrations.filter(r => r.eventId === event.id && (r.isAttended || r.status === 'Present')).length} IN
-                                                    </span>
-                                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                                                        OF {event.attendeesCount || 0} REGS
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-8 py-6 text-center">
-                                                <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${event.status === 'LIVE' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                                                    event.status === 'COMPLETED' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                                                        event.status === 'REJECTED' ? 'bg-red-50 text-red-600 border-red-100' :
-                                                            'bg-slate-50 text-slate-400 border-slate-100'
-                                                    }`}>
-                                                    {event.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-8 py-6 text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    {event.status === 'COMPLETED' && (
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); handleExportCertData(event); }}
-                                                            className="px-3 py-2 bg-emerald-100 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2"
-                                                            title="Export Certificate Data"
-                                                        >
-                                                            <FileSpreadsheet className="w-4 h-4" />
-                                                            <span className="text-[10px] font-black uppercase">Cert Data</span>
-                                                        </button>
-                                                    )}
-                                                    {event.type === 'Quiz' && (
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); handleOpenQuizSettings(event); }}
-                                                            className="px-3 py-2 bg-purple-100 text-purple-600 rounded-xl hover:bg-purple-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2"
-                                                            title="Quiz Settings"
-                                                        >
-                                                            <FileText className="w-4 h-4" />
-                                                            <span className="text-[10px] font-black uppercase">Settings</span>
-                                                        </button>
-                                                    )}
-                                                    {event.type !== 'Quiz' && event.status !== 'COMPLETED' && (
-                                                        <span className="text-[10px] text-slate-300 font-bold uppercase">-</span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
                 );
 
-            case 'organizers':
-                return (
-                    <div className="animate-in slide-in-from-bottom-4 duration-500 text-left">
-                        <div className="flex items-center justify-between mb-8">
-                            <div>
-                                <h3 className="text-3xl font-black text-slate-800 italic uppercase">Organizer Corps</h3>
-                                <p className="text-slate-500 font-medium">Manage credentials and tactical assignments for event leads</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <button
-                                    onClick={() => navigate('/checkin')}
-                                    className="px-6 py-3.5 bg-slate-900 text-white rounded-2xl font-black text-xs shadow-lg shadow-slate-900/10 flex items-center gap-3 hover:scale-105 transition-all uppercase tracking-widest"
-                                >
-                                    <Terminal className="w-5 h-5" /> Launch Terminal
-                                </button>
-                                <button
-                                    onClick={() => setIsOrgModalOpen(true)}
-                                    className="px-6 py-3.5 bg-blue-600 text-white rounded-2xl font-black text-xs shadow-lg shadow-blue-500/30 flex items-center gap-3 hover:scale-105 transition-all uppercase tracking-widest"
-                                >
-                                    <Plus className="w-5 h-5" /> Commission New Lead
-                                </button>
-                            </div>
-                        </div>
+            case 'certificates':
+return (
+    <div className="animate-in slide-in-from-bottom-4 duration-500 text-left">
+        <div className="mb-8">
+            <h3 className="text-3xl font-black text-slate-800 italic uppercase">Certificate Repository</h3>
+            <p className="text-slate-500 font-medium">Track eligibility and verify issued credentials</p>
+        </div>
 
-                        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="bg-slate-50 border-b border-slate-100">
-                                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Identify</th>
-                                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Assignment</th>
-                                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Access Passkey</th>
-                                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Contact Trace</th>
-                                        <th className="px-8 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Operational Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50">
-                                    {organizers.map((org) => (
-                                        <tr key={org.id} className="hover:bg-slate-50/30 transition-colors group">
-                                            <td className="px-8 py-5">
-                                                <p className="font-black text-slate-800 uppercase text-xs tracking-tight">{org.fullName}</p>
-                                                <p className="font-mono text-[10px] text-blue-600 font-bold">{org.username}</p>
-                                            </td>
-                                            <td className="px-8 py-5">
-                                                <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{org.role}</p>
-                                                <p className="text-[9px] font-bold text-slate-400 uppercase">{org.department}</p>
-                                            </td>
-                                            <td className="px-8 py-5">
-                                                <code className="bg-slate-100 px-2 py-1 rounded text-[10px] font-black text-slate-700 select-all tracking-widest border border-slate-200">{org.password}</code>
-                                            </td>
-                                            <td className="px-8 py-5">
-                                                <p className="text-[10px] font-bold text-slate-600 uppercase">{org.email}</p>
-                                                <p className="font-mono text-[9px] text-slate-400 font-black">{org.phone}</p>
-                                            </td>
-                                            <td className="px-8 py-5 text-right">
-                                                <div className="flex items-center justify-end gap-4">
-                                                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${org.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                                                        {org.status || 'Active'}
-                                                    </span>
-                                                    <button onClick={() => handleDeleteOrganizer(org.id)} className="p-2 text-slate-200 hover:text-red-500 transition-colors">
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {organizers.length === 0 && (
-                                        <tr>
-                                            <td colSpan="4" className="px-8 py-20 text-center">
-                                                <div className="flex flex-col items-center">
-                                                    <UserCog className="w-12 h-12 text-slate-100 mb-4" />
-                                                    <p className="text-slate-400 font-black uppercase tracking-widest text-[10px]">No active commissions</p>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                );
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+            {/* Live Verification Console */}
+            <div className="lg:col-span-1 bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-50 rounded-bl-full -mr-16 -mt-16 pointer-events-none" />
+                <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight mb-2 relative z-10">Live Verification</h4>
+                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-6 relative z-10">Check Google Sheet DB</p>
 
-            case 'registrations':
-                return (
-                    <div className="animate-in slide-in-from-bottom-4 duration-500 text-left">
-                        <div className="flex items-center justify-between mb-8">
-                            <div>
-                                <h3 className="text-3xl font-black text-slate-800 italic uppercase">Registration Oracle</h3>
-                                <p className="text-slate-500 font-medium">Global student participation log (Read-Only)</p>
-                            </div>
-                            <button
-                                onClick={() => {
-                                    const csv = [
-                                        ['Event', 'Student', 'Roll No', 'Dept', 'Year', 'Date'],
-                                        ...registrations.map(r => [r.eventTitle, r.studentName, r.studentRoll, r.studentDept, r.studentYear, r.registeredAt?.toDate?.() || 'N/A'])
-                                    ].map(e => e.join(",")).join("\n");
-                                    const blob = new Blob([csv], { type: 'text/csv' });
-                                    const url = window.URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.setAttribute('href', url);
-                                    a.setAttribute('download', 'techspark_registrations.csv');
-                                    a.click();
+                <div className="space-y-4 relative z-10">
+                    <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Student Roll Number</label>
+                        <div className="relative mt-1">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <input
+                                type="text"
+                                placeholder="e.g. 953621104001"
+                                className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-widest outline-none focus:ring-2 focus:ring-purple-500/20 transition-all font-mono"
+                                onKeyDown={async (e) => {
+                                    if (e.key === 'Enter') {
+                                        const roll = e.target.value;
+                                        if (!roll) return;
+                                        e.target.disabled = true;
+                                        const btn = e.target.nextSibling; // Not reliable, better to use state but trying inline for brevity or standard React pattern
+                                        // Using alert for specific output for now or console
+                                        try {
+                                            const response = await fetch(`${certApiUrl}?rollNumber=${roll}`);
+                                            const data = await response.json();
+                                            console.log(data);
+                                            if (data.length > 0) {
+                                                alert(`✅ Found ${data.length} certificates for ${roll}!\nLatest: ${data[0].eventName}`);
+                                            } else {
+                                                alert(`❌ No certificates found for ${roll} in the database.`);
+                                            }
+                                        } catch (err) {
+                                            alert("Error fetching data: " + err.message);
+                                        }
+                                        e.target.disabled = false;
+                                        e.target.focus();
+                                    }
                                 }}
-                                className="px-6 py-3.5 border border-slate-200 text-slate-600 rounded-2xl font-black text-xs hover:bg-slate-50 transition-all uppercase tracking-widest flex items-center gap-2"
-                            >
-                                <Download className="w-4 h-4" /> Export Analytics
-                            </button>
-                        </div>
-
-                        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
-                            <table className="w-full">
-                                <thead className="bg-slate-50 border-b border-slate-100">
-                                    <tr>
-                                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Objective</th>
-                                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Participant</th>
-                                        <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                                        <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Identity Trace</th>
-                                        <th className="px-8 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Department</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50">
-                                    {(registrations || []).slice(0, 100).map((reg) => (
-                                        <tr key={reg.id} className="hover:bg-slate-50/50 transition-colors group">
-                                            <td className="px-8 py-5">
-                                                <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{reg.eventTitle}</p>
-                                                <p className="text-[10px] text-slate-400 font-bold uppercase">{reg.eventId?.slice(0, 8)}</p>
-                                            </td>
-                                            <td className="px-8 py-5">
-                                                <p className="text-xs font-black text-slate-700 uppercase">{reg.studentName}</p>
-                                                <p className="text-[9px] font-bold text-blue-600 uppercase tabular-nums">{reg.studentRoll}</p>
-                                            </td>
-                                            <td className="px-8 py-5 text-center">
-                                                {reg.isAttended || reg.status === 'Present' ? (
-                                                    <span className="bg-emerald-500 text-white px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm shadow-emerald-200">
-                                                        PRESENT
-                                                    </span>
-                                                ) : (
-                                                    <span className="bg-slate-100 text-slate-400 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest">
-                                                        REGISTERED
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className="px-8 py-5 text-center">
-                                                <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">
-                                                    {reg.studentYear} YEAR
-                                                </span>
-                                            </td>
-                                            <td className="px-8 py-5 text-right">
-                                                <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{reg.studentDept}</p>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                            {registrations.length > 100 && (
-                                <div className="p-4 bg-slate-50 text-center">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase">Showing first 100 records. Export for full dataset.</p>
-                                </div>
-                            )}
+                            />
                         </div>
                     </div>
-                );
-
-            case 'scanner':
-                return (
-                    <div className="max-w-xl mx-auto space-y-8 animate-in zoom-in-95 duration-500">
-                        <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100">
-                            <div className="p-8 pb-12 text-center text-left">
-                                <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 shadow-inner">
-                                    <QrCode className="w-10 h-10" />
-                                </div>
-                                <h3 className="text-2xl font-black text-slate-800 mb-2">Attendance Console</h3>
-                                <p className="text-slate-500 text-sm mb-8">Scan student IDs for instant verification & XP distribution</p>
-
-                                <div className="max-w-md mx-auto aspect-square bg-slate-900 rounded-[3rem] overflow-hidden relative group shadow-2xl border-8 border-white">
-                                    {isScanning ? (
-                                        <Scanner
-                                            onScan={(result) => {
-                                                const val = result[0]?.rawValue;
-                                                if (val) processRollNumber(val);
-                                            }}
-                                            onError={(err) => console.error(err)}
-                                            styles={{
-                                                container: { width: '100%', height: '100%' },
-                                                video: { objectFit: 'cover' }
-                                            }}
-                                            allowMultiple={false}
-                                            scanDelay={2000}
-                                        />
-                                    ) : (
-                                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-white p-8">
-                                            {scanFeedback?.type === 'loading' && (
-                                                <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent" />
-                                            )}
-
-                                            {scanFeedback?.type === 'success' && (
-                                                <motion.div
-                                                    initial={{ scale: 0.5, opacity: 0 }}
-                                                    animate={{ scale: 1, opacity: 1 }}
-                                                    className="text-center"
-                                                >
-                                                    <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                                                        <CheckCircle className="w-10 h-10 text-white" />
-                                                    </div>
-                                                    <h4 className="text-xl font-black uppercase text-emerald-400">Success!</h4>
-                                                    <div className="mt-4 p-4 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10 text-center">
-                                                        <p className="text-lg font-bold text-white uppercase">{scanFeedback.student?.fullName}</p>
-                                                        <p className="text-xs text-slate-400 font-bold tracking-widest uppercase mt-1">{scanFeedback.student?.rollNumber}</p>
-                                                        <p className="text-[10px] text-blue-400 font-black mt-3 bg-blue-500/20 py-1 rounded-full">+20 XP AWARDED</p>
-                                                    </div>
-                                                </motion.div>
-                                            )}
-
-                                            {scanFeedback?.type === 'error' && (
-                                                <motion.div
-                                                    initial={{ scale: 0.5, opacity: 0 }}
-                                                    animate={{ scale: 1, opacity: 1 }}
-                                                    className="text-center"
-                                                >
-                                                    <div className="w-20 h-20 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                                                        <X className="w-10 h-10 text-white" />
-                                                    </div>
-                                                    <h4 className="text-xl font-black uppercase text-red-500 font-mono">Invalid ID</h4>
-                                                    <p className="text-slate-400 text-sm mt-2">{scanFeedback.message}</p>
-                                                </motion.div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    <div className="absolute inset-0 border-[4px] border-blue-500/50 m-12 rounded-[2.5rem] pointer-events-none">
-                                        <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500 rounded-tl-2xl" />
-                                        <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500 rounded-tr-2xl" />
-                                        <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-blue-500 rounded-bl-2xl" />
-                                        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-blue-500 rounded-br-2xl" />
-                                    </div>
-                                    <div className="absolute top-1/2 left-0 w-full h-1 bg-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.8)] animate-scan z-20" />
-                                </div>
-
-                                <div className="mt-10 flex flex-col items-center gap-4 w-full">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Scanner Status: {isScanning ? 'Online & Ready' : 'Processing...'}</span>
-
-                                    {!isManualEntryOpen ? (
-                                        <button
-                                            onClick={() => setIsManualEntryOpen(true)}
-                                            className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all flex items-center gap-3"
-                                        >
-                                            <Plus className="w-5 h-5" />
-                                            MANUAL ENTRY
-                                        </button>
-                                    ) : (
-                                        <form onSubmit={handleManualSubmit} className="flex gap-2 w-full max-w-sm animate-in fade-in duration-300">
-                                            <input
-                                                autoFocus
-                                                type="text"
-                                                value={manualRollNumber}
-                                                onChange={(e) => setManualRollNumber(e.target.value)}
-                                                placeholder="Enter Roll Number..."
-                                                className="flex-1 px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold"
-                                            />
-                                            <button
-                                                type="submit"
-                                                className="px-6 py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase"
-                                            >
-                                                Submit
-                                            </button>
-                                        </form>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
+                    <div className="p-4 bg-purple-50 rounded-2xl border border-purple-100 flex items-start gap-3">
+                        <Info className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
+                        <p className="text-[10px] text-purple-800 leading-relaxed font-bold">
+                            Press <kbd className="font-mono bg-white px-1 rounded border border-purple-200">ENTER</kbd> to search directly in the connected Google Sheet Database.
+                        </p>
                     </div>
-                );
+                </div>
+            </div>
 
-            case 'awards':
-                return (
-                    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden animate-in slide-in-from-bottom-4 duration-500">
-                        <div className="p-8 border-b border-slate-100">
-                            <h3 className="text-2xl font-black text-slate-800">Badges & Awards</h3>
-                            <p className="text-slate-500 text-sm">Manage and distribute badges to students</p>
-                        </div>
-                        <div className="p-8 bg-slate-50/50 flex flex-col items-center justify-center min-h-[400px] border-b border-dashed border-slate-200">
-                            <Award className="w-16 h-16 text-slate-200 mb-4" />
-                            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Awards management module is active</p>
-                            <p className="text-slate-300 text-[10px] mt-2 italic">Feature expanding soon with badge creation and assignment</p>
-                        </div>
-                    </div>
-                );
+            {/* Stats */}
+            <div className="lg:col-span-2 grid grid-cols-2 gap-6">
+                <div className="bg-emerald-50 p-8 rounded-[2.5rem] border border-emerald-100 flex flex-col justify-center">
+                    <h4 className="text-4xl font-black text-emerald-600 mb-2 tabular-nums">
+                        {registrations.filter(r => r.status === 'Present' || r.isAttended).length}
+                    </h4>
+                    <p className="text-xs font-black text-emerald-800/60 uppercase tracking-widest">Total Eligible Graduates</p>
+                </div>
+                <div className="bg-blue-50 p-8 rounded-[2.5rem] border border-blue-100 flex flex-col justify-center">
+                    <h4 className="text-4xl font-black text-blue-600 mb-2 tabular-nums">
+                        {registrations.filter(r => (r.status === 'Present' || r.isAttended) && events.find(e => e.id === r.eventId)?.status === 'COMPLETED').length}
+                    </h4>
+                    <p className="text-xs font-black text-blue-800/60 uppercase tracking-widest">Pending Issuance (Est.)</p>
+                </div>
+            </div>
+        </div>
 
-            case 'reports':
-                return (
-                    <div className="animate-in slide-in-from-bottom-4 duration-500 text-left">
-                        <div className="mb-8">
-                            <h3 className="text-3xl font-black text-slate-800 italic uppercase">Strategic Reports</h3>
-                            <p className="text-slate-500 font-medium">Generate high-fidelity intelligence summaries</p>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                            {[
-                                { title: 'Event Impact Study', desc: 'KPIs, attendance metrics, and participation trends.', icon: <TrendingUp className="w-6 h-6" />, action: downloadEventImpactReport },
-                                { title: 'Member Demographic', desc: 'Breakdown of student base by department and year.', icon: <Users className="w-6 h-6" />, action: downloadDemographicReport },
-                                { title: 'Operational Audit', desc: 'Organizer activity and event approval history.', icon: <ShieldCheck className="w-6 h-6" />, action: downloadOperationalAuditReport }
-                            ].map((report, i) => (
-                                <div key={i} className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm hover:shadow-xl transition-all group flex flex-col">
-                                    <div className="w-14 h-14 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-inner">
-                                        {report.icon}
-                                    </div>
-                                    <h4 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-2">{report.title}</h4>
-                                    <p className="text-xs text-slate-400 font-bold uppercase leading-relaxed mb-8">{report.desc}</p>
-                                    <button
-                                        onClick={report.action}
-                                        className="mt-auto py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-black transition-all"
-                                    >
-                                        Generate PDF
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                );
-
-            case 'settings':
-                return (
-                    <div className="animate-in slide-in-from-bottom-4 duration-500 text-left">
-                        <div className="mb-8">
-                            <h3 className="text-3xl font-black text-slate-800 italic uppercase">Club Protocol</h3>
-                            <p className="text-slate-500 font-medium">Global configuration for TechSpark operations</p>
-                        </div>
-
-                        <div className="max-w-4xl space-y-6">
-                            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-8">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Club Identification</label>
-                                        <input type="text" defaultValue="TechSpark Club" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-blue-500/5 transition-all" />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Academic Year</label>
-                                        <select className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-black uppercase tracking-widest outline-none cursor-pointer">
-                                            <option>2025 - 2026</option>
-                                            <option>2024 - 2025</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                {/* Certificate Verification API Settings */}
-                                <div className="pt-6 border-t border-slate-100">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h5 className="text-[11px] font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                                            <Key className="w-4 h-4 text-blue-600" />
-                                            Certificate Verification API
-                                        </h5>
-                                        <a
-                                            href="https://script.google.com/home"
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="text-[9px] font-black text-blue-600 uppercase flex items-center gap-1 hover:underline"
-                                        >
-                                            Open Apps Script <ExternalLink className="w-3 h-3" />
-                                        </a>
-                                    </div>
-                                    <div className="space-y-4">
-                                        <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 mb-2">
-                                            <div className="text-[10px] font-bold text-blue-800 flex items-start gap-2">
-                                                <Info className="w-4 h-4 flex-shrink-0" />
-                                                <span>
-                                                    Deployment Guide: 1. Deploy as Web App 2. Set Access to 'Anyone'
-                                                    3. Use the URL ending in /exec. Your spreadsheet must have a sheet
-                                                    named 'Form Responses 1'.
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Live Web App URL</label>
-                                            <input
-                                                type="text"
-                                                value={certApiUrl}
-                                                onChange={(e) => setCertApiUrl(e.target.value)}
-                                                placeholder="https://script.google.com/macros/s/.../exec"
-                                                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-mono"
-                                            />
-                                        </div>
-                                        <div className="flex flex-wrap gap-2">
+        {/* Recent Eligibility Table */}
+        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-8 border-b border-slate-100">
+                <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight italic">Eligibility Stream</h3>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Students marked 'Present' in recent events</p>
+            </div>
+            <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                    <thead className="bg-[#fcfdfe] text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                        <tr>
+                            <th className="px-8 py-5">Candidate</th>
+                            <th className="px-8 py-5">Event Detail</th>
+                            <th className="px-8 py-5 text-center">Eligibility Status</th>
+                            <th className="px-8 py-5 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                        {registrations
+                            .filter(r => r.status === 'Present' || r.isAttended)
+                            .sort((a, b) => b.timestamp?.seconds - a.timestamp?.seconds)
+                            .slice(0, 50)
+                            .map((reg) => {
+                                const event = events.find(e => e.id === reg.eventId);
+                                return (
+                                    <tr key={reg.id} className="hover:bg-slate-50/50 transition-colors group">
+                                        <td className="px-8 py-6">
+                                            <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{reg.studentName}</p>
+                                            <p className="text-[10px] font-mono font-bold text-slate-400">{reg.studentRoll}</p>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <p className="text-sm font-bold text-slate-700 uppercase italic">{event?.title || 'Unknown Event'}</p>
+                                            <p className="text-[10px] text-blue-600 font-black uppercase tracking-widest">{event?.date}</p>
+                                        </td>
+                                        <td className="px-8 py-6 text-center">
+                                            <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-[10px] font-black uppercase tracking-widest border border-emerald-200 flex items-center justify-center gap-1 mx-auto w-fit">
+                                                <CheckCircle className="w-3 h-3" /> Eligible
+                                            </span>
+                                        </td>
+                                        <td className="px-8 py-6 text-right">
                                             <button
                                                 onClick={() => {
-                                                    localStorage.setItem('certApiUrl', certApiUrl);
-                                                    alert('✅ Certificate API URL saved successfully!');
+                                                    // We could verify specifically this user
+                                                    window.open(`${certApiUrl}?rollNumber=${reg.studentRoll}`, '_blank');
                                                 }}
-                                                className="px-6 py-3 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-slate-900/10 hover:scale-[1.02] transition-all flex items-center gap-2"
+                                                className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline"
                                             >
-                                                <Download className="w-4 h-4" /> Save URL
+                                                Verify Database
                                             </button>
-                                            <button
-                                                onClick={handleTestApi}
-                                                disabled={isTestingApi || !certApiUrl}
-                                                className="px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2 disabled:opacity-50"
-                                            >
-                                                {isTestingApi ? <RefreshCw className="w-4 h-4 animate-spin text-blue-600" /> : <Activity className="w-4 h-4 text-emerald-600" />}
-                                                Test Connection
-                                            </button>
-                                        </div>
-
-                                        {apiTestMessage && (
-                                            <motion.div
-                                                initial={{ opacity: 0, y: 5 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                className={`p-4 rounded-2xl text-[10px] font-bold flex items-start gap-2 ${apiTestMessage.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'
-                                                    }`}
-                                            >
-                                                {apiTestMessage.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-                                                {apiTestMessage.text}
-                                            </motion.div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="pt-6 border-t border-slate-50">
-                                    <h5 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-4">Operational Toggles</h5>
-                                    <div className="space-y-4">
-                                        {[
-                                            { label: 'Mandatory Admin Review for All Events', active: true },
-                                            { label: 'Enable Real-time Student Data Sync', active: true },
-                                            { label: 'Organizer Creation Restriction', active: false }
-                                        ].map((toggle, i) => (
-                                            <div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
-                                                <span className="text-[10px] font-black uppercase text-slate-600">{toggle.label}</span>
-                                                <div className={`w-10 h-5 rounded-full relative cursor-pointer transition-colors ${toggle.active ? 'bg-blue-600' : 'bg-slate-300'}`}>
-                                                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${toggle.active ? 'left-6' : 'left-1'}`} />
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                                <button className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:scale-[1.01] transition-all">
-                                    Update Protocol Settings
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                );
-
-            case 'logs':
-                return (
-                    <div className="animate-in slide-in-from-bottom-4 duration-500 text-left">
-                        <div className="mb-8">
-                            <h3 className="text-3xl font-black text-slate-800 italic uppercase">Security Audit Log</h3>
-                            <p className="text-slate-500 font-medium">Real-time trace of administrative and organizer operations</p>
-                        </div>
-
-                        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden min-h-[500px]">
-                            <table className="w-full text-left">
-                                <thead className="bg-[#fcfdfe] text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                                    <tr>
-                                        <th className="px-8 py-5">Timestamp</th>
-                                        <th className="px-8 py-5">Agent</th>
-                                        <th className="px-8 py-5">Action Objective</th>
-                                        <th className="px-8 py-5 text-right">Integrity Status</th>
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50">
-                                    {(securityLogs || []).length > 0 ? (securityLogs || []).map((log, i) => (
-                                        <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                                            <td className="px-8 py-5 font-mono text-[10px] text-slate-400 font-bold">
-                                                {log.timestamp?.toDate ? new Date(log.timestamp.toDate()).toLocaleString() : 'JUST NOW'}
-                                            </td>
-                                            <td className="px-8 py-5">
-                                                <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest">{log.adminId || log.executedBy || 'SYSTEM'}</span>
-                                            </td>
-                                            <td className="px-8 py-5">
-                                                <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{log.action}</p>
-                                                <p className="text-[9px] text-slate-400 font-bold uppercase">{log.target || 'GLOBAL_PROTOCOL'}</p>
-                                            </td>
-                                            <td className="px-8 py-5 text-right">
-                                                <span className="flex items-center justify-end gap-1.5 text-emerald-600 text-[9px] font-black uppercase tracking-widest">
-                                                    <ShieldCheck className="w-3 h-3" /> {log.status || 'VERIFIED'}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    )) : (
-                                        <tr>
-                                            <td colSpan="4" className="px-8 py-20 text-center">
-                                                <div className="flex flex-col items-center">
-                                                    <ShieldAlert className="w-12 h-12 text-slate-100 mb-4" />
-                                                    <p className="text-slate-400 font-black uppercase tracking-widest text-[10px]">No security incidents logged</p>
-                                                </div>
-                                            </td>
-                                        </tr>
+                                );
+                            })}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+);
+
+            case 'all_events':
+return (
+    <div className="animate-in slide-in-from-bottom-4 duration-500 text-left">
+        <div className="flex items-center justify-between mb-8">
+            <div>
+                <h3 className="text-3xl font-black text-slate-800 italic uppercase">Global Event Registry</h3>
+                <p className="text-slate-500 font-medium">Read-only historical audit of all club operations</p>
+            </div>
+            <div className="flex items-center gap-3">
+                <div className="relative w-64">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                        type="text"
+                        placeholder="SEARCH MISSIONS..."
+                        value={eventSearchQuery}
+                        onChange={(e) => setEventSearchQuery(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
+                    />
+                </div>
+                <div className="relative w-48">
+                    <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <select
+                        value={eventStatusFilter}
+                        onChange={(e) => setEventStatusFilter(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none appearance-none cursor-pointer"
+                    >
+                        <option value="ALL">All Status</option>
+                        <option value="LIVE">Live</option>
+                        <option value="COMPLETED">Completed</option>
+                        <option value="PENDING">Pending</option>
+                        <option value="REJECTED">Rejected</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+            <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-100">
+                    <tr>
+                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Event Detail</th>
+                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Organizer</th>
+                        <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Execution Date</th>
+                        <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Participation</th>
+                        <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                        <th className="px-8 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Actions</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                    {(filteredEventsRegistry || []).map((event) => (
+                        <tr
+                            key={event.id}
+                            onClick={() => {
+                                setSelectedEventDetails(event);
+                                setShowEventDetailModal(true);
+                            }}
+                            className="group hover:bg-slate-50/80 transition-all cursor-pointer border-l-4 border-l-transparent hover:border-l-blue-600 shadow-sm hover:shadow-md"
+                        >
+                            <td className="px-8 py-6">
+                                <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{event.title}</p>
+                                <p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest">{event.type}</p>
+                            </td>
+                            <td className="px-8 py-6">
+                                <p className="text-xs font-bold text-slate-600 uppercase italic">{event.createdBy}</p>
+                            </td>
+                            <td className="px-8 py-6 text-center">
+                                <p className="text-xs font-black text-slate-800 uppercase tabular-nums">{event.date}</p>
+                            </td>
+                            <td className="px-8 py-6 text-center">
+                                <div className="flex flex-col items-center gap-1">
+                                    <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1.5 tabular-nums">
+                                        <Activity className="w-3 h-3" /> {registrations.filter(r => r.eventId === event.id && (r.isAttended || r.status === 'Present')).length} IN
+                                    </span>
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                        OF {event.attendeesCount || 0} REGS
+                                    </span>
+                                </div>
+                            </td>
+                            <td className="px-8 py-6 text-center">
+                                <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${event.status === 'LIVE' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                    event.status === 'COMPLETED' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                                        event.status === 'REJECTED' ? 'bg-red-50 text-red-600 border-red-100' :
+                                            'bg-slate-50 text-slate-400 border-slate-100'
+                                    }`}>
+                                    {event.status}
+                                </span>
+                            </td>
+                            <td className="px-8 py-6 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                    {event.status === 'COMPLETED' && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleExportCertData(event); }}
+                                            className="px-3 py-2 bg-emerald-100 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                                            title="Export Certificate Data"
+                                        >
+                                            <FileSpreadsheet className="w-4 h-4" />
+                                            <span className="text-[10px] font-black uppercase">Cert Data</span>
+                                        </button>
                                     )}
-                                </tbody>
-                            </table>
+                                    {event.type === 'Quiz' && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleOpenQuizSettings(event); }}
+                                            className="px-3 py-2 bg-purple-100 text-purple-600 rounded-xl hover:bg-purple-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                                            title="Quiz Settings"
+                                        >
+                                            <FileText className="w-4 h-4" />
+                                            <span className="text-[10px] font-black uppercase">Settings</span>
+                                        </button>
+                                    )}
+                                    {event.type !== 'Quiz' && event.status !== 'COMPLETED' && (
+                                        <span className="text-[10px] text-slate-300 font-bold uppercase">-</span>
+                                    )}
+                                </div>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    </div>
+);
+
+            case 'organizers':
+return (
+    <div className="animate-in slide-in-from-bottom-4 duration-500 text-left">
+        <div className="flex items-center justify-between mb-8">
+            <div>
+                <h3 className="text-3xl font-black text-slate-800 italic uppercase">Organizer Corps</h3>
+                <p className="text-slate-500 font-medium">Manage credentials and tactical assignments for event leads</p>
+            </div>
+            <div className="flex items-center gap-3">
+                <button
+                    onClick={() => navigate('/checkin')}
+                    className="px-6 py-3.5 bg-slate-900 text-white rounded-2xl font-black text-xs shadow-lg shadow-slate-900/10 flex items-center gap-3 hover:scale-105 transition-all uppercase tracking-widest"
+                >
+                    <Terminal className="w-5 h-5" /> Launch Terminal
+                </button>
+                <button
+                    onClick={() => setIsOrgModalOpen(true)}
+                    className="px-6 py-3.5 bg-blue-600 text-white rounded-2xl font-black text-xs shadow-lg shadow-blue-500/30 flex items-center gap-3 hover:scale-105 transition-all uppercase tracking-widest"
+                >
+                    <Plus className="w-5 h-5" /> Commission New Lead
+                </button>
+            </div>
+        </div>
+
+        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+            <table className="w-full">
+                <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100">
+                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Identify</th>
+                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Assignment</th>
+                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Access Passkey</th>
+                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Contact Trace</th>
+                        <th className="px-8 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Operational Status</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                    {organizers.map((org) => (
+                        <tr key={org.id} className="hover:bg-slate-50/30 transition-colors group">
+                            <td className="px-8 py-5">
+                                <p className="font-black text-slate-800 uppercase text-xs tracking-tight">{org.fullName}</p>
+                                <p className="font-mono text-[10px] text-blue-600 font-bold">{org.username}</p>
+                            </td>
+                            <td className="px-8 py-5">
+                                <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{org.role}</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase">{org.department}</p>
+                            </td>
+                            <td className="px-8 py-5">
+                                <code className="bg-slate-100 px-2 py-1 rounded text-[10px] font-black text-slate-700 select-all tracking-widest border border-slate-200">{org.password}</code>
+                            </td>
+                            <td className="px-8 py-5">
+                                <p className="text-[10px] font-bold text-slate-600 uppercase">{org.email}</p>
+                                <p className="font-mono text-[9px] text-slate-400 font-black">{org.phone}</p>
+                            </td>
+                            <td className="px-8 py-5 text-right">
+                                <div className="flex items-center justify-end gap-4">
+                                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${org.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                                        {org.status || 'Active'}
+                                    </span>
+                                    <button onClick={() => handleDeleteOrganizer(org.id)} className="p-2 text-slate-200 hover:text-red-500 transition-colors">
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    ))}
+                    {organizers.length === 0 && (
+                        <tr>
+                            <td colSpan="4" className="px-8 py-20 text-center">
+                                <div className="flex flex-col items-center">
+                                    <UserCog className="w-12 h-12 text-slate-100 mb-4" />
+                                    <p className="text-slate-400 font-black uppercase tracking-widest text-[10px]">No active commissions</p>
+                                </div>
+                            </td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
+        </div>
+    </div>
+);
+
+            case 'registrations':
+return (
+    <div className="animate-in slide-in-from-bottom-4 duration-500 text-left">
+        <div className="flex items-center justify-between mb-8">
+            <div>
+                <h3 className="text-3xl font-black text-slate-800 italic uppercase">Registration Oracle</h3>
+                <p className="text-slate-500 font-medium">Global student participation log (Read-Only)</p>
+            </div>
+            <button
+                onClick={() => {
+                    const csv = [
+                        ['Event', 'Student', 'Roll No', 'Dept', 'Year', 'Date'],
+                        ...registrations.map(r => [r.eventTitle, r.studentName, r.studentRoll, r.studentDept, r.studentYear, r.registeredAt?.toDate?.() || 'N/A'])
+                    ].map(e => e.join(",")).join("\n");
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.setAttribute('href', url);
+                    a.setAttribute('download', 'techspark_registrations.csv');
+                    a.click();
+                }}
+                className="px-6 py-3.5 border border-slate-200 text-slate-600 rounded-2xl font-black text-xs hover:bg-slate-50 transition-all uppercase tracking-widest flex items-center gap-2"
+            >
+                <Download className="w-4 h-4" /> Export Analytics
+            </button>
+        </div>
+
+        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+            <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-100">
+                    <tr>
+                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Objective</th>
+                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Participant</th>
+                        <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                        <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Identity Trace</th>
+                        <th className="px-8 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Department</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                    {(registrations || []).slice(0, 100).map((reg) => (
+                        <tr key={reg.id} className="hover:bg-slate-50/50 transition-colors group">
+                            <td className="px-8 py-5">
+                                <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{reg.eventTitle}</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase">{reg.eventId?.slice(0, 8)}</p>
+                            </td>
+                            <td className="px-8 py-5">
+                                <p className="text-xs font-black text-slate-700 uppercase">{reg.studentName}</p>
+                                <p className="text-[9px] font-bold text-blue-600 uppercase tabular-nums">{reg.studentRoll}</p>
+                            </td>
+                            <td className="px-8 py-5 text-center">
+                                {reg.isAttended || reg.status === 'Present' ? (
+                                    <span className="bg-emerald-500 text-white px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm shadow-emerald-200">
+                                        PRESENT
+                                    </span>
+                                ) : (
+                                    <span className="bg-slate-100 text-slate-400 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                                        REGISTERED
+                                    </span>
+                                )}
+                            </td>
+                            <td className="px-8 py-5 text-center">
+                                <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">
+                                    {reg.studentYear} YEAR
+                                </span>
+                            </td>
+                            <td className="px-8 py-5 text-right">
+                                <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{reg.studentDept}</p>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+            {registrations.length > 100 && (
+                <div className="p-4 bg-slate-50 text-center">
+                    <p className="text-[10px] font-black text-slate-400 uppercase">Showing first 100 records. Export for full dataset.</p>
+                </div>
+            )}
+        </div>
+    </div>
+);
+
+            case 'scanner':
+return (
+    <div className="max-w-xl mx-auto space-y-8 animate-in zoom-in-95 duration-500">
+        <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100">
+            <div className="p-8 pb-12 text-center text-left">
+                <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 shadow-inner">
+                    <QrCode className="w-10 h-10" />
+                </div>
+                <h3 className="text-2xl font-black text-slate-800 mb-2">Attendance Console</h3>
+                <p className="text-slate-500 text-sm mb-8">Scan student IDs for instant verification & XP distribution</p>
+
+                <div className="max-w-md mx-auto aspect-square bg-slate-900 rounded-[3rem] overflow-hidden relative group shadow-2xl border-8 border-white">
+                    {isScanning ? (
+                        <Scanner
+                            onScan={(result) => {
+                                const val = result[0]?.rawValue;
+                                if (val) processRollNumber(val);
+                            }}
+                            onError={(err) => console.error(err)}
+                            styles={{
+                                container: { width: '100%', height: '100%' },
+                                video: { objectFit: 'cover' }
+                            }}
+                            allowMultiple={false}
+                            scanDelay={2000}
+                        />
+                    ) : (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-white p-8">
+                            {scanFeedback?.type === 'loading' && (
+                                <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent" />
+                            )}
+
+                            {scanFeedback?.type === 'success' && (
+                                <motion.div
+                                    initial={{ scale: 0.5, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    className="text-center"
+                                >
+                                    <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <CheckCircle className="w-10 h-10 text-white" />
+                                    </div>
+                                    <h4 className="text-xl font-black uppercase text-emerald-400">Success!</h4>
+                                    <div className="mt-4 p-4 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10 text-center">
+                                        <p className="text-lg font-bold text-white uppercase">{scanFeedback.student?.fullName}</p>
+                                        <p className="text-xs text-slate-400 font-bold tracking-widest uppercase mt-1">{scanFeedback.student?.rollNumber}</p>
+                                        <p className="text-[10px] text-blue-400 font-black mt-3 bg-blue-500/20 py-1 rounded-full">+20 XP AWARDED</p>
+                                    </div>
+                                </motion.div>
+                            )}
+
+                            {scanFeedback?.type === 'error' && (
+                                <motion.div
+                                    initial={{ scale: 0.5, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    className="text-center"
+                                >
+                                    <div className="w-20 h-20 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <X className="w-10 h-10 text-white" />
+                                    </div>
+                                    <h4 className="text-xl font-black uppercase text-red-500 font-mono">Invalid ID</h4>
+                                    <p className="text-slate-400 text-sm mt-2">{scanFeedback.message}</p>
+                                </motion.div>
+                            )}
                         </div>
+                    )}
+
+                    <div className="absolute inset-0 border-[4px] border-blue-500/50 m-12 rounded-[2.5rem] pointer-events-none">
+                        <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500 rounded-tl-2xl" />
+                        <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500 rounded-tr-2xl" />
+                        <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-blue-500 rounded-bl-2xl" />
+                        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-blue-500 rounded-br-2xl" />
                     </div>
-                );
-            case 'submissions':
-                return (
-                    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500 text-left">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h3 className="text-2xl font-black text-slate-800 uppercase italic">Quiz <span className="text-blue-600">Intelligence</span></h3>
-                                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Real-time global quiz performance monitoring</p>
+                    <div className="absolute top-1/2 left-0 w-full h-1 bg-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.8)] animate-scan z-20" />
+                </div>
+
+                <div className="mt-10 flex flex-col items-center gap-4 w-full">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Scanner Status: {isScanning ? 'Online & Ready' : 'Processing...'}</span>
+
+                    {!isManualEntryOpen ? (
+                        <button
+                            onClick={() => setIsManualEntryOpen(true)}
+                            className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all flex items-center gap-3"
+                        >
+                            <Plus className="w-5 h-5" />
+                            MANUAL ENTRY
+                        </button>
+                    ) : (
+                        <form onSubmit={handleManualSubmit} className="flex gap-2 w-full max-w-sm animate-in fade-in duration-300">
+                            <input
+                                autoFocus
+                                type="text"
+                                value={manualRollNumber}
+                                onChange={(e) => setManualRollNumber(e.target.value)}
+                                placeholder="Enter Roll Number..."
+                                className="flex-1 px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                            />
+                            <button
+                                type="submit"
+                                className="px-6 py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase"
+                            >
+                                Submit
+                            </button>
+                        </form>
+                    )}
+                </div>
+            </div>
+        </div>
+    </div>
+);
+
+            case 'awards':
+return (
+    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden animate-in slide-in-from-bottom-4 duration-500">
+        <div className="p-8 border-b border-slate-100">
+            <h3 className="text-2xl font-black text-slate-800">Badges & Awards</h3>
+            <p className="text-slate-500 text-sm">Manage and distribute badges to students</p>
+        </div>
+        <div className="p-8 bg-slate-50/50 flex flex-col items-center justify-center min-h-[400px] border-b border-dashed border-slate-200">
+            <Award className="w-16 h-16 text-slate-200 mb-4" />
+            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Awards management module is active</p>
+            <p className="text-slate-300 text-[10px] mt-2 italic">Feature expanding soon with badge creation and assignment</p>
+        </div>
+    </div>
+);
+
+            case 'reports':
+return (
+    <div className="animate-in slide-in-from-bottom-4 duration-500 text-left">
+        <div className="mb-8">
+            <h3 className="text-3xl font-black text-slate-800 italic uppercase">Strategic Reports</h3>
+            <p className="text-slate-500 font-medium">Generate high-fidelity intelligence summaries</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[
+                { title: 'Event Impact Study', desc: 'KPIs, attendance metrics, and participation trends.', icon: <TrendingUp className="w-6 h-6" />, action: downloadEventImpactReport },
+                { title: 'Member Demographic', desc: 'Breakdown of student base by department and year.', icon: <Users className="w-6 h-6" />, action: downloadDemographicReport },
+                { title: 'Operational Audit', desc: 'Organizer activity and event approval history.', icon: <ShieldCheck className="w-6 h-6" />, action: downloadOperationalAuditReport }
+            ].map((report, i) => (
+                <div key={i} className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm hover:shadow-xl transition-all group flex flex-col">
+                    <div className="w-14 h-14 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-inner">
+                        {report.icon}
+                    </div>
+                    <h4 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-2">{report.title}</h4>
+                    <p className="text-xs text-slate-400 font-bold uppercase leading-relaxed mb-8">{report.desc}</p>
+                    <button
+                        onClick={report.action}
+                        className="mt-auto py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-black transition-all"
+                    >
+                        Generate PDF
+                    </button>
+                </div>
+            ))}
+        </div>
+    </div>
+);
+
+            case 'settings':
+return (
+    <div className="animate-in slide-in-from-bottom-4 duration-500 text-left">
+        <div className="mb-8">
+            <h3 className="text-3xl font-black text-slate-800 italic uppercase">Club Protocol</h3>
+            <p className="text-slate-500 font-medium">Global configuration for TechSpark operations</p>
+        </div>
+
+        <div className="max-w-4xl space-y-6">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Club Identification</label>
+                        <input type="text" defaultValue="TechSpark Club" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-blue-500/5 transition-all" />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Academic Year</label>
+                        <select className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-black uppercase tracking-widest outline-none cursor-pointer">
+                            <option>2025 - 2026</option>
+                            <option>2024 - 2025</option>
+                        </select>
+                    </div>
+                </div>
+
+                {/* Certificate Verification API Settings */}
+                <div className="pt-6 border-t border-slate-100">
+                    <div className="flex items-center justify-between mb-4">
+                        <h5 className="text-[11px] font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                            <Key className="w-4 h-4 text-blue-600" />
+                            Certificate Verification API
+                        </h5>
+                        <a
+                            href="https://script.google.com/home"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[9px] font-black text-blue-600 uppercase flex items-center gap-1 hover:underline"
+                        >
+                            Open Apps Script <ExternalLink className="w-3 h-3" />
+                        </a>
+                    </div>
+                    <div className="space-y-4">
+                        <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 mb-2">
+                            <div className="text-[10px] font-bold text-blue-800 flex items-start gap-2">
+                                <Info className="w-4 h-4 flex-shrink-0" />
+                                <span>
+                                    Deployment Guide: 1. Deploy as Web App 2. Set Access to 'Anyone'
+                                    3. Use the URL ending in /exec. Your spreadsheet must have a sheet
+                                    named 'Form Responses 1'.
+                                </span>
                             </div>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Live Web App URL</label>
+                            <input
+                                type="text"
+                                value={certApiUrl}
+                                onChange={(e) => setCertApiUrl(e.target.value)}
+                                placeholder="https://script.google.com/macros/s/.../exec"
+                                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-mono"
+                            />
+                        </div>
+                        <div className="flex flex-wrap gap-2">
                             <button
                                 onClick={() => {
-                                    if (submissions.length === 0) return;
-                                    const csv = [['Event', 'Student Name', 'Roll Number', 'Score', 'Submitted At'], ...submissions.map(s => [s.eventTitle, s.name, s.rollNumber, s.score, s.timestamp?.toDate ? s.timestamp.toDate().toLocaleString() : 'N/A'])].map(e => e.join(",")).join("\n");
-                                    const blob = new Blob([csv], { type: 'text/csv' });
-                                    const url = window.URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.setAttribute('href', url);
-                                    a.setAttribute('download', 'techspark_global_quiz_results.csv');
-                                    a.click();
+                                    localStorage.setItem('certApiUrl', certApiUrl);
+                                    alert('✅ Certificate API URL saved successfully!');
                                 }}
-                                className="px-6 py-4 bg-white border border-slate-200 text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm"
+                                className="px-6 py-3 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-slate-900/10 hover:scale-[1.02] transition-all flex items-center gap-2"
                             >
-                                <Download className="w-4 h-4" /> Global Export
+                                <Download className="w-4 h-4" /> Save URL
+                            </button>
+                            <button
+                                onClick={handleTestApi}
+                                disabled={isTestingApi || !certApiUrl}
+                                className="px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2 disabled:opacity-50"
+                            >
+                                {isTestingApi ? <RefreshCw className="w-4 h-4 animate-spin text-blue-600" /> : <Activity className="w-4 h-4 text-emerald-600" />}
+                                Test Connection
                             </button>
                         </div>
 
-                        <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm overflow-hidden min-h-[400px]">
-                            <table className="w-full text-left">
-                                <thead className="bg-[#fcfdfe] text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                                    <tr>
-                                        <th className="px-8 py-6">Operation / Event</th>
-                                        <th className="px-8 py-6">Identity Signature</th>
-                                        <th className="px-8 py-6">Score Metric</th>
-                                        <th className="px-8 py-6 text-right">Synchronization Time</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50">
-                                    {submissions.length > 0 ? submissions.map((sub) => (
-                                        <tr key={sub.id} className="hover:bg-slate-50/50 transition-colors group">
-                                            <td className="px-8 py-6">
-                                                <p className="text-sm font-black text-slate-800 uppercase tracking-tight italic">{sub.eventTitle || 'Untitled Quiz'}</p>
-                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{sub.eventId?.slice(0, 8)}</p>
-                                            </td>
-                                            <td className="px-8 py-6">
-                                                <p className="font-black text-slate-700 uppercase italic text-sm">{sub.name}</p>
-                                                <p className="text-[10px] font-bold text-blue-600 uppercase tabular-nums">{sub.rollNumber}</p>
-                                            </td>
-                                            <td className="px-8 py-6">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg font-black text-xs border border-blue-100 italic">
-                                                        {sub.score || 0}
-                                                    </div>
-                                                    <div className="w-20 h-1 bg-slate-100 rounded-full overflow-hidden">
-                                                        <div className="h-full bg-blue-600" style={{ width: `${Math.min((sub.score / 100) * 100, 100)}%` }} />
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-8 py-6 text-right">
-                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                                    {sub.timestamp?.toDate ? sub.timestamp.toDate().toLocaleTimeString() : 'LOGGED'}
-                                                </p>
-                                            </td>
-                                        </tr>
-                                    )) : (
-                                        <tr>
-                                            <td colSpan="4" className="px-8 py-20 text-center text-slate-300 font-black uppercase italic text-xs">No global quiz signals intercepted</td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                        {apiTestMessage && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 5 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className={`p-4 rounded-2xl text-[10px] font-bold flex items-start gap-2 ${apiTestMessage.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'
+                                    }`}
+                            >
+                                {apiTestMessage.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                                {apiTestMessage.text}
+                            </motion.div>
+                        )}
                     </div>
-                );
+                </div>
+
+                <div className="pt-6 border-t border-slate-50">
+                    <h5 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-4">Operational Toggles</h5>
+                    <div className="space-y-4">
+                        {[
+                            { label: 'Mandatory Admin Review for All Events', active: true },
+                            { label: 'Enable Real-time Student Data Sync', active: true },
+                            { label: 'Organizer Creation Restriction', active: false }
+                        ].map((toggle, i) => (
+                            <div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                                <span className="text-[10px] font-black uppercase text-slate-600">{toggle.label}</span>
+                                <div className={`w-10 h-5 rounded-full relative cursor-pointer transition-colors ${toggle.active ? 'bg-blue-600' : 'bg-slate-300'}`}>
+                                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${toggle.active ? 'left-6' : 'left-1'}`} />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <button className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:scale-[1.01] transition-all">
+                    Update Protocol Settings
+                </button>
+            </div>
+        </div>
+    </div>
+);
+
+            case 'logs':
+return (
+    <div className="animate-in slide-in-from-bottom-4 duration-500 text-left">
+        <div className="mb-8">
+            <h3 className="text-3xl font-black text-slate-800 italic uppercase">Security Audit Log</h3>
+            <p className="text-slate-500 font-medium">Real-time trace of administrative and organizer operations</p>
+        </div>
+
+        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden min-h-[500px]">
+            <table className="w-full text-left">
+                <thead className="bg-[#fcfdfe] text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                    <tr>
+                        <th className="px-8 py-5">Timestamp</th>
+                        <th className="px-8 py-5">Agent</th>
+                        <th className="px-8 py-5">Action Objective</th>
+                        <th className="px-8 py-5 text-right">Integrity Status</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                    {(securityLogs || []).length > 0 ? (securityLogs || []).map((log, i) => (
+                        <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-8 py-5 font-mono text-[10px] text-slate-400 font-bold">
+                                {log.timestamp?.toDate ? new Date(log.timestamp.toDate()).toLocaleString() : 'JUST NOW'}
+                            </td>
+                            <td className="px-8 py-5">
+                                <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest">{log.adminId || log.executedBy || 'SYSTEM'}</span>
+                            </td>
+                            <td className="px-8 py-5">
+                                <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{log.action}</p>
+                                <p className="text-[9px] text-slate-400 font-bold uppercase">{log.target || 'GLOBAL_PROTOCOL'}</p>
+                            </td>
+                            <td className="px-8 py-5 text-right">
+                                <span className="flex items-center justify-end gap-1.5 text-emerald-600 text-[9px] font-black uppercase tracking-widest">
+                                    <ShieldCheck className="w-3 h-3" /> {log.status || 'VERIFIED'}
+                                </span>
+                            </td>
+                        </tr>
+                    )) : (
+                        <tr>
+                            <td colSpan="4" className="px-8 py-20 text-center">
+                                <div className="flex flex-col items-center">
+                                    <ShieldAlert className="w-12 h-12 text-slate-100 mb-4" />
+                                    <p className="text-slate-400 font-black uppercase tracking-widest text-[10px]">No security incidents logged</p>
+                                </div>
+                            </td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
+        </div>
+    </div>
+);
+            case 'submissions':
+return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500 text-left">
+        <div className="flex items-center justify-between">
+            <div>
+                <h3 className="text-2xl font-black text-slate-800 uppercase italic">Quiz <span className="text-blue-600">Intelligence</span></h3>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Real-time global quiz performance monitoring</p>
+            </div>
+            <button
+                onClick={() => {
+                    if (submissions.length === 0) return;
+                    const csv = [['Event', 'Student Name', 'Roll Number', 'Score', 'Submitted At'], ...submissions.map(s => [s.eventTitle, s.name, s.rollNumber, s.score, s.timestamp?.toDate ? s.timestamp.toDate().toLocaleString() : 'N/A'])].map(e => e.join(",")).join("\n");
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.setAttribute('href', url);
+                    a.setAttribute('download', 'techspark_global_quiz_results.csv');
+                    a.click();
+                }}
+                className="px-6 py-4 bg-white border border-slate-200 text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm"
+            >
+                <Download className="w-4 h-4" /> Global Export
+            </button>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm overflow-hidden min-h-[400px]">
+            <table className="w-full text-left">
+                <thead className="bg-[#fcfdfe] text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                    <tr>
+                        <th className="px-8 py-6">Operation / Event</th>
+                        <th className="px-8 py-6">Identity Signature</th>
+                        <th className="px-8 py-6">Score Metric</th>
+                        <th className="px-8 py-6 text-right">Synchronization Time</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                    {submissions.length > 0 ? submissions.map((sub) => (
+                        <tr key={sub.id} className="hover:bg-slate-50/50 transition-colors group">
+                            <td className="px-8 py-6">
+                                <p className="text-sm font-black text-slate-800 uppercase tracking-tight italic">{sub.eventTitle || 'Untitled Quiz'}</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{sub.eventId?.slice(0, 8)}</p>
+                            </td>
+                            <td className="px-8 py-6">
+                                <p className="font-black text-slate-700 uppercase italic text-sm">{sub.name}</p>
+                                <p className="text-[10px] font-bold text-blue-600 uppercase tabular-nums">{sub.rollNumber}</p>
+                            </td>
+                            <td className="px-8 py-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg font-black text-xs border border-blue-100 italic">
+                                        {sub.score || 0}
+                                    </div>
+                                    <div className="w-20 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                        <div className="h-full bg-blue-600" style={{ width: `${Math.min((sub.score / 100) * 100, 100)}%` }} />
+                                    </div>
+                                </div>
+                            </td>
+                            <td className="px-8 py-6 text-right">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    {sub.timestamp?.toDate ? sub.timestamp.toDate().toLocaleTimeString() : 'LOGGED'}
+                                </p>
+                            </td>
+                        </tr>
+                    )) : (
+                        <tr>
+                            <td colSpan="4" className="px-8 py-20 text-center text-slate-300 font-black uppercase italic text-xs">No global quiz signals intercepted</td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
+        </div>
+    </div>
+);
         }
     };
 
-    if (!admin) return null;
+if (!admin) return null;
 
-    return (
-        <div className="min-h-screen bg-[#f8fafc] flex">
-            {/* Sidebar */}
-            <aside className="w-72 bg-[#0f172a] text-white hidden lg:flex flex-col border-r border-white/5">
-                <div className="p-8">
-                    <div className="flex items-center gap-3 mb-10 text-left">
-                        <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-                            <ShieldCheck className="w-6 h-6 text-white" />
-                        </div>
-                        <span className="text-xl font-black tracking-tight">ADMIN PANEL</span>
+return (
+    <div className="min-h-screen bg-[#f8fafc] flex">
+        {/* Sidebar */}
+        <aside className="w-72 bg-[#0f172a] text-white hidden lg:flex flex-col border-r border-white/5">
+            <div className="p-8">
+                <div className="flex items-center gap-3 mb-10 text-left">
+                    <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                        <ShieldCheck className="w-6 h-6 text-white" />
                     </div>
-
-                    <nav className="space-y-1">
-                        {[
-                            { id: 'overview', icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard' },
-                            { id: 'analytics', icon: <BarChart3 className="w-5 h-5" />, label: 'Student Analytics' },
-                            { id: 'organizers', icon: <UserCog className="w-5 h-5" />, label: 'Organizers' },
-                            { id: 'approvals', icon: <CalendarCheck className="w-5 h-5" />, label: 'Event Approvals' },
-                            { id: 'all_events', icon: <Calendar className="w-5 h-5" />, label: 'All Events' },
-                            { id: 'registrations', icon: <ClipboardList className="w-5 h-5" />, label: 'Registrations' },
-                            { id: 'reports', icon: <PieChart className="w-5 h-5" />, label: 'Reports' },
-                            { id: 'submissions', icon: <Activity className="w-5 h-5" />, label: 'Quiz Scores' },
-                            { id: 'settings', icon: <Settings className="w-5 h-5" />, label: 'Settings' },
-                            { id: 'logs', icon: <ShieldAlert className="w-5 h-5" />, label: 'Security Logs' }
-                        ].map((item) => (
-                            <button
-                                key={item.id}
-                                onClick={() => setActiveTab(item.id)}
-                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === item.id
-                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
-                                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                                    }`}
-                            >
-                                {item.icon}
-                                {item.label}
-                            </button>
-                        ))}
-                    </nav>
+                    <span className="text-xl font-black tracking-tight">ADMIN PANEL</span>
                 </div>
 
-                <div className="mt-auto p-6 border-t border-white/5">
-                    <div className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl mb-4 text-left">
-                        <div className="w-10 h-10 bg-gradient-to-tr from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center font-bold">
-                            {admin.username?.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex-1 overflow-hidden">
-                            <p className="text-sm font-bold truncate uppercase">{admin.username}</p>
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">SUPER ADMIN</p>
-                        </div>
+                <nav className="space-y-1">
+                    {[
+                        { id: 'overview', icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard' },
+                        { id: 'analytics', icon: <BarChart3 className="w-5 h-5" />, label: 'Student Analytics' },
+                        { id: 'organizers', icon: <UserCog className="w-5 h-5" />, label: 'Organizers' },
+                        { id: 'approvals', icon: <CalendarCheck className="w-5 h-5" />, label: 'Event Approvals' },
+                        { id: 'all_events', icon: <Calendar className="w-5 h-5" />, label: 'All Events' },
+                        { id: 'registrations', icon: <ClipboardList className="w-5 h-5" />, label: 'Registrations' },
+                        { id: 'certificates', icon: <Award className="w-5 h-5" />, label: 'Certificates' },
+                        { id: 'reports', icon: <PieChart className="w-5 h-5" />, label: 'Reports' },
+                        { id: 'submissions', icon: <Activity className="w-5 h-5" />, label: 'Quiz Scores' },
+                        { id: 'settings', icon: <Settings className="w-5 h-5" />, label: 'Settings' },
+                        { id: 'logs', icon: <ShieldAlert className="w-5 h-5" />, label: 'Security Logs' }
+                    ].map((item) => (
+                        <button
+                            key={item.id}
+                            onClick={() => setActiveTab(item.id)}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === item.id
+                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+                                : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                                }`}
+                        >
+                            {item.icon}
+                            {item.label}
+                        </button>
+                    ))}
+                </nav>
+            </div>
+
+            <div className="mt-auto p-6 border-t border-white/5">
+                <div className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl mb-4 text-left">
+                    <div className="w-10 h-10 bg-gradient-to-tr from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center font-bold">
+                        {admin.username?.charAt(0).toUpperCase()}
                     </div>
-                    <button
-                        onClick={handleLogout}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-500/10 text-red-500 rounded-2xl font-bold text-sm hover:bg-red-500/20 transition-all font-mono"
+                    <div className="flex-1 overflow-hidden">
+                        <p className="text-sm font-bold truncate uppercase">{admin.username}</p>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">SUPER ADMIN</p>
+                    </div>
+                </div>
+                <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-500/10 text-red-500 rounded-2xl font-bold text-sm hover:bg-red-500/20 transition-all font-mono"
+                >
+                    <LogOut className="w-4 h-4" />
+                    LOGOUT
+                </button>
+            </div>
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 overflow-y-auto">
+            <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-10 text-left">
+                <div>
+                    <h2 className="text-xl font-bold text-slate-800 uppercase tracking-tight">
+                        {activeTab} <span className="text-slate-300 mx-2">/</span> <span className="text-blue-600 text-sm">TechSpark Control</span>
+                    </h2>
+                </div>
+            </header>
+            <div className="p-8">
+                {renderContent()}
+            </div>
+        </main>
+
+        {/* Organizer Creation Modal */}
+        <AnimatePresence>
+            {isOrgModalOpen && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setIsOrgModalOpen(false)}
+                        className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+                    />
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                        className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border border-slate-100"
                     >
-                        <LogOut className="w-4 h-4" />
-                        LOGOUT
-                    </button>
-                </div>
-            </aside>
-
-            {/* Main Content */}
-            <main className="flex-1 overflow-y-auto">
-                <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-10 text-left">
-                    <div>
-                        <h2 className="text-xl font-bold text-slate-800 uppercase tracking-tight">
-                            {activeTab} <span className="text-slate-300 mx-2">/</span> <span className="text-blue-600 text-sm">TechSpark Control</span>
-                        </h2>
-                    </div>
-                </header>
-                <div className="p-8">
-                    {renderContent()}
-                </div>
-            </main>
-
-            {/* Organizer Creation Modal */}
-            <AnimatePresence>
-                {isOrgModalOpen && (
-                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setIsOrgModalOpen(false)}
-                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border border-slate-100"
-                        >
-                            <div className="p-8 border-b border-slate-100 flex items-center justify-between text-left">
-                                <div>
-                                    <h3 className="text-2xl font-black text-slate-800 italic uppercase">Commission Lead</h3>
-                                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mt-1">Credentials will grant access to Check-in Console</p>
-                                </div>
-                                <button onClick={() => setIsOrgModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-xl transition-colors">
-                                    <X className="w-6 h-6 text-slate-400" />
-                                </button>
+                        <div className="p-8 border-b border-slate-100 flex items-center justify-between text-left">
+                            <div>
+                                <h3 className="text-2xl font-black text-slate-800 italic uppercase">Commission Lead</h3>
+                                <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mt-1">Credentials will grant access to Check-in Console</p>
                             </div>
+                            <button onClick={() => setIsOrgModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-xl transition-colors">
+                                <X className="w-6 h-6 text-slate-400" />
+                            </button>
+                        </div>
 
-                            <form onSubmit={handleCreateOrganizer} className="p-8 space-y-4 text-left">
+                        <form onSubmit={handleCreateOrganizer} className="p-8 space-y-4 text-left">
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Identity</label>
+                                <input
+                                    required
+                                    type="text"
+                                    value={newOrg.fullName}
+                                    onChange={(e) => setNewOrg({ ...newOrg, fullName: e.target.value })}
+                                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-black text-[11px] uppercase tracking-wider"
+                                    placeholder="Enter Full Name"
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Identity</label>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Username</label>
                                     <input
                                         required
                                         type="text"
-                                        value={newOrg.fullName}
-                                        onChange={(e) => setNewOrg({ ...newOrg, fullName: e.target.value })}
-                                        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-black text-[11px] uppercase tracking-wider"
-                                        placeholder="Enter Full Name"
+                                        value={newOrg.username}
+                                        onChange={(e) => setNewOrg({ ...newOrg, username: e.target.value })}
+                                        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-black text-[11px] tracking-widest"
+                                        placeholder="jdoe_org"
                                     />
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Username</label>
-                                        <input
-                                            required
-                                            type="text"
-                                            value={newOrg.username}
-                                            onChange={(e) => setNewOrg({ ...newOrg, username: e.target.value })}
-                                            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-black text-[11px] tracking-widest"
-                                            placeholder="jdoe_org"
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Passkey</label>
-                                        <input
-                                            required
-                                            type="text"
-                                            value={newOrg.password}
-                                            onChange={(e) => setNewOrg({ ...newOrg, password: e.target.value })}
-                                            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-mono font-bold text-[11px]"
-                                            placeholder="••••••"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Official Email</label>
-                                        <input
-                                            required
-                                            type="email"
-                                            value={newOrg.email}
-                                            onChange={(e) => setNewOrg({ ...newOrg, email: e.target.value })}
-                                            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-bold text-[11px] lowercase"
-                                            placeholder="org@ritchennai.edu.in"
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Contact Trace</label>
-                                        <input
-                                            required
-                                            type="tel"
-                                            value={newOrg.phone}
-                                            onChange={(e) => setNewOrg({ ...newOrg, phone: e.target.value })}
-                                            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-mono font-bold text-[11px]"
-                                            placeholder="+91..."
-                                        />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Operational Dept</label>
-                                        <select
-                                            value={newOrg.department}
-                                            onChange={(e) => setNewOrg({ ...newOrg, department: e.target.value })}
-                                            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black text-[11px] uppercase tracking-widest"
-                                        >
-                                            <option value="">Select Dept</option>
-                                            <option value="CSE">CSE</option>
-                                            <option value="IT">IT</option>
-                                            <option value="AI-DS">AI-DS</option>
-                                            <option value="AI-ML">AI-ML</option>
-                                            <option value="ECE">ECE</option>
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Strategic Role</label>
-                                        <select
-                                            value={newOrg.role}
-                                            onChange={(e) => setNewOrg({ ...newOrg, role: e.target.value })}
-                                            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black text-[11px] uppercase tracking-widest"
-                                        >
-                                            <option value="Event Organizer">Event Organizer</option>
-                                            <option value="Secretary">Secretary</option>
-                                            <option value="Check-in Officer">Check-in Officer</option>
-                                            <option value="Terminal Operator">Terminal Operator</option>
-                                            <option value="Senior Coordinator">Senior Coordinator</option>
-                                            <option value="Technical Lead">Technical Lead</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <button
-                                    type="submit"
-                                    disabled={isSubmittingOrg}
-                                    className="w-full py-4 bg-slate-900 text-white rounded-[1.25rem] font-black text-xs shadow-xl shadow-slate-200 hover:bg-black transition-all flex items-center justify-center gap-3 uppercase disabled:opacity-50 mt-4 tracking-[0.2em]"
-                                >
-                                    {isSubmittingOrg ? 'Initiating...' : 'Register Organizer'}
-                                    <Shield className="w-4 h-4" />
-                                </button>
-                            </form>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            {/* Event Detail / Mission Intelligence Modal */}
-            <AnimatePresence>
-                {showEventDetailModal && selectedEventDetails && (
-                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setShowEventDetailModal(false)}
-                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 30 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 30 }}
-                            className="relative w-full max-w-5xl bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-100"
-                        >
-                            {/* Modal Header */}
-                            <div className="p-8 bg-slate-900 text-white flex items-center justify-between shrink-0">
-                                <div>
-                                    <h3 className="text-2xl font-black italic uppercase tracking-tight flex items-center gap-3">
-                                        <Activity className="w-8 h-8 text-blue-500" />
-                                        Mission Intelligence: {selectedEventDetails.title}
-                                    </h3>
-                                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-1 italic">Tactical deployment data & participation audit</p>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    <button
-                                        onClick={() => handleDownloadFinalReport(selectedEventDetails)}
-                                        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl flex items-center gap-2 transition-all"
-                                    >
-                                        <Download className="w-4 h-4" /> Final Report
-                                    </button>
-                                    <button onClick={() => setShowEventDetailModal(false)} className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all">
-                                        <X className="w-6 h-6" />
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Modal Content */}
-                            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-[#fcfdfe]">
-                                {/* Quick Stats Row */}
-                                <div className="grid grid-cols-4 gap-4 mb-8">
-                                    {[
-                                        { label: 'Total Registered', value: registrations.filter(r => r.eventId === selectedEventDetails.id).length, icon: <Users />, color: 'blue' },
-                                        { label: 'Confirmed Present', value: registrations.filter(r => r.eventId === selectedEventDetails.id && (r.isAttended || r.status === 'Present')).length, icon: <CheckCircle />, color: 'emerald' },
-                                        { label: 'Absent/No-Show', value: registrations.filter(r => r.eventId === selectedEventDetails.id && !(r.isAttended || r.status === 'Present')).length, icon: <X />, color: 'red' },
-                                        { label: 'Feedback Received', value: registrations.filter(r => r.eventId === selectedEventDetails.id && r.feedbackSubmitted).length, icon: <HelpCircle />, color: 'purple' }
-                                    ].map((stat, i) => (
-                                        <div key={i} className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4">
-                                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-${stat.color}-50 text-${stat.color}-600`}>
-                                                {stat.icon}
-                                            </div>
-                                            <div>
-                                                <div className="text-2xl font-black text-slate-800 tabular-nums">{stat.value}</div>
-                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {/* Granular Reports Hub */}
-                                <div className="grid grid-cols-3 gap-6 mb-8">
-                                    {[
-                                        { title: 'Registration Log', desc: 'Complete directory of all event sign-ups.', action: () => handleDownloadSubReport(selectedEventDetails, 'REGISTRATION') },
-                                        { title: 'Check-in Audit', desc: 'Verified list of confirmed attendees.', action: () => handleDownloadSubReport(selectedEventDetails, 'ATTENDANCE') },
-                                        { title: 'Feedback Tracker', desc: 'Submission status & compliance audit.', action: () => handleDownloadSubReport(selectedEventDetails, 'FEEDBACK_STATUS') }
-                                    ].map((hub, i) => (
-                                        <div key={i} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:border-blue-200 transition-all flex flex-col items-center text-center group">
-                                            <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                                                <Download className="w-5 h-5" />
-                                            </div>
-                                            <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">{hub.title}</h4>
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase mt-1 mb-4">{hub.desc}</p>
-                                            <button
-                                                onClick={hub.action}
-                                                className="w-full py-2.5 bg-slate-900 hover:bg-black text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all"
-                                            >
-                                                Export PDF
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {/* Participant Directory */}
-                                <div className="bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm">
-                                    <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                                        <h4 className="font-black text-slate-800 text-xs uppercase tracking-widest italic">Live Participant Roster</h4>
-                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Authorized Viewing Only</p>
-                                    </div>
-                                    <table className="w-full text-left">
-                                        <thead className="bg-[#fcfdfe] text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                                            <tr>
-                                                <th className="px-8 py-4">Student Identity</th>
-                                                <th className="px-8 py-4">Status</th>
-                                                <th className="px-8 py-4">Feedback Intelligence</th>
-                                                <th className="px-8 py-4 text-right">Strategic Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-50">
-                                            {registrations
-                                                .filter(r => r.eventId === selectedEventDetails.id)
-                                                .map((reg) => {
-                                                    const fb = feedbackBase.find(f => f.eventId === selectedEventDetails.id && f.studentRoll === reg.studentRoll);
-                                                    return (
-                                                        <tr key={reg.id} className="hover:bg-slate-50/50 transition-colors group">
-                                                            <td className="px-8 py-5">
-                                                                <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{reg.studentName}</p>
-                                                                <p className="text-[10px] text-blue-600 font-mono font-bold">{reg.studentRoll}</p>
-                                                            </td>
-                                                            <td className="px-8 py-5">
-                                                                {(reg.isAttended || reg.status === 'Present') ? (
-                                                                    <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-emerald-100">Present</span>
-                                                                ) : (
-                                                                    <span className="px-3 py-1 bg-red-50 text-red-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-red-100">Absent</span>
-                                                                )}
-                                                            </td>
-                                                            <td className="px-8 py-5">
-                                                                {reg.feedbackSubmitted ? (
-                                                                    <div className="flex flex-col gap-1">
-                                                                        <span className="px-3 py-1 bg-purple-50 text-purple-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-purple-100 w-fit">Intelligence Logged</span>
-                                                                        {fb && <p className="text-[9px] text-slate-400 font-medium italic line-clamp-1">"{fb.comment || fb.feedback}"</p>}
-                                                                    </div>
-                                                                ) : (
-                                                                    <span className="px-3 py-1 bg-slate-50 text-slate-400 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100">No Data</span>
-                                                                )}
-                                                            </td>
-                                                            <td className="px-8 py-5 text-right">
-                                                                {reg.feedbackSubmitted && (
-                                                                    <button
-                                                                        onClick={() => handleUndoFeedback(reg.id, fb?.id)}
-                                                                        className="p-2.5 text-orange-500 hover:bg-orange-50 rounded-xl transition-all flex items-center gap-2 text-[9px] font-black uppercase tracking-widest ml-auto"
-                                                                        title="UNDO FEEDBACK"
-                                                                    >
-                                                                        <RotateCcw className="w-3.5 h-3.5" /> UNDO
-                                                                    </button>
-                                                                )}
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            {/* Event Approval Review Modal */}
-            <AnimatePresence>
-                {showApproveModal && eventToApprove && (
-                    <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setShowApproveModal(false)}
-                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="relative w-full max-w-4xl bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-100"
-                        >
-                            {/* Header */}
-                            <div className="p-8 bg-slate-50 border-b border-slate-100 flex items-center justify-between font-black uppercase tracking-widest italic">
-                                <div>
-                                    <h3 className="text-2xl font-black text-slate-800 uppercase italic">Event Review & Authorization</h3>
-                                    <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-1">Inspecting organizer deployment details before broadcast</p>
-                                </div>
-                                <button onClick={() => setShowApproveModal(false)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
-                                    <X className="w-6 h-6 text-slate-400" />
-                                </button>
-                            </div>
-
-                            {/* Detailed Content */}
-                            <div className="flex-1 overflow-y-auto p-8 space-y-8 text-left bg-[#fcfdfe]">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    {/* Core Details */}
-                                    <div className="space-y-6">
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Event Title</label>
-                                            <p className="text-xl font-black text-slate-800 uppercase leading-tight">{eventToApprove.title}</p>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</label>
-                                                <span className="block px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-black w-fit uppercase">{eventToApprove.type}</span>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Organizer</label>
-                                                <p className="text-sm font-bold text-slate-700 uppercase">{eventToApprove.createdBy}</p>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Description</label>
-                                            <p className="text-sm text-slate-600 leading-relaxed font-medium">{eventToApprove.description}</p>
-                                        </div>
-                                    </div>
-
-                                    {/* Logistics & Constraints */}
-                                    <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 space-y-6">
-                                        <div className="grid grid-cols-2 gap-6">
-                                            <div className="space-y-2">
-                                                <div className="flex items-center gap-2 text-blue-600">
-                                                    <Calendar className="w-4 h-4" />
-                                                    <label className="text-[10px] font-black uppercase tracking-widest">Date</label>
-                                                </div>
-                                                <p className="text-sm font-black text-slate-800">{eventToApprove.date}</p>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <div className="flex items-center gap-2 text-indigo-600">
-                                                    <Clock className="w-4 h-4" />
-                                                    <label className="text-[10px] font-black uppercase tracking-widest">Time</label>
-                                                </div>
-                                                <p className="text-sm font-black text-slate-800">{eventToApprove.time || 'N/A'}</p>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2 text-emerald-600">
-                                                <MapPin className="w-4 h-4" />
-                                                <label className="text-[10px] font-black uppercase tracking-widest">Venue / Base</label>
-                                            </div>
-                                            <p className="text-sm font-black text-slate-800 uppercase">{eventToApprove.venue || 'Block-B, Lab 402'}</p>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Max Capacity</label>
-                                                <p className="text-sm font-black text-slate-800">{eventToApprove.maxNo || 100} Members</p>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Audience</label>
-                                                <p className="text-sm font-black text-slate-800 uppercase">{eventToApprove.targetAudience || 'All Departments'}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Coordinator Details */}
-                                <div className="p-6 bg-white border border-slate-100 rounded-3xl">
-                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                        <UserCheck className="w-4 h-4 text-blue-600" /> Operational Coordinators
-                                    </h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-blue-600 font-black">C1</div>
-                                            <div>
-                                                <p className="text-sm font-bold text-slate-800 uppercase">{eventToApprove.coord1Name || 'Not Specified'}</p>
-                                                <p className="text-[10px] text-slate-400 font-mono font-medium">{eventToApprove.coord1Phone || 'No Trace'}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-blue-600 font-black">C2</div>
-                                            <div>
-                                                <p className="text-sm font-bold text-slate-800 uppercase">{eventToApprove.coord2Name || 'Not Specified'}</p>
-                                                <p className="text-[10px] text-slate-400 font-mono font-medium">{eventToApprove.coord2Phone || 'No Trace'}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Action Footer */}
-                            <div className="p-8 bg-slate-50 border-t border-slate-100 flex items-center gap-4">
-                                <button
-                                    onClick={async () => {
-                                        const remarks = prompt("Enter rejection/revert remarks (MANDATORY):");
-                                        if (!remarks) return alert("Remarks are mandatory for rejection.");
-                                        await updateDoc(doc(db, 'events', eventToApprove.id), {
-                                            status: 'REJECTED',
-                                            remarks,
-                                            lastActionBy: admin.username,
-                                            lastActionAt: serverTimestamp()
-                                        });
-                                        setShowApproveModal(false);
-                                        fetchDashboardData();
-                                    }}
-                                    className="px-8 py-4 bg-red-50 text-red-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-all flex items-center gap-2"
-                                >
-                                    <Trash2 className="w-4 h-4" /> Reject Submission
-                                </button>
-                                <button
-                                    onClick={async () => {
-                                        if (!window.confirm("Authorize this event for LIVE broadcast? This will make it visible to all students.")) return;
-                                        await updateDoc(doc(db, 'events', eventToApprove.id), {
-                                            status: 'LIVE',
-                                            remarks: 'Approved by Super Admin after technical review',
-                                            lastActionBy: admin.username,
-                                            lastActionAt: serverTimestamp()
-                                        });
-                                        setShowApproveModal(false);
-                                        fetchDashboardData();
-                                    }}
-                                    className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-emerald-500/20 hover:scale-[1.02] transition-all flex items-center justify-center gap-3"
-                                >
-                                    <ShieldCheck className="w-5 h-5" /> Approve Live
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            {/* Edit Student Modal */}
-            <AnimatePresence>
-                {isEditStudentModalOpen && editingStudent && (
-                    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setIsEditStudentModalOpen(false)}
-                            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="relative w-full max-w-xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border border-slate-100"
-                        >
-                            <div className="p-8 border-b border-slate-100 flex items-center justify-between text-left">
-                                <div>
-                                    <h3 className="text-2xl font-black text-slate-800 italic uppercase">Edit Personnel Data</h3>
-                                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mt-1">Manual override of student identity profile</p>
-                                </div>
-                                <button onClick={() => setIsEditStudentModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-xl transition-colors">
-                                    <X className="w-6 h-6 text-slate-400" />
-                                </button>
-                            </div>
-
-                            <form onSubmit={handleSaveStudent} className="p-8 space-y-5 text-left bg-[#fcfdfe]">
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Legal Full Name - READ ONLY</label>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Passkey</label>
                                     <input
                                         required
                                         type="text"
-                                        value={editingStudent.fullName}
-                                        disabled
-                                        className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black text-xs uppercase tracking-tight text-slate-500 cursor-not-allowed"
+                                        value={newOrg.password}
+                                        onChange={(e) => setNewOrg({ ...newOrg, password: e.target.value })}
+                                        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-mono font-bold text-[11px]"
+                                        placeholder="••••••"
                                     />
                                 </div>
-
-                                <div className="grid grid-cols-2 gap-5">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Register Number</label>
-                                        <input
-                                            required
-                                            type="text"
-                                            value={editingStudent.rollNumber}
-                                            onChange={(e) => setEditingStudent({ ...editingStudent, rollNumber: e.target.value })}
-                                            className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-mono font-bold text-xs text-slate-600"
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Academic Department - READ ONLY</label>
-                                        <select
-                                            disabled
-                                            value={editingStudent.department}
-                                            className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black text-xs uppercase tracking-widest text-slate-500 cursor-not-allowed"
-                                        >
-                                            <option value="CSE">CSE</option>
-                                            <option value="IT">IT</option>
-                                            <option value="AIDS">AI-DS</option>
-                                            <option value="AIML">AI-ML</option>
-                                            <option value="ECE">ECE</option>
-                                            <option value="EEE">EEE</option>
-                                            <option value="MECH">MECH</option>
-                                            <option value="CIVIL">CIVIL</option>
-                                            <option value="MCT">MCT</option>
-                                            <option value="BME">BME</option>
-                                            <option value="BT">BT</option>
-                                            <option value="CHEMICAL">CHEMICAL</option>
-                                            <option value="OTHERS">OTHERS</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Study Year</label>
-                                        <select
-                                            value={editingStudent.yearOfStudy}
-                                            onChange={(e) => setEditingStudent({ ...editingStudent, yearOfStudy: e.target.value })}
-                                            className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl outline-none font-black text-xs uppercase"
-                                        >
-                                            <option value="1">1st Year</option>
-                                            <option value="2">2nd Year</option>
-                                            <option value="3">3rd Year</option>
-                                            <option value="4">4th Year</option>
-                                            <option value="Alumni">Alumni</option>
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Section</label>
-                                        <select
-                                            value={editingStudent.section}
-                                            onChange={(e) => setEditingStudent({ ...editingStudent, section: e.target.value })}
-                                            className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl outline-none font-black text-xs uppercase"
-                                        >
-                                            {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'].map(sec => (
-                                                <option key={sec} value={sec}>Sec {sec}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Batch Year</label>
-                                        <input
-                                            type="text"
-                                            value={editingStudent.admissionYear}
-                                            onChange={(e) => setEditingStudent({ ...editingStudent, admissionYear: e.target.value })}
-                                            className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl outline-none font-black text-xs tabular-nums"
-                                            placeholder="2024"
-                                        />
-                                    </div>
-                                </div>
-
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Digital Identity (Email) - READ ONLY</label>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Official Email</label>
                                     <input
                                         required
                                         type="email"
-                                        value={editingStudent.email}
-                                        disabled
-                                        className="w-full px-5 py-4 bg-slate-100 border border-slate-100 rounded-2xl outline-none font-bold text-xs lowercase text-slate-400 cursor-not-allowed"
+                                        value={newOrg.email}
+                                        onChange={(e) => setNewOrg({ ...newOrg, email: e.target.value })}
+                                        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-bold text-[11px] lowercase"
+                                        placeholder="org@ritchennai.edu.in"
                                     />
                                 </div>
-
-                                <button
-                                    type="submit"
-                                    className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-3 uppercase mt-4 tracking-widest"
-                                >
-                                    Commit Changes
-                                    <ShieldCheck className="w-4 h-4" />
-                                </button>
-                            </form>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            {/* Manage Student / History Modal */}
-            <AnimatePresence>
-                {isManageStudentModalOpen && editingStudent && (
-                    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setIsManageStudentModalOpen(false)}
-                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 30 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 30 }}
-                            className="relative w-full max-w-4xl bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh] border border-slate-100"
-                        >
-                            <div className="p-8 bg-slate-900 text-white flex items-center justify-between shrink-0">
-                                <div className="flex items-center gap-5">
-                                    <div className="w-16 h-16 bg-blue-600 rounded-[1.5rem] flex items-center justify-center font-black text-2xl uppercase shadow-lg shadow-blue-500/20">
-                                        {editingStudent.fullName?.charAt(0)}
-                                    </div>
-                                    <div className="text-left">
-                                        <h3 className="text-2xl font-black italic uppercase tracking-tight">{editingStudent.fullName}</h3>
-                                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1">{editingStudent.rollNumber} | {editingStudent.department} DEP</p>
-                                    </div>
-                                </div>
-                                <button onClick={() => setIsManageStudentModalOpen(false)} className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all">
-                                    <X className="w-6 h-6" />
-                                </button>
-                            </div>
-
-                            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-[#fcfdfe]">
-                                <div className="grid grid-cols-3 gap-6 mb-8">
-                                    <div className="p-5 bg-emerald-50 border border-emerald-100 rounded-2xl text-left">
-                                        <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Total Spark XP</div>
-                                        <div className="text-3xl font-black text-emerald-700">{editingStudent.points || 0}</div>
-                                    </div>
-                                    <div className="p-5 bg-blue-50 border border-blue-100 rounded-2xl text-left">
-                                        <div className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Missions Joined</div>
-                                        <div className="text-3xl font-black text-blue-700">{selectedStudentHistory.length}</div>
-                                    </div>
-                                    <div className="p-5 bg-indigo-50 border border-indigo-100 rounded-2xl text-left">
-                                        <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">Badges Earned</div>
-                                        <div className="text-3xl font-black text-indigo-700">{editingStudent.badges?.length || 0}</div>
-                                    </div>
-                                </div>
-
-                                <h4 className="font-black text-slate-800 text-sm uppercase tracking-widest mb-6 italic border-b border-slate-100 pb-4 text-left flex items-center gap-3">
-                                    <Activity className="w-5 h-5 text-blue-600" /> Tactical Mission History
-                                </h4>
-
-                                {selectedStudentHistory.length > 0 ? (
-                                    <div className="space-y-4 text-left">
-                                        {selectedStudentHistory.map((history, i) => (
-                                            <div key={i} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between hover:shadow-md transition-all">
-                                                <div className="text-left">
-                                                    <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{history.eventTitle}</p>
-                                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{history.eventDate}</p>
-                                                </div>
-                                                <div className="flex items-center gap-8">
-                                                    <div className="text-center">
-                                                        <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Status</p>
-                                                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${history.isAttended || history.status === 'Present' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                                                            {history.isAttended || history.status === 'Present' ? 'COMPLETED' : 'ABSENT'}
-                                                        </span>
-                                                    </div>
-                                                    <div className="text-center">
-                                                        <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Feedback</p>
-                                                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${history.feedbackSubmitted ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-400'}`}>
-                                                            {history.feedbackSubmitted ? 'SUBMITTED' : 'PENDING'}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="py-20 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-100 flex flex-col items-center justify-center text-center px-6">
-                                        <AlertCircle className="w-12 h-12 text-slate-200 mb-4" />
-                                        <h4 className="text-slate-400 font-black uppercase tracking-widest text-xs">No Deployment Records</h4>
-                                        <p className="text-slate-300 text-[10px] font-bold italic mt-1">This member has not participated in any tracked mission yet.</p>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="p-8 border-t border-slate-100 bg-white flex justify-between items-center shrink-0">
-                                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Authorized Member Identity Access</p>
-                                <button onClick={() => setIsManageStudentModalOpen(false)} className="px-8 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all">
-                                    Close Audit
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            {/* Search Scanner Modal */}
-            <AnimatePresence>
-                {isSearchScannerOpen && (
-                    <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setIsSearchScannerOpen(false)}
-                            className="absolute inset-0 bg-slate-900/80 backdrop-blur-xl"
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 30 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 30 }}
-                            className="relative w-full max-w-md bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border border-white/20"
-                        >
-                            <div className="p-8 bg-slate-900 text-white flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-xl font-black italic uppercase tracking-tight flex items-center gap-3">
-                                        <QrCode className="w-6 h-6 text-blue-500" />
-                                        Identity Scanner
-                                    </h3>
-                                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-1">Digital Student Lookup</p>
-                                </div>
-                                <button onClick={() => setIsSearchScannerOpen(false)} className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all">
-                                    <X className="w-6 h-6" />
-                                </button>
-                            </div>
-
-                            <div className="p-8">
-                                <div className="aspect-square bg-slate-950 rounded-[2.5rem] overflow-hidden relative border-4 border-slate-100 shadow-inner">
-                                    <Scanner
-                                        onScan={handleSearchScan}
-                                        onError={(err) => console.error(err)}
-                                        styles={{
-                                            container: { width: '100%', height: '100%' },
-                                            video: { objectFit: 'cover' }
-                                        }}
-                                        allowMultiple={false}
-                                        scanDelay={2000}
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Contact Trace</label>
+                                    <input
+                                        required
+                                        type="tel"
+                                        value={newOrg.phone}
+                                        onChange={(e) => setNewOrg({ ...newOrg, phone: e.target.value })}
+                                        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-mono font-bold text-[11px]"
+                                        placeholder="+91..."
                                     />
-                                    <div className="absolute inset-0 border-[3px] border-blue-500/30 m-10 rounded-[2rem] pointer-events-none">
-                                        <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-blue-500 rounded-tl-xl" />
-                                        <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-blue-500 rounded-tr-xl" />
-                                        <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-blue-500 rounded-bl-xl" />
-                                        <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-blue-500 rounded-br-xl" />
-                                    </div>
-                                    <div className="absolute top-1/2 left-0 w-full h-0.5 bg-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.8)] animate-scan z-20" />
                                 </div>
-                                <p className="text-center mt-6 text-slate-400 text-[10px] font-black uppercase tracking-widest leading-relaxed">
-                                    Position the Student QR Code within the frame<br />for instantaneous recognition
-                                </p>
                             </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Operational Dept</label>
+                                    <select
+                                        value={newOrg.department}
+                                        onChange={(e) => setNewOrg({ ...newOrg, department: e.target.value })}
+                                        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black text-[11px] uppercase tracking-widest"
+                                    >
+                                        <option value="">Select Dept</option>
+                                        <option value="CSE">CSE</option>
+                                        <option value="IT">IT</option>
+                                        <option value="AI-DS">AI-DS</option>
+                                        <option value="AI-ML">AI-ML</option>
+                                        <option value="ECE">ECE</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Strategic Role</label>
+                                    <select
+                                        value={newOrg.role}
+                                        onChange={(e) => setNewOrg({ ...newOrg, role: e.target.value })}
+                                        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black text-[11px] uppercase tracking-widest"
+                                    >
+                                        <option value="Event Organizer">Event Organizer</option>
+                                        <option value="Secretary">Secretary</option>
+                                        <option value="Check-in Officer">Check-in Officer</option>
+                                        <option value="Terminal Operator">Terminal Operator</option>
+                                        <option value="Senior Coordinator">Senior Coordinator</option>
+                                        <option value="Technical Lead">Technical Lead</option>
+                                    </select>
+                                </div>
+                            </div>
 
-            {/* Quiz Settings Modal */}
-            {showQuizSettingsModal && quizSettingsEvent && (
-                <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <button
+                                type="submit"
+                                disabled={isSubmittingOrg}
+                                className="w-full py-4 bg-slate-900 text-white rounded-[1.25rem] font-black text-xs shadow-xl shadow-slate-200 hover:bg-black transition-all flex items-center justify-center gap-3 uppercase disabled:opacity-50 mt-4 tracking-[0.2em]"
+                            >
+                                {isSubmittingOrg ? 'Initiating...' : 'Register Organizer'}
+                                <Shield className="w-4 h-4" />
+                            </button>
+                        </form>
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>
+
+        {/* Event Detail / Mission Intelligence Modal */}
+        <AnimatePresence>
+            {showEventDetailModal && selectedEventDetails && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        className="bg-white rounded-[2.5rem] w-full max-w-xl shadow-2xl overflow-hidden"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setShowEventDetailModal(false)}
+                        className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+                    />
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                        className="relative w-full max-w-5xl bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-100"
                     >
-                        <div className="p-8 bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
-                                        <FileText className="w-6 h-6" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-xl font-black uppercase tracking-tight">Quiz Settings</h3>
-                                        <p className="text-[10px] text-purple-200 font-bold uppercase tracking-widest">{quizSettingsEvent.title}</p>
-                                    </div>
-                                </div>
-                                <button onClick={() => setShowQuizSettingsModal(false)} className="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all">
-                                    <X className="w-5 h-5" />
+                        {/* Modal Header */}
+                        <div className="p-8 bg-slate-900 text-white flex items-center justify-between shrink-0">
+                            <div>
+                                <h3 className="text-2xl font-black italic uppercase tracking-tight flex items-center gap-3">
+                                    <Activity className="w-8 h-8 text-blue-500" />
+                                    Mission Intelligence: {selectedEventDetails.title}
+                                </h3>
+                                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-1 italic">Tactical deployment data & participation audit</p>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <button
+                                    onClick={() => handleDownloadFinalReport(selectedEventDetails)}
+                                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl flex items-center gap-2 transition-all"
+                                >
+                                    <Download className="w-4 h-4" /> Final Report
+                                </button>
+                                <button onClick={() => setShowEventDetailModal(false)} className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all">
+                                    <X className="w-6 h-6" />
                                 </button>
                             </div>
                         </div>
-                        <div className="p-8 space-y-6">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Google Form URL *</label>
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        placeholder="https://docs.google.com/forms/d/e/..."
-                                        value={quizSettings.quizFormUrl}
-                                        onChange={(e) => {
-                                            const url = e.target.value;
-                                            let updatedSettings = { ...quizSettings, quizFormUrl: url };
 
-                                            if (url.includes('entry.')) {
-                                                try {
-                                                    const urlObj = new URL(url);
-                                                    const searchParams = new URLSearchParams(urlObj.search);
-                                                    let extractedAny = false;
-
-                                                    const mappings = {
-                                                        quizEntryMobile: ['phone', 'mobile', 'contact', '987'],
-                                                        quizEntryName: ['name', 'student', 'test', 'full'],
-                                                        quizEntryRoll: ['roll', 'reg', '123', 'number', 'id'],
-                                                        quizEntryDept: ['dept', 'branch', 'cse', 'it', 'department'],
-                                                        quizEntryYear: ['year', '1st', '2nd', '3rd', '4th'],
-                                                        quizEntrySection: ['section', 'sec', 'a', 'b', 'c']
-                                                    };
-
-                                                    searchParams.forEach((value, key) => {
-                                                        if (key.startsWith('entry.')) {
-                                                            extractedAny = true;
-                                                            const lowerVal = value.toLowerCase();
-                                                            for (const [field, keywords] of Object.entries(mappings)) {
-                                                                if (keywords.some(k => k.length <= 1 ? lowerVal === k : lowerVal.includes(k))) {
-                                                                    updatedSettings[field] = key;
-                                                                    break;
-                                                                }
-                                                            }
-                                                        }
-                                                    });
-
-                                                    if (extractedAny) {
-                                                        updatedSettings.quizFormUrl = url.split('?')[0];
-                                                        alert("✨ Magic Extraction Successful!");
-                                                    }
-                                                } catch (err) { }
-                                            }
-                                            setQuizSettings(updatedSettings);
-                                        }}
-                                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-sm text-slate-800 pr-12"
-                                    />
-                                    {(quizSettings.quizFormUrl || '').includes('docs.google.com') && (
-                                        <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                                            <div className="w-2 h-2 bg-amber-500 rounded-full animate-ping" />
+                        {/* Modal Content */}
+                        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-[#fcfdfe]">
+                            {/* Quick Stats Row */}
+                            <div className="grid grid-cols-4 gap-4 mb-8">
+                                {[
+                                    { label: 'Total Registered', value: registrations.filter(r => r.eventId === selectedEventDetails.id).length, icon: <Users />, color: 'blue' },
+                                    { label: 'Confirmed Present', value: registrations.filter(r => r.eventId === selectedEventDetails.id && (r.isAttended || r.status === 'Present')).length, icon: <CheckCircle />, color: 'emerald' },
+                                    { label: 'Absent/No-Show', value: registrations.filter(r => r.eventId === selectedEventDetails.id && !(r.isAttended || r.status === 'Present')).length, icon: <X />, color: 'red' },
+                                    { label: 'Feedback Received', value: registrations.filter(r => r.eventId === selectedEventDetails.id && r.feedbackSubmitted).length, icon: <HelpCircle />, color: 'purple' }
+                                ].map((stat, i) => (
+                                    <div key={i} className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4">
+                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-${stat.color}-50 text-${stat.color}-600`}>
+                                            {stat.icon}
                                         </div>
-                                    )}
-                                </div>
+                                        <div>
+                                            <div className="text-2xl font-black text-slate-800 tabular-nums">{stat.value}</div>
+                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</div>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
 
-                            <div className="p-5 bg-slate-900 rounded-2xl space-y-4 text-left">
-                                <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Pre-fill Entry ID Mapping</p>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Name ID</label>
-                                        <input
-                                            type="text"
-                                            value={quizSettings.quizEntryName}
-                                            onChange={(e) => setQuizSettings({ ...quizSettings, quizEntryName: e.target.value })}
-                                            className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white"
-                                        />
+                            {/* Granular Reports Hub */}
+                            <div className="grid grid-cols-3 gap-6 mb-8">
+                                {[
+                                    { title: 'Registration Log', desc: 'Complete directory of all event sign-ups.', action: () => handleDownloadSubReport(selectedEventDetails, 'REGISTRATION') },
+                                    { title: 'Check-in Audit', desc: 'Verified list of confirmed attendees.', action: () => handleDownloadSubReport(selectedEventDetails, 'ATTENDANCE') },
+                                    { title: 'Feedback Tracker', desc: 'Submission status & compliance audit.', action: () => handleDownloadSubReport(selectedEventDetails, 'FEEDBACK_STATUS') }
+                                ].map((hub, i) => (
+                                    <div key={i} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:border-blue-200 transition-all flex flex-col items-center text-center group">
+                                        <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                                            <Download className="w-5 h-5" />
+                                        </div>
+                                        <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">{hub.title}</h4>
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase mt-1 mb-4">{hub.desc}</p>
+                                        <button
+                                            onClick={hub.action}
+                                            className="w-full py-2.5 bg-slate-900 hover:bg-black text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all"
+                                        >
+                                            Export PDF
+                                        </button>
                                     </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Roll ID</label>
-                                        <input
-                                            type="text"
-                                            value={quizSettings.quizEntryRoll}
-                                            onChange={(e) => setQuizSettings({ ...quizSettings, quizEntryRoll: e.target.value })}
-                                            className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white"
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Dept ID</label>
-                                        <input
-                                            type="text"
-                                            value={quizSettings.quizEntryDept}
-                                            onChange={(e) => setQuizSettings({ ...quizSettings, quizEntryDept: e.target.value })}
-                                            className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white"
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Year ID</label>
-                                        <input
-                                            type="text"
-                                            value={quizSettings.quizEntryYear}
-                                            onChange={(e) => setQuizSettings({ ...quizSettings, quizEntryYear: e.target.value })}
-                                            className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white"
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Section ID</label>
-                                        <input
-                                            type="text"
-                                            value={quizSettings.quizEntrySection}
-                                            onChange={(e) => setQuizSettings({ ...quizSettings, quizEntrySection: e.target.value })}
-                                            className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white"
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Mobile ID</label>
-                                        <input
-                                            type="text"
-                                            value={quizSettings.quizEntryMobile}
-                                            onChange={(e) => setQuizSettings({ ...quizSettings, quizEntryMobile: e.target.value })}
-                                            className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white"
-                                        />
-                                    </div>
-                                </div>
-                                <p className="text-[9px] text-slate-500 font-medium italic">💡 Paste a pre-filled link above to auto-magically map these IDs.</p>
+                                ))}
                             </div>
-                            <div className="flex gap-4 pt-4">
-                                <button onClick={() => setShowQuizSettingsModal(false)} className="flex-1 px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-sm uppercase hover:bg-slate-200 transition-all">Cancel</button>
-                                <button onClick={handleSaveQuizSettings} disabled={savingQuizSettings || !quizSettings.quizFormUrl} className="flex-1 px-6 py-4 bg-purple-600 text-white rounded-2xl font-black text-sm uppercase hover:bg-purple-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                                    {savingQuizSettings ? 'Saving...' : 'Save Settings'}
-                                </button>
+
+                            {/* Participant Directory */}
+                            <div className="bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm">
+                                <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                                    <h4 className="font-black text-slate-800 text-xs uppercase tracking-widest italic">Live Participant Roster</h4>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Authorized Viewing Only</p>
+                                </div>
+                                <table className="w-full text-left">
+                                    <thead className="bg-[#fcfdfe] text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                                        <tr>
+                                            <th className="px-8 py-4">Student Identity</th>
+                                            <th className="px-8 py-4">Status</th>
+                                            <th className="px-8 py-4">Feedback Intelligence</th>
+                                            <th className="px-8 py-4 text-right">Strategic Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50">
+                                        {registrations
+                                            .filter(r => r.eventId === selectedEventDetails.id)
+                                            .map((reg) => {
+                                                const fb = feedbackBase.find(f => f.eventId === selectedEventDetails.id && f.studentRoll === reg.studentRoll);
+                                                return (
+                                                    <tr key={reg.id} className="hover:bg-slate-50/50 transition-colors group">
+                                                        <td className="px-8 py-5">
+                                                            <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{reg.studentName}</p>
+                                                            <p className="text-[10px] text-blue-600 font-mono font-bold">{reg.studentRoll}</p>
+                                                        </td>
+                                                        <td className="px-8 py-5">
+                                                            {(reg.isAttended || reg.status === 'Present') ? (
+                                                                <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-emerald-100">Present</span>
+                                                            ) : (
+                                                                <span className="px-3 py-1 bg-red-50 text-red-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-red-100">Absent</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-8 py-5">
+                                                            {reg.feedbackSubmitted ? (
+                                                                <div className="flex flex-col gap-1">
+                                                                    <span className="px-3 py-1 bg-purple-50 text-purple-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-purple-100 w-fit">Intelligence Logged</span>
+                                                                    {fb && <p className="text-[9px] text-slate-400 font-medium italic line-clamp-1">"{fb.comment || fb.feedback}"</p>}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="px-3 py-1 bg-slate-50 text-slate-400 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100">No Data</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-8 py-5 text-right">
+                                                            {reg.feedbackSubmitted && (
+                                                                <button
+                                                                    onClick={() => handleUndoFeedback(reg.id, fb?.id)}
+                                                                    className="p-2.5 text-orange-500 hover:bg-orange-50 rounded-xl transition-all flex items-center gap-2 text-[9px] font-black uppercase tracking-widest ml-auto"
+                                                                    title="UNDO FEEDBACK"
+                                                                >
+                                                                    <RotateCcw className="w-3.5 h-3.5" /> UNDO
+                                                                </button>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </motion.div>
                 </div>
             )}
+        </AnimatePresence>
 
-            <style jsx="true">{`
+        {/* Event Approval Review Modal */}
+        <AnimatePresence>
+            {showApproveModal && eventToApprove && (
+                <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setShowApproveModal(false)}
+                        className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+                    />
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                        className="relative w-full max-w-4xl bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-100"
+                    >
+                        {/* Header */}
+                        <div className="p-8 bg-slate-50 border-b border-slate-100 flex items-center justify-between font-black uppercase tracking-widest italic">
+                            <div>
+                                <h3 className="text-2xl font-black text-slate-800 uppercase italic">Event Review & Authorization</h3>
+                                <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-1">Inspecting organizer deployment details before broadcast</p>
+                            </div>
+                            <button onClick={() => setShowApproveModal(false)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                                <X className="w-6 h-6 text-slate-400" />
+                            </button>
+                        </div>
+
+                        {/* Detailed Content */}
+                        <div className="flex-1 overflow-y-auto p-8 space-y-8 text-left bg-[#fcfdfe]">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                {/* Core Details */}
+                                <div className="space-y-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Event Title</label>
+                                        <p className="text-xl font-black text-slate-800 uppercase leading-tight">{eventToApprove.title}</p>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</label>
+                                            <span className="block px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-black w-fit uppercase">{eventToApprove.type}</span>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Organizer</label>
+                                            <p className="text-sm font-bold text-slate-700 uppercase">{eventToApprove.createdBy}</p>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Description</label>
+                                        <p className="text-sm text-slate-600 leading-relaxed font-medium">{eventToApprove.description}</p>
+                                    </div>
+                                </div>
+
+                                {/* Logistics & Constraints */}
+                                <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 space-y-6">
+                                    <div className="grid grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2 text-blue-600">
+                                                <Calendar className="w-4 h-4" />
+                                                <label className="text-[10px] font-black uppercase tracking-widest">Date</label>
+                                            </div>
+                                            <p className="text-sm font-black text-slate-800">{eventToApprove.date}</p>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2 text-indigo-600">
+                                                <Clock className="w-4 h-4" />
+                                                <label className="text-[10px] font-black uppercase tracking-widest">Time</label>
+                                            </div>
+                                            <p className="text-sm font-black text-slate-800">{eventToApprove.time || 'N/A'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2 text-emerald-600">
+                                            <MapPin className="w-4 h-4" />
+                                            <label className="text-[10px] font-black uppercase tracking-widest">Venue / Base</label>
+                                        </div>
+                                        <p className="text-sm font-black text-slate-800 uppercase">{eventToApprove.venue || 'Block-B, Lab 402'}</p>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Max Capacity</label>
+                                            <p className="text-sm font-black text-slate-800">{eventToApprove.maxNo || 100} Members</p>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Audience</label>
+                                            <p className="text-sm font-black text-slate-800 uppercase">{eventToApprove.targetAudience || 'All Departments'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Coordinator Details */}
+                            <div className="p-6 bg-white border border-slate-100 rounded-3xl">
+                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                    <UserCheck className="w-4 h-4 text-blue-600" /> Operational Coordinators
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-blue-600 font-black">C1</div>
+                                        <div>
+                                            <p className="text-sm font-bold text-slate-800 uppercase">{eventToApprove.coord1Name || 'Not Specified'}</p>
+                                            <p className="text-[10px] text-slate-400 font-mono font-medium">{eventToApprove.coord1Phone || 'No Trace'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-blue-600 font-black">C2</div>
+                                        <div>
+                                            <p className="text-sm font-bold text-slate-800 uppercase">{eventToApprove.coord2Name || 'Not Specified'}</p>
+                                            <p className="text-[10px] text-slate-400 font-mono font-medium">{eventToApprove.coord2Phone || 'No Trace'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Action Footer */}
+                        <div className="p-8 bg-slate-50 border-t border-slate-100 flex items-center gap-4">
+                            <button
+                                onClick={async () => {
+                                    const remarks = prompt("Enter rejection/revert remarks (MANDATORY):");
+                                    if (!remarks) return alert("Remarks are mandatory for rejection.");
+                                    await updateDoc(doc(db, 'events', eventToApprove.id), {
+                                        status: 'REJECTED',
+                                        remarks,
+                                        lastActionBy: admin.username,
+                                        lastActionAt: serverTimestamp()
+                                    });
+                                    setShowApproveModal(false);
+                                    fetchDashboardData();
+                                }}
+                                className="px-8 py-4 bg-red-50 text-red-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-all flex items-center gap-2"
+                            >
+                                <Trash2 className="w-4 h-4" /> Reject Submission
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    if (!window.confirm("Authorize this event for LIVE broadcast? This will make it visible to all students.")) return;
+                                    await updateDoc(doc(db, 'events', eventToApprove.id), {
+                                        status: 'LIVE',
+                                        remarks: 'Approved by Super Admin after technical review',
+                                        lastActionBy: admin.username,
+                                        lastActionAt: serverTimestamp()
+                                    });
+                                    setShowApproveModal(false);
+                                    fetchDashboardData();
+                                }}
+                                className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-emerald-500/20 hover:scale-[1.02] transition-all flex items-center justify-center gap-3"
+                            >
+                                <ShieldCheck className="w-5 h-5" /> Approve Live
+                            </button>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>
+
+        {/* Edit Student Modal */}
+        <AnimatePresence>
+            {isEditStudentModalOpen && editingStudent && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setIsEditStudentModalOpen(false)}
+                        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+                    />
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                        className="relative w-full max-w-xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border border-slate-100"
+                    >
+                        <div className="p-8 border-b border-slate-100 flex items-center justify-between text-left">
+                            <div>
+                                <h3 className="text-2xl font-black text-slate-800 italic uppercase">Edit Personnel Data</h3>
+                                <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mt-1">Manual override of student identity profile</p>
+                            </div>
+                            <button onClick={() => setIsEditStudentModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-xl transition-colors">
+                                <X className="w-6 h-6 text-slate-400" />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSaveStudent} className="p-8 space-y-5 text-left bg-[#fcfdfe]">
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Legal Full Name - READ ONLY</label>
+                                <input
+                                    required
+                                    type="text"
+                                    value={editingStudent.fullName}
+                                    disabled
+                                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black text-xs uppercase tracking-tight text-slate-500 cursor-not-allowed"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-5">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Register Number</label>
+                                    <input
+                                        required
+                                        type="text"
+                                        value={editingStudent.rollNumber}
+                                        onChange={(e) => setEditingStudent({ ...editingStudent, rollNumber: e.target.value })}
+                                        className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-mono font-bold text-xs text-slate-600"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Academic Department - READ ONLY</label>
+                                    <select
+                                        disabled
+                                        value={editingStudent.department}
+                                        className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black text-xs uppercase tracking-widest text-slate-500 cursor-not-allowed"
+                                    >
+                                        <option value="CSE">CSE</option>
+                                        <option value="IT">IT</option>
+                                        <option value="AIDS">AI-DS</option>
+                                        <option value="AIML">AI-ML</option>
+                                        <option value="ECE">ECE</option>
+                                        <option value="EEE">EEE</option>
+                                        <option value="MECH">MECH</option>
+                                        <option value="CIVIL">CIVIL</option>
+                                        <option value="MCT">MCT</option>
+                                        <option value="BME">BME</option>
+                                        <option value="BT">BT</option>
+                                        <option value="CHEMICAL">CHEMICAL</option>
+                                        <option value="OTHERS">OTHERS</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Study Year</label>
+                                    <select
+                                        value={editingStudent.yearOfStudy}
+                                        onChange={(e) => setEditingStudent({ ...editingStudent, yearOfStudy: e.target.value })}
+                                        className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl outline-none font-black text-xs uppercase"
+                                    >
+                                        <option value="1">1st Year</option>
+                                        <option value="2">2nd Year</option>
+                                        <option value="3">3rd Year</option>
+                                        <option value="4">4th Year</option>
+                                        <option value="Alumni">Alumni</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Section</label>
+                                    <select
+                                        value={editingStudent.section}
+                                        onChange={(e) => setEditingStudent({ ...editingStudent, section: e.target.value })}
+                                        className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl outline-none font-black text-xs uppercase"
+                                    >
+                                        {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'].map(sec => (
+                                            <option key={sec} value={sec}>Sec {sec}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Batch Year</label>
+                                    <input
+                                        type="text"
+                                        value={editingStudent.admissionYear}
+                                        onChange={(e) => setEditingStudent({ ...editingStudent, admissionYear: e.target.value })}
+                                        className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl outline-none font-black text-xs tabular-nums"
+                                        placeholder="2024"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Digital Identity (Email) - READ ONLY</label>
+                                <input
+                                    required
+                                    type="email"
+                                    value={editingStudent.email}
+                                    disabled
+                                    className="w-full px-5 py-4 bg-slate-100 border border-slate-100 rounded-2xl outline-none font-bold text-xs lowercase text-slate-400 cursor-not-allowed"
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-3 uppercase mt-4 tracking-widest"
+                            >
+                                Commit Changes
+                                <ShieldCheck className="w-4 h-4" />
+                            </button>
+                        </form>
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>
+
+        {/* Manage Student / History Modal */}
+        <AnimatePresence>
+            {isManageStudentModalOpen && editingStudent && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setIsManageStudentModalOpen(false)}
+                        className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+                    />
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                        className="relative w-full max-w-4xl bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh] border border-slate-100"
+                    >
+                        <div className="p-8 bg-slate-900 text-white flex items-center justify-between shrink-0">
+                            <div className="flex items-center gap-5">
+                                <div className="w-16 h-16 bg-blue-600 rounded-[1.5rem] flex items-center justify-center font-black text-2xl uppercase shadow-lg shadow-blue-500/20">
+                                    {editingStudent.fullName?.charAt(0)}
+                                </div>
+                                <div className="text-left">
+                                    <h3 className="text-2xl font-black italic uppercase tracking-tight">{editingStudent.fullName}</h3>
+                                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1">{editingStudent.rollNumber} | {editingStudent.department} DEP</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setIsManageStudentModalOpen(false)} className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all">
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-[#fcfdfe]">
+                            <div className="grid grid-cols-3 gap-6 mb-8">
+                                <div className="p-5 bg-emerald-50 border border-emerald-100 rounded-2xl text-left">
+                                    <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Total Spark XP</div>
+                                    <div className="text-3xl font-black text-emerald-700">{editingStudent.points || 0}</div>
+                                </div>
+                                <div className="p-5 bg-blue-50 border border-blue-100 rounded-2xl text-left">
+                                    <div className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Missions Joined</div>
+                                    <div className="text-3xl font-black text-blue-700">{selectedStudentHistory.length}</div>
+                                </div>
+                                <div className="p-5 bg-indigo-50 border border-indigo-100 rounded-2xl text-left">
+                                    <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">Badges Earned</div>
+                                    <div className="text-3xl font-black text-indigo-700">{editingStudent.badges?.length || 0}</div>
+                                </div>
+                            </div>
+
+                            <h4 className="font-black text-slate-800 text-sm uppercase tracking-widest mb-6 italic border-b border-slate-100 pb-4 text-left flex items-center gap-3">
+                                <Activity className="w-5 h-5 text-blue-600" /> Tactical Mission History
+                            </h4>
+
+                            {selectedStudentHistory.length > 0 ? (
+                                <div className="space-y-4 text-left">
+                                    {selectedStudentHistory.map((history, i) => (
+                                        <div key={i} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between hover:shadow-md transition-all">
+                                            <div className="text-left">
+                                                <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{history.eventTitle}</p>
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{history.eventDate}</p>
+                                            </div>
+                                            <div className="flex items-center gap-8">
+                                                <div className="text-center">
+                                                    <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Status</p>
+                                                    <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${history.isAttended || history.status === 'Present' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                                                        {history.isAttended || history.status === 'Present' ? 'COMPLETED' : 'ABSENT'}
+                                                    </span>
+                                                </div>
+                                                <div className="text-center">
+                                                    <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Feedback</p>
+                                                    <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${history.feedbackSubmitted ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-400'}`}>
+                                                        {history.feedbackSubmitted ? 'SUBMITTED' : 'PENDING'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="py-20 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-100 flex flex-col items-center justify-center text-center px-6">
+                                    <AlertCircle className="w-12 h-12 text-slate-200 mb-4" />
+                                    <h4 className="text-slate-400 font-black uppercase tracking-widest text-xs">No Deployment Records</h4>
+                                    <p className="text-slate-300 text-[10px] font-bold italic mt-1">This member has not participated in any tracked mission yet.</p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="p-8 border-t border-slate-100 bg-white flex justify-between items-center shrink-0">
+                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Authorized Member Identity Access</p>
+                            <button onClick={() => setIsManageStudentModalOpen(false)} className="px-8 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all">
+                                Close Audit
+                            </button>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>
+
+        {/* Search Scanner Modal */}
+        <AnimatePresence>
+            {isSearchScannerOpen && (
+                <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setIsSearchScannerOpen(false)}
+                        className="absolute inset-0 bg-slate-900/80 backdrop-blur-xl"
+                    />
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                        className="relative w-full max-w-md bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border border-white/20"
+                    >
+                        <div className="p-8 bg-slate-900 text-white flex items-center justify-between">
+                            <div>
+                                <h3 className="text-xl font-black italic uppercase tracking-tight flex items-center gap-3">
+                                    <QrCode className="w-6 h-6 text-blue-500" />
+                                    Identity Scanner
+                                </h3>
+                                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-1">Digital Student Lookup</p>
+                            </div>
+                            <button onClick={() => setIsSearchScannerOpen(false)} className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all">
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="p-8">
+                            <div className="aspect-square bg-slate-950 rounded-[2.5rem] overflow-hidden relative border-4 border-slate-100 shadow-inner">
+                                <Scanner
+                                    onScan={handleSearchScan}
+                                    onError={(err) => console.error(err)}
+                                    styles={{
+                                        container: { width: '100%', height: '100%' },
+                                        video: { objectFit: 'cover' }
+                                    }}
+                                    allowMultiple={false}
+                                    scanDelay={2000}
+                                />
+                                <div className="absolute inset-0 border-[3px] border-blue-500/30 m-10 rounded-[2rem] pointer-events-none">
+                                    <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-blue-500 rounded-tl-xl" />
+                                    <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-blue-500 rounded-tr-xl" />
+                                    <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-blue-500 rounded-bl-xl" />
+                                    <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-blue-500 rounded-br-xl" />
+                                </div>
+                                <div className="absolute top-1/2 left-0 w-full h-0.5 bg-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.8)] animate-scan z-20" />
+                            </div>
+                            <p className="text-center mt-6 text-slate-400 text-[10px] font-black uppercase tracking-widest leading-relaxed">
+                                Position the Student QR Code within the frame<br />for instantaneous recognition
+                            </p>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>
+
+        {/* Quiz Settings Modal */}
+        {showQuizSettingsModal && quizSettingsEvent && (
+            <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    className="bg-white rounded-[2.5rem] w-full max-w-xl shadow-2xl overflow-hidden"
+                >
+                    <div className="p-8 bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+                                    <FileText className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black uppercase tracking-tight">Quiz Settings</h3>
+                                    <p className="text-[10px] text-purple-200 font-bold uppercase tracking-widest">{quizSettingsEvent.title}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowQuizSettingsModal(false)} className="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                    </div>
+                    <div className="p-8 space-y-6">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Google Form URL *</label>
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    placeholder="https://docs.google.com/forms/d/e/..."
+                                    value={quizSettings.quizFormUrl}
+                                    onChange={(e) => {
+                                        const url = e.target.value;
+                                        let updatedSettings = { ...quizSettings, quizFormUrl: url };
+
+                                        if (url.includes('entry.')) {
+                                            try {
+                                                const urlObj = new URL(url);
+                                                const searchParams = new URLSearchParams(urlObj.search);
+                                                let extractedAny = false;
+
+                                                const mappings = {
+                                                    quizEntryMobile: ['phone', 'mobile', 'contact', '987'],
+                                                    quizEntryName: ['name', 'student', 'test', 'full'],
+                                                    quizEntryRoll: ['roll', 'reg', '123', 'number', 'id'],
+                                                    quizEntryDept: ['dept', 'branch', 'cse', 'it', 'department'],
+                                                    quizEntryYear: ['year', '1st', '2nd', '3rd', '4th'],
+                                                    quizEntrySection: ['section', 'sec', 'a', 'b', 'c']
+                                                };
+
+                                                searchParams.forEach((value, key) => {
+                                                    if (key.startsWith('entry.')) {
+                                                        extractedAny = true;
+                                                        const lowerVal = value.toLowerCase();
+                                                        for (const [field, keywords] of Object.entries(mappings)) {
+                                                            if (keywords.some(k => k.length <= 1 ? lowerVal === k : lowerVal.includes(k))) {
+                                                                updatedSettings[field] = key;
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+                                                });
+
+                                                if (extractedAny) {
+                                                    updatedSettings.quizFormUrl = url.split('?')[0];
+                                                    alert("✨ Magic Extraction Successful!");
+                                                }
+                                            } catch (err) { }
+                                        }
+                                        setQuizSettings(updatedSettings);
+                                    }}
+                                    className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-sm text-slate-800 pr-12"
+                                />
+                                {(quizSettings.quizFormUrl || '').includes('docs.google.com') && (
+                                    <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                                        <div className="w-2 h-2 bg-amber-500 rounded-full animate-ping" />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="p-5 bg-slate-900 rounded-2xl space-y-4 text-left">
+                            <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Pre-fill Entry ID Mapping</p>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[9px] font-bold text-slate-500 uppercase">Name ID</label>
+                                    <input
+                                        type="text"
+                                        value={quizSettings.quizEntryName}
+                                        onChange={(e) => setQuizSettings({ ...quizSettings, quizEntryName: e.target.value })}
+                                        className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[9px] font-bold text-slate-500 uppercase">Roll ID</label>
+                                    <input
+                                        type="text"
+                                        value={quizSettings.quizEntryRoll}
+                                        onChange={(e) => setQuizSettings({ ...quizSettings, quizEntryRoll: e.target.value })}
+                                        className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[9px] font-bold text-slate-500 uppercase">Dept ID</label>
+                                    <input
+                                        type="text"
+                                        value={quizSettings.quizEntryDept}
+                                        onChange={(e) => setQuizSettings({ ...quizSettings, quizEntryDept: e.target.value })}
+                                        className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[9px] font-bold text-slate-500 uppercase">Year ID</label>
+                                    <input
+                                        type="text"
+                                        value={quizSettings.quizEntryYear}
+                                        onChange={(e) => setQuizSettings({ ...quizSettings, quizEntryYear: e.target.value })}
+                                        className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[9px] font-bold text-slate-500 uppercase">Section ID</label>
+                                    <input
+                                        type="text"
+                                        value={quizSettings.quizEntrySection}
+                                        onChange={(e) => setQuizSettings({ ...quizSettings, quizEntrySection: e.target.value })}
+                                        className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[9px] font-bold text-slate-500 uppercase">Mobile ID</label>
+                                    <input
+                                        type="text"
+                                        value={quizSettings.quizEntryMobile}
+                                        onChange={(e) => setQuizSettings({ ...quizSettings, quizEntryMobile: e.target.value })}
+                                        className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg outline-none font-mono text-xs text-white"
+                                    />
+                                </div>
+                            </div>
+                            <p className="text-[9px] text-slate-500 font-medium italic">💡 Paste a pre-filled link above to auto-magically map these IDs.</p>
+                        </div>
+                        <div className="flex gap-4 pt-4">
+                            <button onClick={() => setShowQuizSettingsModal(false)} className="flex-1 px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-sm uppercase hover:bg-slate-200 transition-all">Cancel</button>
+                            <button onClick={handleSaveQuizSettings} disabled={savingQuizSettings || !quizSettings.quizFormUrl} className="flex-1 px-6 py-4 bg-purple-600 text-white rounded-2xl font-black text-sm uppercase hover:bg-purple-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                                {savingQuizSettings ? 'Saving...' : 'Save Settings'}
+                            </button>
+                        </div>
+                    </div>
+                </motion.div>
+            </div>
+        )}
+
+        <style jsx="true">{`
                 .custom-scrollbar::-webkit-scrollbar {
                     width: 6px;
                 }
@@ -3493,8 +3631,8 @@ const AdminDashboard = () => {
                     animation: scan 3s ease-in-out infinite;
                 }
             `}</style>
-        </div >
-    );
+    </div >
+);
 };
 
 export default AdminDashboard;
