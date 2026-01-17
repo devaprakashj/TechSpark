@@ -18,7 +18,8 @@ import {
     ArrowLeft,
     AlertCircle,
     Globe,
-    Activity
+    Activity,
+    Linkedin
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -430,14 +431,24 @@ const CertificateVerification = () => {
 
                                                 <div className="flex flex-col gap-3 justify-center">
                                                     {(cert.certificateUrl || cert.link) && (
-                                                        <a
-                                                            href={cert.certificateUrl || cert.link}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className={`px-8 py-5 ${isWinner ? 'bg-gradient-to-r from-amber-500 to-yellow-500' : 'bg-blue-600'} text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-[1.05] transition-all flex items-center justify-center gap-3 shadow-lg ${isWinner ? 'shadow-amber-500/20' : 'shadow-blue-500/20'}`}
-                                                        >
-                                                            <Download className="w-4 h-4" /> {isWinner ? 'Download Winner Certificate' : 'Download Certificate'}
-                                                        </a>
+                                                        <>
+                                                            <a
+                                                                href={cert.certificateUrl || cert.link}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className={`px-8 py-5 ${isWinner ? 'bg-gradient-to-r from-amber-500 to-yellow-500' : 'bg-blue-600'} text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-[1.05] transition-all flex items-center justify-center gap-3 shadow-lg ${isWinner ? 'shadow-amber-500/20' : 'shadow-blue-500/20'}`}
+                                                            >
+                                                                <Download className="w-4 h-4" /> {isWinner ? 'Download Winner Cert' : 'Download Certificate'}
+                                                            </a>
+                                                            <a
+                                                                href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`https://techspark.club/certificateverify?query=${cert.certificateId || cert.certID}`)}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="px-8 py-4 bg-[#0077B5] text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#005885] hover:scale-[1.05] transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#0077B5]/20"
+                                                            >
+                                                                <Linkedin className="w-4 h-4" /> Share on LinkedIn
+                                                            </a>
+                                                        </>
                                                     )}
                                                 </div>
                                             </div>

@@ -35,6 +35,8 @@ import {
     Loader2,
     Send,
     CalendarPlus,
+    Linkedin,
+    Share2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
@@ -1486,14 +1488,25 @@ const StudentDashboard = () => {
                                                     </div>
 
                                                     {(cert.certificateUrl || cert.link) && (
-                                                        <a
-                                                            href={cert.certificateUrl || cert.link}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className={`w-full py-3 ${isWinner ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-white border-amber-400' : 'bg-white border-slate-200 text-slate-600'} border rounded-xl font-black text-[9px] uppercase tracking-widest hover:scale-[1.02] hover:shadow-lg transition-all flex items-center justify-center gap-2`}
-                                                        >
-                                                            <Download className="w-3.5 h-3.5" /> {isWinner ? 'Download Winner Certificate' : 'Download Certificate'}
-                                                        </a>
+                                                        <div className="flex gap-2">
+                                                            <a
+                                                                href={cert.certificateUrl || cert.link}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className={`flex-1 py-3 ${isWinner ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-white border-amber-400' : 'bg-white border-slate-200 text-slate-600'} border rounded-xl font-black text-[9px] uppercase tracking-widest hover:scale-[1.02] hover:shadow-lg transition-all flex items-center justify-center gap-2`}
+                                                            >
+                                                                <Download className="w-3.5 h-3.5" /> Download
+                                                            </a>
+                                                            <a
+                                                                href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`https://techspark.club/certificateverify?query=${cert.certificateId || cert.certID}`)}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="px-4 py-3 bg-[#0077B5] text-white border border-[#0077B5] rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-[#005885] hover:scale-[1.02] transition-all flex items-center justify-center gap-1.5"
+                                                                title="Share on LinkedIn"
+                                                            >
+                                                                <Linkedin className="w-3.5 h-3.5" />
+                                                            </a>
+                                                        </div>
                                                     )}
                                                 </div>
                                             );
