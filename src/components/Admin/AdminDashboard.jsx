@@ -746,6 +746,24 @@ const AdminDashboard = () => {
         }
     };
 
+    // Revert COMPLETED event back to LIVE
+    const handleRevertToLive = async (eventId, eventTitle) => {
+        if (!window.confirm(`⚠️ REVERT TO LIVE: Are you sure you want to revert "${eventTitle}" from COMPLETED back to LIVE? This will make the event active again.`)) return;
+
+        try {
+            await updateDoc(doc(db, 'events', eventId), {
+                status: 'LIVE',
+                completedAt: null,
+                revertedToLiveAt: serverTimestamp(),
+                revertedBy: admin?.username || 'Admin'
+            });
+            alert(`✅ Event "${eventTitle}" has been reverted to LIVE status!`);
+        } catch (error) {
+            console.error('Error reverting event:', error);
+            alert('❌ Failed to revert event to LIVE status');
+        }
+    };
+
     const handleEditStudent = (student) => {
         setEditingStudent({ ...student });
         setIsEditStudentModalOpen(true);
@@ -1846,18 +1864,33 @@ const AdminDashboard = () => {
                                                 </span>
                                             </td>
                                             <td className="px-8 py-6 text-right">
-                                                {event.type === 'Quiz' ? (
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handleOpenQuizSettings(event); }}
-                                                        className="px-3 py-2 bg-purple-100 text-purple-600 rounded-xl hover:bg-purple-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2 ml-auto"
-                                                        title="Quiz Settings"
-                                                    >
-                                                        <FileText className="w-4 h-4" />
-                                                        <span className="text-[10px] font-black uppercase">Settings</span>
-                                                    </button>
-                                                ) : (
-                                                    <span className="text-[10px] text-slate-300 font-bold uppercase">-</span>
-                                                )}
+                                                <div className="flex items-center gap-2 justify-end">
+                                                    {/* Revert to LIVE button for COMPLETED events */}
+                                                    {event.status === 'COMPLETED' && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleRevertToLive(event.id, event.title); }}
+                                                            className="px-3 py-2 bg-amber-100 text-amber-600 rounded-xl hover:bg-amber-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                                                            title="Revert to LIVE"
+                                                        >
+                                                            <RotateCcw className="w-4 h-4" />
+                                                            <span className="text-[10px] font-black uppercase">Back to LIVE</span>
+                                                        </button>
+                                                    )}
+                                                    {/* Quiz Settings button */}
+                                                    {event.type === 'Quiz' && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleOpenQuizSettings(event); }}
+                                                            className="px-3 py-2 bg-purple-100 text-purple-600 rounded-xl hover:bg-purple-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                                                            title="Quiz Settings"
+                                                        >
+                                                            <FileText className="w-4 h-4" />
+                                                            <span className="text-[10px] font-black uppercase">Settings</span>
+                                                        </button>
+                                                    )}
+                                                    {event.status !== 'COMPLETED' && event.type !== 'Quiz' && (
+                                                        <span className="text-[10px] text-slate-300 font-bold uppercase">-</span>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
