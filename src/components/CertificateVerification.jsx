@@ -54,13 +54,14 @@ const CertificateVerification = () => {
     // Get API URL from localStorage (set by Admin) or use default
     const getApiUrl = () => {
         const savedUrl = localStorage.getItem('certApiUrl');
-        const defaultUrl = 'https://script.google.com/macros/s/AKfycbxS_2h3kCOMCtzGf5u976FNcHjBlBsA1U0qO0ZeSkckanlGqiDmBYUoN73944hsyczpUA/exec';
+        const defaultUrl = 'https://script.google.com/macros/s/AKfycbxZvWwaHjkFrS_yK3akleByW1FtmnWu7ht-UYt6ztPbTTnWUuGUmhjZ_HsOWdu5aHruFw/exec';
 
         // If no URL or old/broken URL, return default
         if (!savedUrl ||
             savedUrl.includes('AKfycbxVm9lozobl') ||
             savedUrl.includes('AKfycbzkMhn07pp') ||
-            savedUrl.includes('AKfycbS_2h3kCOMCtzGf')) { // Force update typo version
+            savedUrl.includes('AKfycbS_2h3kCOMCtzGf') ||
+            savedUrl.includes('AKfycbxS_2h3kCOMCtzGf')) { // Force update old version
             return defaultUrl;
         }
         return savedUrl.trim();
@@ -335,70 +336,114 @@ const CertificateVerification = () => {
                                     </div>
                                 </div>
 
-                                {result.map((cert, index) => (
-                                    <div key={index} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200 group hover:border-blue-500/30 transition-all">
-                                        <div className="flex flex-col md:flex-row gap-8">
-                                            <div className="flex-1 space-y-8">
-                                                <div className="flex items-start gap-6">
-                                                    <div className="w-16 h-16 bg-slate-50 text-blue-600 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                                                        <Award className="w-8 h-8" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Honoree</p>
-                                                        <h4 className="text-3xl font-black text-slate-900 group-hover:text-blue-600 transition-colors uppercase">{cert.name || 'Student Name'}</h4>
-                                                    </div>
-                                                </div>
+                                {result.map((cert, index) => {
+                                    // Role styling
+                                    const roleStyles = {
+                                        'WINNER_1ST': { bg: 'bg-gradient-to-r from-yellow-400 to-amber-500', text: 'text-white', label: '🥇 1st Place Winner' },
+                                        'WINNER_2ND': { bg: 'bg-gradient-to-r from-slate-300 to-slate-400', text: 'text-white', label: '🥈 2nd Place Winner' },
+                                        'WINNER_3RD': { bg: 'bg-gradient-to-r from-amber-600 to-amber-700', text: 'text-white', label: '🥉 3rd Place Winner' },
+                                        'SPECIAL_MENTION': { bg: 'bg-gradient-to-r from-purple-500 to-indigo-500', text: 'text-white', label: '⭐ Special Mention' },
+                                        'PARTICIPANT': { bg: 'bg-slate-100', text: 'text-slate-600', label: '🎖️ Participant' }
+                                    };
+                                    const role = cert.role || 'PARTICIPANT';
+                                    const roleStyle = roleStyles[role] || roleStyles['PARTICIPANT'];
+                                    const isWinner = role.includes('WINNER');
 
-                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                    <div className="p-4 bg-slate-50 rounded-2xl">
-                                                        <div className="flex items-center gap-2 text-slate-400 mb-2">
-                                                            <Hash className="w-3.5 h-3.5" />
-                                                            <span className="text-[9px] font-black uppercase tracking-widest">Register No</span>
-                                                        </div>
-                                                        <p className="text-sm font-black text-slate-800">{cert.registerNumber || cert.regNo || 'N/A'}</p>
+                                    // Event type styling
+                                    const typeStyles = {
+                                        'Hackathon': { bg: 'bg-purple-100', text: 'text-purple-700', icon: '🔮' },
+                                        'Workshop': { bg: 'bg-blue-100', text: 'text-blue-700', icon: '🛠️' },
+                                        'Quiz': { bg: 'bg-green-100', text: 'text-green-700', icon: '📝' },
+                                        'Competition': { bg: 'bg-pink-100', text: 'text-pink-700', icon: '🏆' },
+                                        'Seminar': { bg: 'bg-amber-100', text: 'text-amber-700', icon: '🎤' }
+                                    };
+                                    const eventType = cert.eventType || 'Workshop';
+                                    const typeStyle = typeStyles[eventType] || typeStyles['Workshop'];
+
+                                    return (
+                                        <div key={index} className={`bg-white p-8 rounded-[2.5rem] border-2 ${isWinner ? 'border-yellow-300 bg-gradient-to-br from-white to-amber-50/30' : 'border-slate-100'} shadow-xl shadow-slate-200 group hover:border-blue-500/30 transition-all relative overflow-hidden`}>
+                                            {/* Winner Glow */}
+                                            {isWinner && (
+                                                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-yellow-200/40 to-transparent rounded-bl-[6rem]" />
+                                            )}
+
+                                            <div className="flex flex-col md:flex-row gap-8 relative z-10">
+                                                <div className="flex-1 space-y-8">
+                                                    {/* Badges Row */}
+                                                    <div className="flex flex-wrap items-center gap-3">
+                                                        <span className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wide ${roleStyle.bg} ${roleStyle.text} shadow-sm`}>
+                                                            {roleStyle.label}
+                                                        </span>
+                                                        <span className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase ${typeStyle.bg} ${typeStyle.text}`}>
+                                                            {typeStyle.icon} {eventType}
+                                                        </span>
                                                     </div>
-                                                    <div className="p-4 bg-slate-50 rounded-2xl">
-                                                        <div className="flex items-center gap-2 text-slate-400 mb-2">
-                                                            <FileText className="w-3.5 h-3.5" />
-                                                            <span className="text-[9px] font-black uppercase tracking-widest">Cert ID</span>
+
+                                                    <div className="flex items-start gap-6">
+                                                        <div className={`w-16 h-16 ${isWinner ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-white' : 'bg-slate-50 text-blue-600'} rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-all shadow-lg`}>
+                                                            <Award className="w-8 h-8" />
                                                         </div>
-                                                        <p className="text-sm font-black text-slate-800">{cert.certificateId || cert.certID || 'N/A'}</p>
+                                                        <div>
+                                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Honoree</p>
+                                                            <h4 className={`text-3xl font-black ${isWinner ? 'text-amber-900' : 'text-slate-900'} group-hover:text-blue-600 transition-colors uppercase`}>
+                                                                {cert.studentName || cert.name || 'Student Name'}
+                                                            </h4>
+                                                        </div>
                                                     </div>
-                                                    <div className="p-4 bg-slate-50 rounded-2xl">
-                                                        <div className="flex items-center gap-2 text-slate-400 mb-2">
-                                                            <Calendar className="w-3.5 h-3.5" />
-                                                            <span className="text-[9px] font-black uppercase tracking-widest">Event Date</span>
+
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                                        <div className="p-4 bg-slate-50 rounded-2xl">
+                                                            <div className="flex items-center gap-2 text-slate-400 mb-2">
+                                                                <Hash className="w-3.5 h-3.5" />
+                                                                <span className="text-[9px] font-black uppercase tracking-widest">Register No</span>
+                                                            </div>
+                                                            <p className="text-sm font-black text-slate-800">{cert.rollNumber || cert.registerNumber || cert.regNo || 'N/A'}</p>
                                                         </div>
-                                                        <p className="text-sm font-black text-slate-800">
-                                                            {typeof cert.date === 'object' ? new Date(cert.date).toLocaleDateString() : cert.date || 'Multiple'}
+                                                        <div className="p-4 bg-slate-50 rounded-2xl">
+                                                            <div className="flex items-center gap-2 text-slate-400 mb-2">
+                                                                <FileText className="w-3.5 h-3.5" />
+                                                                <span className="text-[9px] font-black uppercase tracking-widest">Cert ID</span>
+                                                            </div>
+                                                            <p className="text-sm font-black text-slate-800">{cert.certificateId || cert.certID || 'N/A'}</p>
+                                                        </div>
+                                                        <div className="p-4 bg-slate-50 rounded-2xl">
+                                                            <div className="flex items-center gap-2 text-slate-400 mb-2">
+                                                                <Calendar className="w-3.5 h-3.5" />
+                                                                <span className="text-[9px] font-black uppercase tracking-widest">Event Date</span>
+                                                            </div>
+                                                            <p className="text-sm font-black text-slate-800">
+                                                                {cert.eventDate || cert.date || 'N/A'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className={`p-6 ${isWinner ? 'bg-amber-50/50' : 'bg-blue-50/50'} rounded-3xl`}>
+                                                        <div className="flex items-center gap-3 mb-2">
+                                                            <Globe className="w-4 h-4 text-blue-600" />
+                                                            <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Achievement Domain</span>
+                                                        </div>
+                                                        <p className={`text-lg font-black ${isWinner ? 'text-amber-900' : 'text-slate-800'} uppercase`}>
+                                                            {cert.eventName || cert.event || 'TechSpark Official Event'}
                                                         </p>
                                                     </div>
                                                 </div>
 
-                                                <div className="p-6 bg-blue-50/50 rounded-3xl">
-                                                    <div className="flex items-center gap-3 mb-2">
-                                                        <Globe className="w-4 h-4 text-blue-600" />
-                                                        <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Achievement Domain</span>
-                                                    </div>
-                                                    <p className="text-lg font-black text-slate-800 uppercase">{cert.eventName || cert.event || 'TechSpark Official Event'}</p>
+                                                <div className="flex flex-col gap-3 justify-center">
+                                                    {(cert.certificateUrl || cert.link) && (
+                                                        <a
+                                                            href={cert.certificateUrl || cert.link}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className={`px-8 py-5 ${isWinner ? 'bg-gradient-to-r from-amber-500 to-yellow-500' : 'bg-blue-600'} text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-[1.05] transition-all flex items-center justify-center gap-3 shadow-lg ${isWinner ? 'shadow-amber-500/20' : 'shadow-blue-500/20'}`}
+                                                        >
+                                                            <Download className="w-4 h-4" /> {isWinner ? 'Download Winner Certificate' : 'Download Certificate'}
+                                                        </a>
+                                                    )}
                                                 </div>
                                             </div>
-
-                                            <div className="flex flex-col gap-3 justify-center">
-                                                {(cert.certificateUrl || cert.link) && (
-                                                    <a
-                                                        href={cert.certificateUrl || cert.link}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="px-8 py-5 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-900 hover:scale-[1.05] transition-all flex items-center justify-center gap-3 shadow-lg shadow-blue-500/20"
-                                                    >
-                                                        <Download className="w-4 h-4" /> Download PDF
-                                                    </a>
-                                                )}
-                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </motion.div>
                         )}
 

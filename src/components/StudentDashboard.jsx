@@ -605,7 +605,7 @@ const StudentDashboard = () => {
         const fetchCertificates = async () => {
             try {
                 const savedUrl = localStorage.getItem('certApiUrl');
-                const defaultUrl = 'https://script.google.com/macros/s/AKfycbxS_2h3kCOMCtzGf5u976FNcHjBlBsA1U0qO0ZeSkckanlGqiDmBYUoN73944hsyczpUA/exec';
+                const defaultUrl = 'https://script.google.com/macros/s/AKfycbxZvWwaHjkFrS_yK3akleByW1FtmnWu7ht-UYt6ztPbTTnWUuGUmhjZ_HsOWdu5aHruFw/exec';
                 const apiUrl = (!savedUrl || savedUrl.includes('AKfycbxVm9lozobl') || savedUrl.includes('AKfycbzkMhn07pp') || savedUrl.includes('AKfycbS_2h3kCOMCtzGf'))
                     ? defaultUrl
                     : savedUrl.trim();
@@ -1428,36 +1428,76 @@ const StudentDashboard = () => {
                                     </div>
                                 ) : certificates.length > 0 ? (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {certificates.map((cert, idx) => (
-                                            <div key={idx} className="p-5 bg-slate-50 rounded-[2rem] border border-transparent hover:border-blue-200 hover:bg-white hover:shadow-xl transition-all group">
-                                                <div className="flex items-start justify-between mb-4">
-                                                    <div className="w-10 h-10 bg-white shadow-sm rounded-xl flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                                                        <Award className="w-5 h-5" />
-                                                    </div>
-                                                    <span className="text-[8px] font-black text-slate-400 bg-white px-2 py-1 rounded-lg uppercase tracking-wider border border-slate-100">
-                                                        {cert.certificateId || cert.certID || 'ID:N/A'}
-                                                    </span>
-                                                </div>
-                                                <h3 className="text-sm font-black text-slate-800 uppercase leading-snug mb-1 group-hover:text-blue-600 transition-colors">
-                                                    {cert.eventName || cert.event || 'TechSpark Event'}
-                                                </h3>
-                                                <p className="text-[10px] text-slate-500 font-bold mb-4 flex items-center gap-1">
-                                                    <Calendar className="w-3 h-3" />
-                                                    {typeof cert.date === 'object' ? new Date(cert.date).toLocaleDateString() : cert.date || 'Multiple'}
-                                                </p>
+                                        {certificates.map((cert, idx) => {
+                                            // Determine role styling
+                                            const roleStyles = {
+                                                'WINNER_1ST': { bg: 'bg-gradient-to-r from-yellow-400 to-amber-500', text: 'text-white', label: '🥇 1st Place', border: 'border-yellow-300' },
+                                                'WINNER_2ND': { bg: 'bg-gradient-to-r from-slate-300 to-slate-400', text: 'text-white', label: '🥈 2nd Place', border: 'border-slate-300' },
+                                                'WINNER_3RD': { bg: 'bg-gradient-to-r from-amber-600 to-amber-700', text: 'text-white', label: '🥉 3rd Place', border: 'border-amber-400' },
+                                                'SPECIAL_MENTION': { bg: 'bg-gradient-to-r from-purple-500 to-indigo-500', text: 'text-white', label: '⭐ Special', border: 'border-purple-300' },
+                                                'PARTICIPANT': { bg: 'bg-slate-100', text: 'text-slate-600', label: '🎖️ Participant', border: 'border-slate-200' }
+                                            };
+                                            const role = cert.role || 'PARTICIPANT';
+                                            const roleStyle = roleStyles[role] || roleStyles['PARTICIPANT'];
 
-                                                {(cert.certificateUrl || cert.link) && (
-                                                    <a
-                                                        href={cert.certificateUrl || cert.link}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="w-full py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all flex items-center justify-center gap-2"
-                                                    >
-                                                        <Download className="w-3.5 h-3.5" /> Download PDF
-                                                    </a>
-                                                )}
-                                            </div>
-                                        ))}
+                                            // Determine event type styling
+                                            const typeStyles = {
+                                                'Hackathon': { bg: 'bg-purple-100', text: 'text-purple-700', icon: '🔮' },
+                                                'Workshop': { bg: 'bg-blue-100', text: 'text-blue-700', icon: '🛠️' },
+                                                'Quiz': { bg: 'bg-green-100', text: 'text-green-700', icon: '📝' },
+                                                'Competition': { bg: 'bg-pink-100', text: 'text-pink-700', icon: '🏆' },
+                                                'Seminar': { bg: 'bg-amber-100', text: 'text-amber-700', icon: '🎤' }
+                                            };
+                                            const eventType = cert.eventType || 'Workshop';
+                                            const typeStyle = typeStyles[eventType] || typeStyles['Workshop'];
+
+                                            const isWinner = role.includes('WINNER');
+
+                                            return (
+                                                <div key={idx} className={`p-5 rounded-[2rem] border-2 ${isWinner ? roleStyle.border + ' bg-gradient-to-br from-white to-amber-50/30' : 'border-slate-100 bg-slate-50'} hover:shadow-xl transition-all group relative overflow-hidden`}>
+                                                    {/* Winner Glow Effect */}
+                                                    {isWinner && (
+                                                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-yellow-200/30 to-transparent rounded-bl-[4rem]" />
+                                                    )}
+
+                                                    <div className="flex items-start justify-between mb-3 relative z-10">
+                                                        {/* Role Badge */}
+                                                        <span className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wide ${roleStyle.bg} ${roleStyle.text} shadow-sm`}>
+                                                            {roleStyle.label}
+                                                        </span>
+                                                        {/* Event Type Badge */}
+                                                        <span className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase ${typeStyle.bg} ${typeStyle.text}`}>
+                                                            {typeStyle.icon} {eventType}
+                                                        </span>
+                                                    </div>
+
+                                                    <h3 className={`text-sm font-black uppercase leading-snug mb-2 ${isWinner ? 'text-amber-900' : 'text-slate-800'} group-hover:text-blue-600 transition-colors`}>
+                                                        {cert.eventName || cert.event || 'TechSpark Event'}
+                                                    </h3>
+
+                                                    <div className="flex items-center gap-3 mb-4">
+                                                        <p className="text-[10px] text-slate-500 font-bold flex items-center gap-1">
+                                                            <Calendar className="w-3 h-3" />
+                                                            {cert.eventDate || cert.date || 'N/A'}
+                                                        </p>
+                                                        <span className="text-[8px] font-black text-slate-400 bg-white px-2 py-0.5 rounded border border-slate-100">
+                                                            {cert.certificateId || cert.certID || 'ID:N/A'}
+                                                        </span>
+                                                    </div>
+
+                                                    {(cert.certificateUrl || cert.link) && (
+                                                        <a
+                                                            href={cert.certificateUrl || cert.link}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className={`w-full py-3 ${isWinner ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-white border-amber-400' : 'bg-white border-slate-200 text-slate-600'} border rounded-xl font-black text-[9px] uppercase tracking-widest hover:scale-[1.02] hover:shadow-lg transition-all flex items-center justify-center gap-2`}
+                                                        >
+                                                            <Download className="w-3.5 h-3.5" /> {isWinner ? 'Download Winner Certificate' : 'Download Certificate'}
+                                                        </a>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 ) : (
                                     <div className="py-10 text-center space-y-3">
