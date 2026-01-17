@@ -39,7 +39,9 @@ import {
     QrCode,
     Activity,
     RotateCcw,
-    Zap
+    RotateCcw,
+    Zap,
+    FileSpreadsheet
 } from 'lucide-react';
 import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, deleteDoc, doc, where, updateDoc, increment, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -1002,6 +1004,72 @@ const OrganizerDashboard = () => {
         }
     };
 
+    const handleExportCertData = async (event) => {
+        if (!confirm(`Generate Certificate Data CSV for "${event.title}"?`)) return;
+        try {
+            // Fetch all successful registrations (Present or Attended)
+            // Note: In a real scenario, you might want to fetch winners specifically if stored.
+            // For now, we fetch all attended/present participants.
+            const q = query(
+                collection(db, 'registrations'),
+                where('eventId', '==', event.id)
+            );
+            const snapshot = await getDocs(q);
+            const regs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                .filter(r => r.status === 'Present' || r.isAttended);
+
+            if (regs.length === 0) {
+                alert("No attended participants found for this event.");
+                return;
+            }
+
+            // CSV Header: rollNumber, studentName, eventName, eventType, eventDate, role, certificateId, certificateUrl, issuedAt
+            const header = ['rollNumber', 'studentName', 'eventName', 'eventType', 'eventDate', 'role', 'certificateId', 'certificateUrl', 'issuedAt'];
+
+            const rows = regs.map(r => {
+                const rollNumber = r.studentRoll;
+                const studentName = r.studentName;
+                const eventName = event.title;
+                const eventType = event.type || 'Workshop'; // Default to Workshop if missing
+                const eventDate = event.startDate; // YYYY-MM-DD
+
+                // Determine Role (Default to PARTICIPANT, can be edited in Sheet)
+                // If we had winner data in registration, we could map it here.
+                let role = 'PARTICIPANT';
+                // Simple logic: if team role exists, use it? No, certificate role is usually Winner/Participant.
+
+                // Generate a placeholder ID
+                const certId = `TSCERT-${new Date().getFullYear()}-${Math.floor(Math.random() * 100000)}`;
+
+                return [
+                    rollNumber,
+                    studentName,
+                    eventName,
+                    eventType,
+                    eventDate,
+                    role,
+                    certId,
+                    '', // certificateUrl (Empty for Admin to fill)
+                    ''  // issuedAt (Empty)
+                ].map(field => `"${field}"`).join(','); // Quote fields to handle commas
+            });
+
+            const csvContent = [header.join(','), ...rows].join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `${event.title.replace(/\s+/g, '_')}_Certificate_Data.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+        } catch (error) {
+            console.error("Export Error:", error);
+            alert("Failed to export certificate data.");
+        }
+    };
+
     if (!organizer) {
         return (
             <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
@@ -1541,12 +1609,20 @@ const OrganizerDashboard = () => {
 
                                                             {/* COMPLETED: View Feedback */}
                                                             {event.status === 'COMPLETED' && (
-                                                                <button
-                                                                    onClick={() => handleViewFeedback(event.id)}
-                                                                    className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline flex items-center gap-1"
-                                                                >
-                                                                    <Activity className="w-3 h-3" /> Pulse
-                                                                </button>
+                                                                <>
+                                                                    <button
+                                                                        onClick={() => handleViewFeedback(event.id)}
+                                                                        className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline flex items-center gap-1"
+                                                                    >
+                                                                        <Activity className="w-3 h-3" /> Pulse
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleExportCertData(event)}
+                                                                        className="text-[10px] font-black text-emerald-600 uppercase tracking-widest hover:underline flex items-center gap-1"
+                                                                    >
+                                                                        <FileSpreadsheet className="w-3 h-3" /> Cert Data
+                                                                    </button>
+                                                                </>
                                                             )}
 
                                                             {/* Delete for non-LIVE/non-COMPLETED events */}
