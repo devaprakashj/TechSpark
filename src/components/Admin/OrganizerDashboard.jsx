@@ -39,7 +39,6 @@ import {
     QrCode,
     Activity,
     RotateCcw,
-    RotateCcw,
     Zap,
     FileSpreadsheet
 } from 'lucide-react';
