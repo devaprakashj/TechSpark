@@ -440,8 +440,8 @@ const CertificateVerification = () => {
                                                             >
                                                                 <Download className="w-4 h-4" /> {isWinner ? 'Download Winner Cert' : 'Download Certificate'}
                                                             </a>
-                                                            <a
-                                                                href={(() => {
+                                                            <button
+                                                                onClick={() => {
                                                                     const certId = cert.certificateId || cert.certID || '';
                                                                     const eventName = cert.eventName || 'TechSpark Event';
                                                                     const eventType = cert.eventType || 'Workshop';
@@ -460,14 +460,18 @@ const CertificateVerification = () => {
                                                                     shareText += `Thank you @TechSpark Club - RIT for this amazing opportunity! 🙏\n\n`;
                                                                     shareText += `#TechSpark #RIT #${eventType.replace(/\s+/g, '')} #Certificate #TechCommunity #Learning #Achievement #Certification`;
 
-                                                                    return `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(shareText)}`;
-                                                                })()}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="px-8 py-4 bg-[#0077B5] text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#005885] hover:scale-[1.05] transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#0077B5]/20"
+                                                                    const linkedInUrl = `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(shareText)}`;
+
+                                                                    // Show Pro Tip alert
+                                                                    alert('📢 Pro Tip: After LinkedIn opens, type @TechSpark in your post to tag our official page! 🏷️');
+
+                                                                    // Open LinkedIn
+                                                                    window.open(linkedInUrl, '_blank');
+                                                                }}
+                                                                className="px-8 py-4 bg-[#0077B5] text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#005885] hover:scale-[1.05] transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#0077B5]/20 cursor-pointer"
                                                             >
                                                                 <Linkedin className="w-4 h-4" /> Share on LinkedIn
-                                                            </a>
+                                                            </button>
                                                         </>
                                                     )}
                                                 </div>
