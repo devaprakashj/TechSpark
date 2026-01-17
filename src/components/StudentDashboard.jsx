@@ -445,7 +445,6 @@ const StudentDashboard = () => {
 
         // Also prevent PiP API
         if ('pictureInPictureEnabled' in document) {
-            const originalPiP = document.pictureInPictureEnabled;
             Object.defineProperty(document, 'pictureInPictureEnabled', {
                 get: () => false
             });
@@ -457,6 +456,128 @@ const StudentDashboard = () => {
 
         return () => observer.disconnect();
     }, [showQuizModal]);
+
+    // --- PROCTORING: Mobile Floating Window Detection (Continuous Polling) ---
+    useEffect(() => {
+        if (!showQuizModal) return;
+
+        // Store initial screen dimensions
+        const fullScreenWidth = window.screen.width;
+        const fullScreenHeight = window.screen.height;
+
+        // Continuous check every 500ms
+        const checkInterval = setInterval(async () => {
+            const currentWidth = window.innerWidth;
+            const currentHeight = window.innerHeight;
+
+            // Calculate ratio of current window to full screen
+            const widthRatio = currentWidth / fullScreenWidth;
+            const heightRatio = currentHeight / fullScreenHeight;
+
+            // If window is less than 60% of screen size, it's likely floating window or split view
+            // This is more aggressive for mobile
+            if (widthRatio < 0.6 || heightRatio < 0.6) {
+                const newCount = tabSwitchCount + 1;
+                setTabSwitchCount(newCount);
+                setProctorWarning(`🚨 FLOATING WINDOW DETECTED! Violation ${newCount}/${MAX_VIOLATIONS}. Use full screen!`);
+
+                // Log violation
+                if (activeQuizRegId) {
+                    try {
+                        const regRef = doc(db, 'registrations', activeQuizRegId);
+                        await updateDoc(regRef, {
+                            proctorViolations: newCount,
+                            lastViolationAt: serverTimestamp(),
+                            violationType: 'floating_window'
+                        });
+                    } catch (err) {
+                        console.error('Failed to log violation:', err);
+                    }
+                }
+
+                // Check for termination
+                if (newCount >= MAX_VIOLATIONS) {
+                    clearInterval(checkInterval);
+                    setProctorWarning('🚨 QUIZ TERMINATED: Floating window detected!');
+                    if (activeQuizRegId) {
+                        try {
+                            const regRef = doc(db, 'registrations', activeQuizRegId);
+                            await updateDoc(regRef, {
+                                status: 'FLAGGED',
+                                proctorViolations: newCount,
+                                terminatedAt: serverTimestamp(),
+                                terminationReason: 'Floating window / split screen detected'
+                            });
+                        } catch (err) {
+                            console.error('Failed to terminate quiz:', err);
+                        }
+                    }
+                    setTimeout(() => {
+                        alert('🚨 Your quiz has been terminated! Floating window or split screen usage is not allowed.');
+                        setShowQuizModal(false);
+                        setActiveQuizUrl('');
+                        setActiveQuizTitle('');
+                        setActiveQuizRegId(null);
+                        setIframeLoadCount(0);
+                        setShowFinishButton(false);
+                        setTabSwitchCount(0);
+                        setProctorWarning('');
+                        if (document.fullscreenElement) {
+                            document.exitFullscreen().catch(() => { });
+                        }
+                    }, 100);
+                }
+            }
+
+            // Also check if document is not focused (works better on mobile)
+            if (!document.hasFocus()) {
+                // Don't count as violation immediately, but show warning
+                setProctorWarning('⚠️ Please keep this window in focus!');
+            }
+        }, 500);
+
+        return () => clearInterval(checkInterval);
+    }, [showQuizModal, tabSwitchCount, activeQuizRegId]);
+
+    // --- PROCTORING: Intersection Observer (Detect if quiz is not fully visible) ---
+    useEffect(() => {
+        if (!showQuizModal) return;
+
+        const quizContainer = document.getElementById('quiz-proctored-container');
+        if (!quizContainer) return;
+
+        const observer = new IntersectionObserver(
+            async (entries) => {
+                entries.forEach(async (entry) => {
+                    // If quiz container is less than 90% visible
+                    if (entry.intersectionRatio < 0.9 && showQuizModal) {
+                        const newCount = tabSwitchCount + 1;
+                        setTabSwitchCount(newCount);
+                        setProctorWarning(`⚠️ QUIZ NOT FULLY VISIBLE! Violation ${newCount}/${MAX_VIOLATIONS}`);
+
+                        if (activeQuizRegId) {
+                            try {
+                                const regRef = doc(db, 'registrations', activeQuizRegId);
+                                await updateDoc(regRef, {
+                                    proctorViolations: newCount,
+                                    lastViolationAt: serverTimestamp()
+                                });
+                            } catch (err) {
+                                console.error('Failed to log violation:', err);
+                            }
+                        }
+
+                        setTimeout(() => setProctorWarning(''), 5000);
+                    }
+                });
+            },
+            { threshold: [0.9, 1.0] }
+        );
+
+        observer.observe(quizContainer);
+
+        return () => observer.disconnect();
+    }, [showQuizModal, tabSwitchCount, activeQuizRegId]);
 
 
     // Quiz Auto-Completion Logic
@@ -2288,7 +2409,7 @@ const StudentDashboard = () => {
                 {/* Quiz Modal - Embedded Google Form */}
                 <AnimatePresence>
                     {showQuizModal && activeQuizUrl && (
-                        <div className="fixed inset-0 bg-slate-900 z-[99999] flex flex-col" style={{ top: 0, left: 0, right: 0, bottom: 0, margin: 0, padding: 0 }}>
+                        <div id="quiz-proctored-container" className="fixed inset-0 bg-slate-900 z-[99999] flex flex-col" style={{ top: 0, left: 0, right: 0, bottom: 0, margin: 0, padding: 0 }}>
                             <motion.div
                                 initial={{ opacity: 0, y: -20 }}
                                 animate={{ opacity: 1, y: 0 }}
