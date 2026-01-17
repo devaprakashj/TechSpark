@@ -40,8 +40,7 @@ import {
     Clock,
     MapPin,
     UserCheck,
-    FileText,
-    FileSpreadsheet
+    FileText
 } from 'lucide-react';
 import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, where, updateDoc, doc, increment, deleteDoc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -102,7 +101,7 @@ const AdminDashboard = () => {
 
     // Certificate Verification API URL
     const [certApiUrl, setCertApiUrl] = useState(
-        localStorage.getItem('certApiUrl') || 'https://script.google.com/macros/s/AKfycbxVm9lozoblVwHV1iplRX5eGPtEAPX5XVQ5Zyg-GAmBA_9ZlMRxkvDz4H9AgW6QmOyf8Q/exec'
+        localStorage.getItem('certApiUrl') || 'https://script.google.com/macros/s/AKfycbxZvWwaHjkFrS_yK3akleByW1FtmnWu7ht-UYt6ztPbTTnWUuGUmhjZ_HsOWdu5aHruFw/exec'
     );
     const [isTestingApi, setIsTestingApi] = useState(false);
     // Student Management State
@@ -133,67 +132,6 @@ const AdminDashboard = () => {
     const fetchDashboardData = () => {
         console.log("Strategic Refresh Triggered");
         // Real-time sync is active via initDashboardSync, no manual fetch required
-    };
-
-
-
-    const handleExportCertData = async (event) => {
-        if (!confirm(`Generate Certificate Data CSV for "${event.title}"?`)) return;
-        try {
-            // Fetch all successful registrations (Present or Attended)
-            const q = query(
-                collection(db, 'registrations'),
-                where('eventId', '==', event.id)
-            );
-            const snapshot = await getDocs(q);
-            const regs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-                .filter(r => r.status === 'Present' || r.isAttended);
-
-            if (regs.length === 0) {
-                alert("No attended participants found for this event.");
-                return;
-            }
-
-            // CSV Header: rollNumber, studentName, eventName, eventType, eventDate, role, certificateId, certificateUrl, issuedAt
-            const header = ['rollNumber', 'studentName', 'eventName', 'eventType', 'eventDate', 'role', 'certificateId', 'certificateUrl', 'issuedAt'];
-
-            const rows = regs.map(r => {
-                const rollNumber = r.studentRoll;
-                const studentName = r.studentName;
-                const eventName = event.title;
-                const eventType = event.type || 'Workshop';
-                const eventDate = event.date || ''; // AdminDashboard uses event.date usually
-
-                let role = 'PARTICIPANT';
-                const certId = `TSCERT-${new Date().getFullYear()}-${Math.floor(Math.random() * 100000)}`;
-
-                return [
-                    rollNumber,
-                    studentName,
-                    eventName,
-                    eventType,
-                    eventDate,
-                    role,
-                    certId,
-                    '',
-                    ''
-                ].map(field => `"${field}"`).join(',');
-            });
-
-            const csvContent = [header.join(','), ...rows].join('\n');
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.setAttribute('href', url);
-            link.setAttribute('download', `${event.title.replace(/\s+/g, '_')}_Certificate_Data.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-        } catch (error) {
-            console.error("Export Error:", error);
-            alert("Failed to export certificate data.");
-        }
     };
 
     const navigate = useNavigate();
@@ -1820,143 +1758,6 @@ const AdminDashboard = () => {
                     </div>
                 );
 
-
-
-            case 'certificates':
-                return (
-                    <div className="animate-in slide-in-from-bottom-4 duration-500 text-left">
-                        <div className="mb-8">
-                            <h3 className="text-3xl font-black text-slate-800 italic uppercase">Certificate Repository</h3>
-                            <p className="text-slate-500 font-medium">Track eligibility and verify issued credentials</p>
-                        </div>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-                            {/* Live Verification Console */}
-                            <div className="lg:col-span-1 bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-50 rounded-bl-full -mr-16 -mt-16 pointer-events-none" />
-                                <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight mb-2 relative z-10">Live Verification</h4>
-                                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-6 relative z-10">Check Google Sheet DB</p>
-
-                                <div className="space-y-4 relative z-10">
-                                    <div>
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Student Roll Number</label>
-                                        <div className="relative mt-1">
-                                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                            <input
-                                                type="text"
-                                                placeholder="e.g. 953621104001"
-                                                className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-widest outline-none focus:ring-2 focus:ring-purple-500/20 transition-all font-mono"
-                                                onKeyDown={async (e) => {
-                                                    if (e.key === 'Enter') {
-                                                        const roll = e.target.value;
-                                                        if (!roll) return;
-                                                        e.target.disabled = true;
-                                                        const btn = e.target.nextSibling; // Not reliable, better to use state but trying inline for brevity or standard React pattern
-                                                        // Using alert for specific output for now or console
-                                                        try {
-                                                            const response = await fetch(`${certApiUrl}?rollNumber=${roll}`);
-                                                            const data = await response.json();
-                                                            console.log(data);
-                                                            if (data.length > 0) {
-                                                                alert(`✅ Found ${data.length} certificates for ${roll}!\nLatest: ${data[0].eventName}`);
-                                                            } else {
-                                                                alert(`❌ No certificates found for ${roll} in the database.`);
-                                                            }
-                                                        } catch (err) {
-                                                            alert("Error fetching data: " + err.message);
-                                                        }
-                                                        e.target.disabled = false;
-                                                        e.target.focus();
-                                                    }
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="p-4 bg-purple-50 rounded-2xl border border-purple-100 flex items-start gap-3">
-                                        <Info className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
-                                        <p className="text-[10px] text-purple-800 leading-relaxed font-bold">
-                                            Press <kbd className="font-mono bg-white px-1 rounded border border-purple-200">ENTER</kbd> to search directly in the connected Google Sheet Database.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Stats */}
-                            <div className="lg:col-span-2 grid grid-cols-2 gap-6">
-                                <div className="bg-emerald-50 p-8 rounded-[2.5rem] border border-emerald-100 flex flex-col justify-center">
-                                    <h4 className="text-4xl font-black text-emerald-600 mb-2 tabular-nums">
-                                        {registrations.filter(r => r.status === 'Present' || r.isAttended).length}
-                                    </h4>
-                                    <p className="text-xs font-black text-emerald-800/60 uppercase tracking-widest">Total Eligible Graduates</p>
-                                </div>
-                                <div className="bg-blue-50 p-8 rounded-[2.5rem] border border-blue-100 flex flex-col justify-center">
-                                    <h4 className="text-4xl font-black text-blue-600 mb-2 tabular-nums">
-                                        {registrations.filter(r => (r.status === 'Present' || r.isAttended) && events.find(e => e.id === r.eventId)?.status === 'COMPLETED').length}
-                                    </h4>
-                                    <p className="text-xs font-black text-blue-800/60 uppercase tracking-widest">Pending Issuance (Est.)</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Recent Eligibility Table */}
-                        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
-                            <div className="p-8 border-b border-slate-100">
-                                <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight italic">Eligibility Stream</h3>
-                                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Students marked 'Present' in recent events</p>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left">
-                                    <thead className="bg-[#fcfdfe] text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                                        <tr>
-                                            <th className="px-8 py-5">Candidate</th>
-                                            <th className="px-8 py-5">Event Detail</th>
-                                            <th className="px-8 py-5 text-center">Eligibility Status</th>
-                                            <th className="px-8 py-5 text-right">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-50">
-                                        {registrations
-                                            .filter(r => r.status === 'Present' || r.isAttended)
-                                            .sort((a, b) => b.timestamp?.seconds - a.timestamp?.seconds)
-                                            .slice(0, 50)
-                                            .map((reg) => {
-                                                const event = events.find(e => e.id === reg.eventId);
-                                                return (
-                                                    <tr key={reg.id} className="hover:bg-slate-50/50 transition-colors group">
-                                                        <td className="px-8 py-6">
-                                                            <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{reg.studentName}</p>
-                                                            <p className="text-[10px] font-mono font-bold text-slate-400">{reg.studentRoll}</p>
-                                                        </td>
-                                                        <td className="px-8 py-6">
-                                                            <p className="text-sm font-bold text-slate-700 uppercase italic">{event?.title || 'Unknown Event'}</p>
-                                                            <p className="text-[10px] text-blue-600 font-black uppercase tracking-widest">{event?.date}</p>
-                                                        </td>
-                                                        <td className="px-8 py-6 text-center">
-                                                            <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-[10px] font-black uppercase tracking-widest border border-emerald-200 flex items-center justify-center gap-1 mx-auto w-fit">
-                                                                <CheckCircle className="w-3 h-3" /> Eligible
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-8 py-6 text-right">
-                                                            <button
-                                                                onClick={() => {
-                                                                    // We could verify specifically this user
-                                                                    window.open(`${certApiUrl}?rollNumber=${reg.studentRoll}`, '_blank');
-                                                                }}
-                                                                className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline"
-                                                            >
-                                                                Verify Database
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                );
-
             case 'all_events':
                 return (
                     <div className="animate-in slide-in-from-bottom-4 duration-500 text-left">
@@ -2045,31 +1846,18 @@ const AdminDashboard = () => {
                                                 </span>
                                             </td>
                                             <td className="px-8 py-6 text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    {event.status === 'COMPLETED' && (
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); handleExportCertData(event); }}
-                                                            className="px-3 py-2 bg-emerald-100 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2"
-                                                            title="Export Certificate Data"
-                                                        >
-                                                            <FileSpreadsheet className="w-4 h-4" />
-                                                            <span className="text-[10px] font-black uppercase">Cert Data</span>
-                                                        </button>
-                                                    )}
-                                                    {event.type === 'Quiz' && (
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); handleOpenQuizSettings(event); }}
-                                                            className="px-3 py-2 bg-purple-100 text-purple-600 rounded-xl hover:bg-purple-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2"
-                                                            title="Quiz Settings"
-                                                        >
-                                                            <FileText className="w-4 h-4" />
-                                                            <span className="text-[10px] font-black uppercase">Settings</span>
-                                                        </button>
-                                                    )}
-                                                    {event.type !== 'Quiz' && event.status !== 'COMPLETED' && (
-                                                        <span className="text-[10px] text-slate-300 font-bold uppercase">-</span>
-                                                    )}
-                                                </div>
+                                                {event.type === 'Quiz' ? (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleOpenQuizSettings(event); }}
+                                                        className="px-3 py-2 bg-purple-100 text-purple-600 rounded-xl hover:bg-purple-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2 ml-auto"
+                                                        title="Quiz Settings"
+                                                    >
+                                                        <FileText className="w-4 h-4" />
+                                                        <span className="text-[10px] font-black uppercase">Settings</span>
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-[10px] text-slate-300 font-bold uppercase">-</span>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
@@ -2667,7 +2455,6 @@ const AdminDashboard = () => {
                             { id: 'approvals', icon: <CalendarCheck className="w-5 h-5" />, label: 'Event Approvals' },
                             { id: 'all_events', icon: <Calendar className="w-5 h-5" />, label: 'All Events' },
                             { id: 'registrations', icon: <ClipboardList className="w-5 h-5" />, label: 'Registrations' },
-                            { id: 'certificates', icon: <Award className="w-5 h-5" />, label: 'Certificates' },
                             { id: 'reports', icon: <PieChart className="w-5 h-5" />, label: 'Reports' },
                             { id: 'submissions', icon: <Activity className="w-5 h-5" />, label: 'Quiz Scores' },
                             { id: 'settings', icon: <Settings className="w-5 h-5" />, label: 'Settings' },
