@@ -818,13 +818,21 @@ const StudentDashboard = () => {
                     <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/50 rounded-full blur-3xl -mr-32 -mt-32" />
 
                     <div className="relative z-10">
-                        <div className="relative w-24 h-24 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center text-white text-4xl font-extrabold shadow-xl border-4 border-white">
-                            {user.fullName?.charAt(0)}
+                        <div className="relative w-24 h-24 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center text-white text-4xl font-extrabold shadow-xl border-4 border-white overflow-hidden">
+                            {user.photoURL ? (
+                                <img
+                                    src={user.photoURL}
+                                    alt={user.fullName}
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                user.fullName?.charAt(0)
+                            )}
                             <motion.div
                                 initial={{ scale: 0 }}
                                 animate={{ scale: 1 }}
                                 transition={{ type: 'spring', damping: 12, stiffness: 200, delay: 0.5 }}
-                                className="absolute -bottom-2 -right-2 w-8 h-8 bg-white rounded-full p-1 shadow-lg border border-slate-100 flex items-center justify-center group cursor-pointer"
+                                className="absolute -bottom-2 -right-2 w-8 h-8 bg-white rounded-full p-1 shadow-lg border border-slate-100 flex items-center justify-center group cursor-pointer z-20"
                             >
                                 <div className="w-full h-full bg-blue-600 rounded-full flex items-center justify-center shadow-inner">
                                     <CheckCircle className="w-4 h-4 text-white" />

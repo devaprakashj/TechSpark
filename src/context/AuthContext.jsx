@@ -146,6 +146,7 @@ export const AuthProvider = ({ children }) => {
                 uid: currentUser.uid,
                 email: currentUser.email,
                 fullName: currentUser.displayName,
+                photoURL: currentUser.photoURL, // Capture Google profile pic
                 rollNumber: '', // Required manual entry or scan as per protocol
                 department: department,
                 admissionYear: admissionYear,
@@ -160,6 +161,7 @@ export const AuthProvider = ({ children }) => {
                 uid: currentUser.uid,
                 email: currentUser.email,
                 fullName: currentUser.displayName,
+                photoURL: currentUser.photoURL,
                 rollNumber: '',
                 department: '',
                 admissionYear: '',
@@ -202,6 +204,7 @@ export const AuthProvider = ({ children }) => {
         const userData = {
             fullName: pendingUser.fullName,
             email: pendingUser.email,
+            photoURL: pendingUser.photoURL || null, // Save to Firestore
             rollNumber: finalData.rollNumber,
             department: finalData.department,
             section: finalData.section,
