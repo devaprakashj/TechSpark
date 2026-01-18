@@ -840,10 +840,16 @@ const OrganizerDashboard = () => {
             const malpracticeCount = eventRegs.filter(r => r.status === 'FLAGGED' || r.proctorViolations >= 3).length;
             const minorViolationsCount = eventRegs.filter(r => r.proctorViolations && r.proctorViolations > 0 && r.proctorViolations < 3).length;
 
+            // On-Spot Registration count
+            const onSpotCount = eventRegs.filter(r => r.isOnSpot).length;
+            const preRegisteredCount = eventRegs.length - onSpotCount;
+
             summaryMetrics = [
                 ['CONFIRMED ATTENDEES', attended.length.toString()],
                 ['ATTENDANCE EFFICIENCY', `${attendanceRate}% OF REGISTRATIONS`],
                 ['ENGAGEMENT MIX', `${teamAttendance} TEAM | ${individualAttendance} INDIVIDUAL`],
+                ['📋 PRE-REGISTERED', preRegisteredCount.toString()],
+                ['🚶 ON-SPOT REGISTRATIONS', onSpotCount > 0 ? `${onSpotCount} WALK-INS` : '0'],
                 ['ABSENTEE COUNT', (eventRegs.length - attended.length - malpracticeCount).toString()],
                 ...(event.type === 'Quiz' ? [
                     ['🚩 MALPRACTICE (3+ FLAGS)', malpracticeCount > 0 ? `${malpracticeCount} TERMINATED` : '0 - ALL CLEAR'],
@@ -893,6 +899,9 @@ const OrganizerDashboard = () => {
                     // Present with minor violations (1-2)
                     if (r.proctorViolations && r.proctorViolations > 0) {
                         row.push(`PRESENT (${r.proctorViolations} FLAG${r.proctorViolations > 1 ? 'S' : ''})`);
+                    } else if (r.isOnSpot) {
+                        // On-Spot Registration marking
+                        row.push('PRESENT (ON-SPOT)');
                     } else {
                         row.push('PRESENT');
                     }
@@ -979,6 +988,11 @@ const OrganizerDashboard = () => {
                     if (data.section === 'body' && data.cell.text[0] === 'MALPRACTICE') {
                         data.cell.styles.textColor = [234, 88, 12]; // Orange
                         data.cell.styles.fillColor = [254, 243, 199]; // Light orange bg
+                        data.cell.styles.fontStyle = 'bold';
+                    }
+                    if (data.section === 'body' && data.cell.text[0]?.includes('ON-SPOT')) {
+                        data.cell.styles.textColor = [37, 99, 235]; // Blue
+                        data.cell.styles.fillColor = [219, 234, 254]; // Light blue bg
                         data.cell.styles.fontStyle = 'bold';
                     }
                 }

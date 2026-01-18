@@ -19,6 +19,7 @@ import {
     Zap,
     ExternalLink,
     AlertCircle,
+    AlertTriangle,
     Download,
     QrCode,
     Rocket,
@@ -98,6 +99,7 @@ const StudentDashboard = () => {
     const MAX_VIOLATIONS = 3;
     const [showQuizRulesModal, setShowQuizRulesModal] = useState(false);
     const [pendingQuizData, setPendingQuizData] = useState(null);
+    const [showFullscreenOverlay, setShowFullscreenOverlay] = useState(false);
 
     // Live Clock Effect
     useEffect(() => {
@@ -197,6 +199,229 @@ const StudentDashboard = () => {
 
         document.addEventListener('visibilitychange', handleVisibilityChange);
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [showQuizModal, tabSwitchCount, activeQuizRegId]);
+
+    // --- PROCTORING: Fullscreen Enforcement ---
+    useEffect(() => {
+        if (!showQuizModal) return;
+
+        // Request fullscreen when quiz starts
+        const enterFullscreen = async () => {
+            try {
+                if (document.documentElement.requestFullscreen) {
+                    await document.documentElement.requestFullscreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    await document.documentElement.webkitRequestFullscreen();
+                } else if (document.documentElement.msRequestFullscreen) {
+                    await document.documentElement.msRequestFullscreen();
+                }
+            } catch (err) {
+                console.log('Fullscreen request failed:', err);
+            }
+        };
+
+        enterFullscreen();
+
+        // Detect fullscreen exit
+        const handleFullscreenChange = async () => {
+            if (!document.fullscreenElement && !document.webkitFullscreenElement && showQuizModal) {
+                const newCount = tabSwitchCount + 1;
+                setTabSwitchCount(newCount);
+                setProctorWarning(`🚨 FULLSCREEN EXIT! VIOLATION ${newCount}/${MAX_VIOLATIONS}`);
+
+                if (activeQuizRegId) {
+                    try {
+                        const regRef = doc(db, 'registrations', activeQuizRegId);
+                        await updateDoc(regRef, {
+                            proctorViolations: newCount,
+                            lastViolationType: 'Fullscreen Exit (ESC)',
+                            lastViolationAt: serverTimestamp()
+                        });
+                    } catch (err) {
+                        console.error('Failed to log violation:', err);
+                    }
+                }
+
+                if (newCount >= MAX_VIOLATIONS) {
+                    setProctorWarning('🚨 QUIZ TERMINATED: Too many violations!');
+                    setTimeout(() => {
+                        alert('🚨 Your quiz has been TERMINATED due to multiple violations.\n\nThis attempt has been FLAGGED for review.');
+                        setShowQuizModal(false);
+                        setShowFullscreenOverlay(false);
+                        setActiveQuizUrl('');
+                        setActiveQuizTitle('');
+                        setActiveQuizRegId(null);
+                        setTabSwitchCount(0);
+                        setProctorWarning('');
+                    }, 100);
+                } else {
+                    // Show blocking overlay - user must click to re-enter fullscreen
+                    setShowFullscreenOverlay(true);
+                    setTimeout(() => setProctorWarning(''), 5000);
+                }
+            } else if (document.fullscreenElement && showFullscreenOverlay) {
+                // Fullscreen re-entered, hide overlay
+                setShowFullscreenOverlay(false);
+            }
+        };
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+            // Exit fullscreen on cleanup
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(() => { });
+            }
+        };
+    }, [showQuizModal, tabSwitchCount, activeQuizRegId]);
+
+    // --- PROCTORING: Copy-Paste & Right-Click Block ---
+    useEffect(() => {
+        if (!showQuizModal) return;
+
+        // Block right-click
+        const handleContextMenu = (e) => {
+            e.preventDefault();
+            setProctorWarning('⚠️ Right-click is DISABLED during quiz!');
+            setTimeout(() => setProctorWarning(''), 3000);
+            return false;
+        };
+
+        // Block copy, cut, paste
+        const handleCopy = (e) => {
+            e.preventDefault();
+            setProctorWarning('⚠️ Copy-Paste is DISABLED during quiz!');
+            setTimeout(() => setProctorWarning(''), 3000);
+            return false;
+        };
+
+        // Block text selection
+        const handleSelectStart = (e) => {
+            e.preventDefault();
+            return false;
+        };
+
+        document.addEventListener('contextmenu', handleContextMenu);
+        document.addEventListener('copy', handleCopy);
+        document.addEventListener('cut', handleCopy);
+        document.addEventListener('paste', handleCopy);
+        document.addEventListener('selectstart', handleSelectStart);
+
+        return () => {
+            document.removeEventListener('contextmenu', handleContextMenu);
+            document.removeEventListener('copy', handleCopy);
+            document.removeEventListener('cut', handleCopy);
+            document.removeEventListener('paste', handleCopy);
+            document.removeEventListener('selectstart', handleSelectStart);
+        };
+    }, [showQuizModal]);
+
+    // --- PROCTORING: Keyboard Shortcut Block ---
+    useEffect(() => {
+        if (!showQuizModal) return;
+
+        const handleKeyDown = async (e) => {
+            const blockedKeys = [
+                // Developer tools
+                { key: 'F12' },
+                { key: 'I', ctrl: true, shift: true }, // Ctrl+Shift+I
+                { key: 'J', ctrl: true, shift: true }, // Ctrl+Shift+J
+                { key: 'C', ctrl: true, shift: true }, // Ctrl+Shift+C
+                { key: 'U', ctrl: true }, // Ctrl+U (View Source)
+                // Screenshot
+                { key: 'PrintScreen' },
+                { key: 'S', ctrl: true, shift: true }, // Ctrl+Shift+S (Screenshot)
+                // Browser navigation
+                { key: 'T', ctrl: true }, // New Tab
+                { key: 'N', ctrl: true }, // New Window
+                { key: 'W', ctrl: true }, // Close Tab
+                { key: 'Tab', alt: true }, // Alt+Tab
+                { key: 'Escape' }, // Escape (exit fullscreen)
+                // Copy-Paste shortcuts
+                { key: 'C', ctrl: true },
+                { key: 'V', ctrl: true },
+                { key: 'X', ctrl: true },
+                { key: 'A', ctrl: true }, // Select All
+            ];
+
+            const isBlocked = blockedKeys.some(blocked => {
+                const keyMatch = e.key === blocked.key || e.code === blocked.key;
+                const ctrlMatch = blocked.ctrl ? (e.ctrlKey || e.metaKey) : true;
+                const shiftMatch = blocked.shift ? e.shiftKey : true;
+                const altMatch = blocked.alt ? e.altKey : true;
+                return keyMatch && ctrlMatch && shiftMatch && altMatch;
+            });
+
+            if (isBlocked) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                // Special handling for dev tools attempts
+                if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && ['I', 'J', 'C'].includes(e.key))) {
+                    const newCount = tabSwitchCount + 1;
+                    setTabSwitchCount(newCount);
+                    setProctorWarning(`🚨 DEV TOOLS ATTEMPT DETECTED! Violation ${newCount}/${MAX_VIOLATIONS}`);
+
+                    if (activeQuizRegId) {
+                        try {
+                            const regRef = doc(db, 'registrations', activeQuizRegId);
+                            await updateDoc(regRef, {
+                                proctorViolations: newCount,
+                                lastViolationType: 'DevTools Attempt',
+                                lastViolationAt: serverTimestamp()
+                            });
+                        } catch (err) {
+                            console.error('Failed to log violation:', err);
+                        }
+                    }
+
+                    if (newCount >= MAX_VIOLATIONS) {
+                        alert('🚨 Quiz terminated due to suspicious activity!');
+                        setShowQuizModal(false);
+                        setActiveQuizUrl('');
+                        setTabSwitchCount(0);
+                    }
+                } else {
+                    setProctorWarning('⚠️ This keyboard shortcut is BLOCKED during quiz!');
+                }
+
+                setTimeout(() => setProctorWarning(''), 3000);
+                return false;
+            }
+        };
+
+        // Block before unload (closing/refreshing)
+        const handleBeforeUnload = (e) => {
+            e.preventDefault();
+            e.returnValue = 'Are you sure you want to leave? Your quiz progress may be lost!';
+            return e.returnValue;
+        };
+
+        // Block browser back button (including mobile back)
+        const handlePopState = (e) => {
+            e.preventDefault();
+            // Push state back to prevent navigation
+            window.history.pushState(null, '', window.location.href);
+            setProctorWarning('⚠️ BACK BUTTON is DISABLED! Complete the quiz first.');
+            setTimeout(() => setProctorWarning(''), 4000);
+        };
+
+        // Push initial state to enable popstate blocking
+        window.history.pushState(null, '', window.location.href);
+        window.history.pushState(null, '', window.location.href);
+
+        document.addEventListener('keydown', handleKeyDown, true);
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        window.addEventListener('popstate', handlePopState);
+
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown, true);
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            window.removeEventListener('popstate', handlePopState);
+        };
     }, [showQuizModal, tabSwitchCount, activeQuizRegId]);
 
     // Quiz Auto-Completion Logic
@@ -2124,6 +2349,74 @@ const StudentDashboard = () => {
                                         <p className="text-white font-black text-sm md:text-base uppercase tracking-wide text-center">
                                             {proctorWarning}
                                         </p>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            {/* Fullscreen Re-entry Overlay - BLOCKING */}
+                            <AnimatePresence>
+                                {showFullscreenOverlay && (
+                                    <motion.div
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        className="absolute inset-0 z-[100002] bg-black/95 backdrop-blur-lg flex flex-col items-center justify-center p-8"
+                                    >
+                                        <motion.div
+                                            initial={{ scale: 0.8, y: 20 }}
+                                            animate={{ scale: 1, y: 0 }}
+                                            className="text-center max-w-md"
+                                        >
+                                            <div className="w-24 h-24 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-red-500 animate-pulse">
+                                                <AlertTriangle className="w-12 h-12 text-red-500" />
+                                            </div>
+                                            <h2 className="text-3xl font-black text-white uppercase tracking-tight mb-4">
+                                                ⚠️ Fullscreen Required!
+                                            </h2>
+                                            <p className="text-lg text-red-400 font-bold uppercase tracking-wide mb-2">
+                                                Violation {tabSwitchCount} of {MAX_VIOLATIONS}
+                                            </p>
+                                            <p className="text-slate-400 font-medium mb-8">
+                                                You exited fullscreen mode. This has been recorded as a violation.
+                                                <br />
+                                                <span className="text-red-400 font-bold">DO NOT press ESC again!</span>
+                                            </p>
+                                            <button
+                                                onClick={() => {
+                                                    // Request fullscreen using direct DOM method
+                                                    const elem = document.documentElement;
+
+                                                    const requestFS = elem.requestFullscreen ||
+                                                        elem.webkitRequestFullscreen ||
+                                                        elem.mozRequestFullScreen ||
+                                                        elem.msRequestFullscreen;
+
+                                                    if (requestFS) {
+                                                        requestFS.call(elem).then(() => {
+                                                            setShowFullscreenOverlay(false);
+                                                        }).catch((err) => {
+                                                            console.warn('Fullscreen request failed:', err);
+                                                            // Still hide overlay so student can continue
+                                                            setShowFullscreenOverlay(false);
+                                                            alert('⚠️ Could not enter fullscreen. Please press F11 manually to go fullscreen, or continue without fullscreen.\n\nNote: Additional ESC presses will still count as violations!');
+                                                        });
+                                                    } else {
+                                                        // Fallback for browsers that don't support fullscreen
+                                                        setShowFullscreenOverlay(false);
+                                                        alert('⚠️ Your browser does not support fullscreen. Please press F11 to go fullscreen manually.');
+                                                    }
+                                                }}
+                                                className="px-10 py-5 bg-gradient-to-r from-red-600 to-orange-600 text-white font-black text-lg uppercase tracking-widest rounded-2xl shadow-2xl shadow-red-500/30 hover:shadow-red-500/50 transition-all transform hover:scale-105 animate-pulse"
+                                            >
+                                                🔒 Click to Re-Enter Fullscreen & Continue
+                                            </button>
+                                            <p className="text-xs text-slate-500 mt-4">
+                                                Or press <kbd className="px-2 py-1 bg-slate-800 rounded text-white font-mono">F11</kbd> to manually enter fullscreen
+                                            </p>
+                                            <p className="text-xs text-slate-600 font-bold uppercase tracking-widest mt-4">
+                                                {MAX_VIOLATIONS - tabSwitchCount} violations remaining before termination
+                                            </p>
+                                        </motion.div>
                                     </motion.div>
                                 )}
                             </AnimatePresence>
