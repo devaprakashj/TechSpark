@@ -19,6 +19,7 @@ import OrganizerDashboard from './components/Admin/OrganizerDashboard';
 import SecretaryDashboard from './components/Admin/SecretaryDashboard';
 import CheckinConsole from './components/Admin/CheckinConsole';
 import CertificateVerification from './components/CertificateVerification';
+import ScrollToTop from './components/ScrollToTop';
 import './index.css';
 
 const MainContent = () => {
@@ -80,6 +81,7 @@ function App() {
   return (
     <AuthProvider>
       <Router>
+        <ScrollToTop />
         <div className="min-h-screen bg-white">
           <Routes>
             {/* Admin & Organizer Routes (No Navbar/Footer) */}
