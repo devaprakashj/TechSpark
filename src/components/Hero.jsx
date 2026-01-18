@@ -60,16 +60,19 @@ const Hero = () => {
                     <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-full mb-8">
                         <Sparkles className="w-4 h-4 text-blue-600" />
                         <span className="text-sm font-medium text-blue-700">
-                            Igniting Innovation Since 2020
+                            TechSpark - Official Technical Club of RIT Chennai
                         </span>
                     </div>
 
-                    {/* Headline */}
-                    <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold mb-6 letter-tight leading-snug flex flex-col items-center">
+                    {/* Headline for SEO */}
+                    <h1 className="sr-only">TechSpark Club - Rajalakshmi Institute of Technology (RIT), Chennai</h1>
+
+                    <h2 className="text-4xl md:text-6xl lg:text-7xl font-extrabold mb-6 letter-tight leading-snug flex flex-col items-center">
                         <TypewriterText
                             text="Welcome to TechSpark"
                             speed={80}
                             className="gradient-text"
+                            aria-label="Welcome to TechSpark Club RIT Chennai"
                         />
                         <div className="flex items-center justify-center gap-3 md:gap-4 -mt-2">
 

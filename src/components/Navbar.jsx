@@ -117,7 +117,7 @@ const Navbar = () => {
                         className="flex items-center cursor-pointer"
                         onClick={() => scrollToSection('home')}
                     >
-                        <img src={logo} alt="TechSpark Logo" className="h-12 w-auto object-contain" />
+                        <img src={logo} alt="Official TechSpark Club RIT Chennai Logo" className="h-12 w-auto object-contain" />
                     </Link>
 
                     {/* Desktop Menu */}
