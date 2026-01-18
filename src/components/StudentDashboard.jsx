@@ -100,57 +100,20 @@ const StudentDashboard = () => {
     const MAX_VIOLATIONS = 3;
     const [showQuizRulesModal, setShowQuizRulesModal] = useState(false);
     const [pendingQuizData, setPendingQuizData] = useState(null);
-    const [showFullscreenOverlay, setShowFullscreenOverlay] = useState(false);
 
     // --- RELOAD DETECTION: Check if quiz was active before page reload ---
     useEffect(() => {
         const savedQuizState = sessionStorage.getItem('techspark_quiz_active');
         if (savedQuizState) {
             const quizData = JSON.parse(savedQuizState);
-            // Quiz was active and page was reloaded - this is a violation!
-            const newViolationCount = (quizData.violations || 0) + 1;
+            // Restore quiz state (Note: Violation count now only increments on actual tab switches per user request)
+            setShowQuizModal(true);
+            setActiveQuizUrl(quizData.url);
+            setActiveQuizTitle(quizData.title);
+            setActiveQuizRegId(quizData.regId);
+            setTabSwitchCount(quizData.violations || 0);
 
-            if (newViolationCount >= MAX_VIOLATIONS) {
-                // Too many violations - terminate
-                sessionStorage.removeItem('techspark_quiz_active');
-                alert('🚨 QUIZ TERMINATED!\n\nYou refreshed the page during the quiz. This is a serious violation.\n\nYour attempt has been FLAGGED for review.');
-
-                // Update Firebase
-                if (quizData.regId) {
-                    const regRef = doc(db, 'registrations', quizData.regId);
-                    updateDoc(regRef, {
-                        status: 'FLAGGED',
-                        proctorViolations: newViolationCount,
-                        terminatedAt: serverTimestamp(),
-                        terminationReason: 'Page Reload Violation'
-                    }).catch(console.error);
-                }
-            } else {
-                // Restore quiz state but count as violation
-                alert(`⚠️ WARNING: Page Reload Detected!\n\nViolation ${newViolationCount} of ${MAX_VIOLATIONS}\n\nDO NOT refresh the page again!\nYour quiz will be terminated after ${MAX_VIOLATIONS} violations.`);
-
-                setShowQuizModal(true);
-                setActiveQuizUrl(quizData.url);
-                setActiveQuizTitle(quizData.title);
-                setActiveQuizRegId(quizData.regId);
-                setTabSwitchCount(newViolationCount);
-
-                // Update session storage with new violation count
-                sessionStorage.setItem('techspark_quiz_active', JSON.stringify({
-                    ...quizData,
-                    violations: newViolationCount
-                }));
-
-                // Update Firebase
-                if (quizData.regId) {
-                    const regRef = doc(db, 'registrations', quizData.regId);
-                    updateDoc(regRef, {
-                        proctorViolations: newViolationCount,
-                        lastViolationType: 'Page Reload',
-                        lastViolationAt: serverTimestamp()
-                    }).catch(console.error);
-                }
-            }
+            alert(`⚠️ Quiz Session Restored!\n\nProctoring is active. Please complete the quiz without switching tabs.`);
         }
     }, []);
 
@@ -254,82 +217,7 @@ const StudentDashboard = () => {
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
     }, [showQuizModal, tabSwitchCount, activeQuizRegId]);
 
-    // --- PROCTORING: Fullscreen Enforcement ---
-    useEffect(() => {
-        if (!showQuizModal) return;
 
-        // Request fullscreen when quiz starts
-        const enterFullscreen = async () => {
-            try {
-                if (document.documentElement.requestFullscreen) {
-                    await document.documentElement.requestFullscreen();
-                } else if (document.documentElement.webkitRequestFullscreen) {
-                    await document.documentElement.webkitRequestFullscreen();
-                } else if (document.documentElement.msRequestFullscreen) {
-                    await document.documentElement.msRequestFullscreen();
-                }
-            } catch (err) {
-                console.log('Fullscreen request failed:', err);
-            }
-        };
-
-        enterFullscreen();
-
-        // Detect fullscreen exit
-        const handleFullscreenChange = async () => {
-            if (!document.fullscreenElement && !document.webkitFullscreenElement && showQuizModal && !isQuizFinishing.current) {
-                const newCount = tabSwitchCount + 1;
-                setTabSwitchCount(newCount);
-                setProctorWarning(`🚨 FULLSCREEN EXIT! VIOLATION ${newCount}/${MAX_VIOLATIONS}`);
-
-                if (activeQuizRegId) {
-                    try {
-                        const regRef = doc(db, 'registrations', activeQuizRegId);
-                        await updateDoc(regRef, {
-                            proctorViolations: newCount,
-                            lastViolationType: 'Fullscreen Exit (ESC)',
-                            lastViolationAt: serverTimestamp()
-                        });
-                    } catch (err) {
-                        console.error('Failed to log violation:', err);
-                    }
-                }
-
-                if (newCount >= MAX_VIOLATIONS) {
-                    setProctorWarning('🚨 QUIZ TERMINATED: Too many violations!');
-                    setTimeout(() => {
-                        alert('🚨 Your quiz has been TERMINATED due to multiple violations.\n\nThis attempt has been FLAGGED for review.');
-                        setShowQuizModal(false);
-                        setShowFullscreenOverlay(false);
-                        setActiveQuizUrl('');
-                        setActiveQuizTitle('');
-                        setActiveQuizRegId(null);
-                        setTabSwitchCount(0);
-                        setProctorWarning('');
-                    }, 100);
-                } else {
-                    // Show blocking overlay - user must click to re-enter fullscreen
-                    setShowFullscreenOverlay(true);
-                    setTimeout(() => setProctorWarning(''), 5000);
-                }
-            } else if (document.fullscreenElement && showFullscreenOverlay) {
-                // Fullscreen re-entered, hide overlay
-                setShowFullscreenOverlay(false);
-            }
-        };
-
-        document.addEventListener('fullscreenchange', handleFullscreenChange);
-        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-
-        return () => {
-            document.removeEventListener('fullscreenchange', handleFullscreenChange);
-            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-            // Exit fullscreen on cleanup
-            if (document.fullscreenElement) {
-                document.exitFullscreen().catch(() => { });
-            }
-        };
-    }, [showQuizModal, tabSwitchCount, activeQuizRegId]);
 
     // --- PROCTORING: Copy-Paste & Right-Click Block ---
     useEffect(() => {
@@ -392,7 +280,6 @@ const StudentDashboard = () => {
                 { key: 'N', ctrl: true }, // New Window
                 { key: 'W', ctrl: true }, // Close Tab
                 { key: 'Tab', alt: true }, // Alt+Tab
-                { key: 'Escape' }, // Escape (exit fullscreen)
                 // Copy-Paste shortcuts
                 { key: 'C', ctrl: true },
                 { key: 'V', ctrl: true },
@@ -424,34 +311,15 @@ const StudentDashboard = () => {
                 }
 
                 // Special handling for dev tools attempts
-                if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && ['I', 'J', 'C'].includes(e.key))) {
-                    const newCount = tabSwitchCount + 1;
-                    setTabSwitchCount(newCount);
-                    setProctorWarning(`🚨 DEV TOOLS ATTEMPT DETECTED! Violation ${newCount}/${MAX_VIOLATIONS}`);
-
-                    if (activeQuizRegId) {
-                        try {
-                            const regRef = doc(db, 'registrations', activeQuizRegId);
-                            await updateDoc(regRef, {
-                                proctorViolations: newCount,
-                                lastViolationType: 'DevTools Attempt',
-                                lastViolationAt: serverTimestamp()
-                            });
-                        } catch (err) {
-                            console.error('Failed to log violation:', err);
-                        }
-                    }
-
-                    if (newCount >= MAX_VIOLATIONS) {
-                        alert('🚨 Quiz terminated due to suspicious activity!');
-                        setShowQuizModal(false);
-                        setActiveQuizUrl('');
-                        setTabSwitchCount(0);
-                    }
-                } else {
-                    setProctorWarning('⚠️ This keyboard shortcut is BLOCKED during quiz!');
+                // Special handling for refresh attempts
+                if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && (e.key === 'r' || e.key === 'R'))) {
+                    setProctorWarning('🚫 PAGE REFRESH is DISABLED during quiz! Complete your quiz to continue.');
+                    setTimeout(() => setProctorWarning(''), 4000);
+                    return false;
                 }
 
+                // Block keys but don't count as violation (per user request: "tab switch only")
+                setProctorWarning('⚠️ This action is BLOCKED during quiz!');
                 setTimeout(() => setProctorWarning(''), 3000);
                 return false;
             }
@@ -516,6 +384,14 @@ const StudentDashboard = () => {
             setShowFinishButton(false);
             setTabSwitchCount(0);
             quizStartTime.current = null;
+
+            // Exit fullscreen if active
+            if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
+                if (document.exitFullscreen) document.exitFullscreen().catch(() => { });
+                else if (document.webkitExitFullscreen) document.webkitExitFullscreen().catch(() => { });
+                else if (document.msExitFullscreen) document.msExitFullscreen().catch(() => { });
+            }
+
             alert("✨ BRAVO! Quiz Submission Verified. Your participation has been recorded and your dashboard is now updated to COMPLETED! 🚀");
         } catch (error) {
             console.error("Error updating quiz status:", error);
@@ -525,25 +401,30 @@ const StudentDashboard = () => {
     const handleIframeLoad = () => {
         if (!showQuizModal) return;
 
-        console.log(`Quiz Iframe Loaded. Current Count: ${iframeLoadCount + 1}`);
+        const newCount = iframeLoadCount + 1;
+        setIframeLoadCount(newCount);
+        console.log(`Quiz Iframe Loaded. Current Count: ${newCount}`);
 
-        if (iframeLoadCount === 0) {
+        if (newCount === 1) {
             // First load: User just opened the quiz
             quizStartTime.current = Date.now();
-            setIframeLoadCount(1);
+
+            // Fallback: Show button after 15 seconds even if they don't reload
+            // This is safe since exit button is removed, they need a way to finish.
+            setTimeout(() => {
+                setShowFinishButton(true);
+                console.log("Activity timeout reached. Finish button enabled.");
+            }, 15000);
         } else {
-            // Subsequent loads: Could be draft recovery, "Next" section, OR final submission
+            // Subsequent loads: User likely clicked Next or Submit
             const timeSpent = (Date.now() - quizStartTime.current) / 1000;
             console.log(`Time spent in quiz: ${timeSpent} seconds`);
 
-            // Heuristic: If they spent more than 10 seconds, they've likely interacted.
-            // For multi-section forms, this happens on "Next". For 1-page, it's "Submit".
-            // Instead of auto-closing (which breaks multi-section), we show a "Finish" button.
-            if (timeSpent > 10) {
+            // Heuristic: If they spent more than 5 seconds, it's a real interaction.
+            if (timeSpent > 5) {
                 setShowFinishButton(true);
-                console.log("Activity detected. Completion button enabled.");
+                console.log("Activity detected via reload. Finish button enabled.");
             }
-            setIframeLoadCount(prev => prev + 1);
         }
     };
 
@@ -2407,73 +2288,7 @@ const StudentDashboard = () => {
                                 )}
                             </AnimatePresence>
 
-                            {/* Fullscreen Re-entry Overlay - BLOCKING */}
-                            <AnimatePresence>
-                                {showFullscreenOverlay && (
-                                    <motion.div
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        exit={{ opacity: 0 }}
-                                        className="absolute inset-0 z-[100002] bg-black/95 backdrop-blur-lg flex flex-col items-center justify-center p-8"
-                                    >
-                                        <motion.div
-                                            initial={{ scale: 0.8, y: 20 }}
-                                            animate={{ scale: 1, y: 0 }}
-                                            className="text-center max-w-md"
-                                        >
-                                            <div className="w-24 h-24 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-red-500 animate-pulse">
-                                                <AlertTriangle className="w-12 h-12 text-red-500" />
-                                            </div>
-                                            <h2 className="text-3xl font-black text-white uppercase tracking-tight mb-4">
-                                                ⚠️ Fullscreen Required!
-                                            </h2>
-                                            <p className="text-lg text-red-400 font-bold uppercase tracking-wide mb-2">
-                                                Violation {tabSwitchCount} of {MAX_VIOLATIONS}
-                                            </p>
-                                            <p className="text-slate-400 font-medium mb-8">
-                                                You exited fullscreen mode. This has been recorded as a violation.
-                                                <br />
-                                                <span className="text-red-400 font-bold">DO NOT press ESC again!</span>
-                                            </p>
-                                            <button
-                                                onClick={() => {
-                                                    // Request fullscreen using direct DOM method
-                                                    const elem = document.documentElement;
 
-                                                    const requestFS = elem.requestFullscreen ||
-                                                        elem.webkitRequestFullscreen ||
-                                                        elem.mozRequestFullScreen ||
-                                                        elem.msRequestFullscreen;
-
-                                                    if (requestFS) {
-                                                        requestFS.call(elem).then(() => {
-                                                            setShowFullscreenOverlay(false);
-                                                        }).catch((err) => {
-                                                            console.warn('Fullscreen request failed:', err);
-                                                            // Still hide overlay so student can continue
-                                                            setShowFullscreenOverlay(false);
-                                                            alert('⚠️ Could not enter fullscreen. Please press F11 manually to go fullscreen, or continue without fullscreen.\n\nNote: Additional ESC presses will still count as violations!');
-                                                        });
-                                                    } else {
-                                                        // Fallback for browsers that don't support fullscreen
-                                                        setShowFullscreenOverlay(false);
-                                                        alert('⚠️ Your browser does not support fullscreen. Please press F11 to go fullscreen manually.');
-                                                    }
-                                                }}
-                                                className="px-10 py-5 bg-gradient-to-r from-red-600 to-orange-600 text-white font-black text-lg uppercase tracking-widest rounded-2xl shadow-2xl shadow-red-500/30 hover:shadow-red-500/50 transition-all transform hover:scale-105 animate-pulse"
-                                            >
-                                                🔒 Click to Re-Enter Fullscreen & Continue
-                                            </button>
-                                            <p className="text-xs text-slate-500 mt-4">
-                                                Or press <kbd className="px-2 py-1 bg-slate-800 rounded text-white font-mono">F11</kbd> to manually enter fullscreen
-                                            </p>
-                                            <p className="text-xs text-slate-600 font-bold uppercase tracking-widest mt-4">
-                                                {MAX_VIOLATIONS - tabSwitchCount} violations remaining before termination
-                                            </p>
-                                        </motion.div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
 
                             {/* Quiz Iframe */}
                             <motion.div
@@ -2611,6 +2426,12 @@ const StudentDashboard = () => {
                                     <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-3 shrink-0">
                                         <button
                                             onClick={() => {
+                                                // Exit fullscreen if active
+                                                if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
+                                                    if (document.exitFullscreen) document.exitFullscreen().catch(() => { });
+                                                    else if (document.webkitExitFullscreen) document.webkitExitFullscreen().catch(() => { });
+                                                    else if (document.msExitFullscreen) document.msExitFullscreen().catch(() => { });
+                                                }
                                                 setShowQuizRulesModal(false);
                                                 setPendingQuizData(null);
                                             }}
@@ -2620,6 +2441,16 @@ const StudentDashboard = () => {
                                         </button>
                                         <button
                                             onClick={() => {
+                                                // Request fullscreen on the whole document
+                                                const elem = document.documentElement;
+                                                if (elem.requestFullscreen) {
+                                                    elem.requestFullscreen();
+                                                } else if (elem.webkitRequestFullscreen) {
+                                                    elem.webkitRequestFullscreen();
+                                                } else if (elem.msRequestFullscreen) {
+                                                    elem.msRequestFullscreen();
+                                                }
+
                                                 // Save quiz state to session storage for reload detection
                                                 sessionStorage.setItem('techspark_quiz_active', JSON.stringify({
                                                     url: pendingQuizData.url,
