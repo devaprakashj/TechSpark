@@ -78,6 +78,21 @@ const AuthOverlays = () => {
   );
 };
 
+// Chatbot only on Home and Dashboard
+import { useLocation } from 'react-router-dom';
+
+const ChatbotWrapper = () => {
+  const location = useLocation();
+  const allowedPaths = ['/', '/dashboard'];
+
+  // Only show Chatbot on Home and Student Dashboard
+  if (!allowedPaths.includes(location.pathname)) {
+    return null;
+  }
+
+  return <Chatbot />;
+};
+
 function App() {
   return (
     <AuthProvider>
@@ -156,7 +171,7 @@ function App() {
             />
           </Routes>
           <AuthOverlays />
-          <Chatbot />
+          <ChatbotWrapper />
         </div>
       </Router>
     </AuthProvider>

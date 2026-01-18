@@ -14,10 +14,13 @@ import {
     Loader2,
     CheckCircle2,
     AlertTriangle,
-    Smartphone
+    Smartphone,
+    UserPlus,
+    ScanLine,
+    User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collection, getDocs, query, where, updateDoc, doc, onSnapshot, orderBy, limit, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, query, where, updateDoc, doc, onSnapshot, orderBy, limit, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Scanner } from '@yudiel/react-qr-scanner';
 
@@ -35,6 +38,15 @@ const CheckinConsole = () => {
     const [recentScans, setRecentScans] = useState([]); // Array of {regId, studentName, studentRoll, time}
     const [isScanning, setIsScanning] = useState(true);
     const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error', message: string, detail?: any }
+
+    // On-Spot Registration States
+    const [showOnSpotModal, setShowOnSpotModal] = useState(false);
+    const [onSpotScanning, setOnSpotScanning] = useState(false);
+    const [fetchedStudent, setFetchedStudent] = useState(null);
+    const [onSpotLoading, setOnSpotLoading] = useState(false);
+    const [onSpotError, setOnSpotError] = useState('');
+    const [manualRollNumber, setManualRollNumber] = useState('');
+    const [showManualEntry, setShowManualEntry] = useState(false);
 
     const navigate = useNavigate();
 
@@ -127,15 +139,28 @@ const CheckinConsole = () => {
 
     const startCheckin = (event) => {
         setSelectedEvent(event);
+
+        // Set up real-time listener for the EVENT itself (to detect registrationOpen changes)
+        const eventUnsubscribe = onSnapshot(doc(db, 'events', event.id), (docSnap) => {
+            if (docSnap.exists()) {
+                setSelectedEvent({ id: docSnap.id, ...docSnap.data() });
+            }
+        });
+
         // Set up real-time listener for registrations of this event
         const q = query(collection(db, 'registrations'), where('eventId', '==', event.id));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const regUnsubscribe = onSnapshot(q, (snapshot) => {
             const regs = snapshot.docs.map(doc => doc.data());
             const total = regs.length;
             const present = regs.filter(r => r.status === 'Present' || r.status === 'Checked-in' || r.isAttended).length;
             setStats({ total, present });
         });
-        return () => unsubscribe();
+
+        // Return cleanup function
+        return () => {
+            eventUnsubscribe();
+            regUnsubscribe();
+        };
     };
 
     const processCheckin = async (rollNumber) => {
@@ -313,6 +338,113 @@ const CheckinConsole = () => {
         // Simple audio feedback can be added here if desired
     };
 
+    // ON-SPOT REGISTRATION: Process QR Scan to fetch student data
+    const processOnSpotScan = async (rollNumber) => {
+        if (!selectedEvent) return;
+
+        setOnSpotLoading(true);
+        setOnSpotError('');
+        setFetchedStudent(null);
+
+        try {
+            // First check if already registered for this event
+            const regQuery = query(
+                collection(db, 'registrations'),
+                where('eventId', '==', selectedEvent.id),
+                where('studentRoll', '==', rollNumber)
+            );
+            const regSnap = await getDocs(regQuery);
+
+            if (!regSnap.empty) {
+                setOnSpotError('This student is already registered for this event!');
+                setOnSpotLoading(false);
+                return;
+            }
+
+            // Fetch student from users collection
+            const userQuery = query(
+                collection(db, 'users'),
+                where('rollNumber', '==', rollNumber)
+            );
+            const userSnap = await getDocs(userQuery);
+
+            if (userSnap.empty) {
+                setOnSpotError(`No student found with Roll No: ${rollNumber}. They might not be registered on the platform.`);
+            } else {
+                const userData = userSnap.docs[0].data();
+                setFetchedStudent({
+                    uid: userSnap.docs[0].id,
+                    fullName: userData.fullName || userData.name,
+                    rollNumber: userData.rollNumber,
+                    email: userData.email,
+                    department: userData.department,
+                    yearOfStudy: userData.yearOfStudy,
+                    phone: userData.phone || 'N/A',
+                    section: userData.section || 'N/A'
+                });
+                setOnSpotScanning(false); // Stop scanning, show data
+            }
+        } catch (error) {
+            console.error("On-Spot Scan Error:", error);
+            setOnSpotError('Failed to fetch student data. Please try again.');
+        } finally {
+            setOnSpotLoading(false);
+        }
+    };
+
+    // ON-SPOT REGISTRATION: Confirm and create registration
+    const confirmOnSpotRegistration = async () => {
+        if (!fetchedStudent || !selectedEvent) return;
+
+        setOnSpotLoading(true);
+        try {
+            const regId = `${selectedEvent.id}_${fetchedStudent.uid}`;
+            const regRef = doc(db, 'registrations', regId);
+
+            await setDoc(regRef, {
+                eventId: selectedEvent.id,
+                eventTitle: selectedEvent.title,
+                eventDate: selectedEvent.date,
+                eventTime: selectedEvent.time || 'TBA',
+                userId: fetchedStudent.uid,
+                studentName: fetchedStudent.fullName,
+                studentEmail: fetchedStudent.email,
+                studentPhone: fetchedStudent.phone,
+                studentRoll: fetchedStudent.rollNumber,
+                studentDept: fetchedStudent.department,
+                studentYear: fetchedStudent.yearOfStudy,
+                studentSection: fetchedStudent.section,
+                registeredAt: serverTimestamp(),
+                status: 'Present',
+                isAttended: true,
+                isOnSpot: true, // Flag for analytics
+                checkedInAt: serverTimestamp()
+            });
+
+            // Add to recent scans
+            setRecentScans(prev => [{
+                regId: regId,
+                studentName: fetchedStudent.fullName,
+                studentRoll: fetchedStudent.rollNumber,
+                time: new Date().toLocaleTimeString()
+            }, ...prev].slice(0, 5));
+
+            // Close modal and reset
+            setShowOnSpotModal(false);
+            setFetchedStudent(null);
+            setOnSpotScanning(false);
+
+            alert(`✅ On-Spot Registration Successful!\n\n${fetchedStudent.fullName} has been registered and marked present.`);
+            playAudio('success');
+
+        } catch (error) {
+            console.error("On-Spot Registration Error:", error);
+            setOnSpotError('Failed to complete registration. Please try again.');
+        } finally {
+            setOnSpotLoading(false);
+        }
+    };
+
     const handleLogout = () => {
         localStorage.removeItem('organizerToken');
         localStorage.removeItem('adminToken');
@@ -479,6 +611,24 @@ const CheckinConsole = () => {
                         <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mb-1">Balance</p>
                         <p className="text-2xl font-black text-white">{stats.total - stats.present}</p>
                     </div>
+                    {/* On-Spot Registration Button - Only show when registration is closed */}
+                    {(selectedEvent.registrationOpen === false || selectedEvent.status === 'CLOSED') && (
+                        <>
+                            <div className="w-px h-10 bg-white/10" />
+                            <button
+                                onClick={() => {
+                                    setShowOnSpotModal(true);
+                                    setOnSpotScanning(true);
+                                    setFetchedStudent(null);
+                                    setOnSpotError('');
+                                }}
+                                className="px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-orange-500/20 hover:shadow-orange-500/40 transition-all"
+                            >
+                                <UserPlus className="w-4 h-4" />
+                                On-Spot Register
+                            </button>
+                        </>
+                    )}
                 </div>
             </header>
 
@@ -650,6 +800,238 @@ const CheckinConsole = () => {
                     </div>
                 </div>
             </main>
+
+            {/* ON-SPOT REGISTRATION MODAL */}
+            <AnimatePresence>
+                {showOnSpotModal && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => !onSpotLoading && setShowOnSpotModal(false)}
+                            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                            className="relative w-full max-w-md bg-[#0f172a] rounded-3xl shadow-2xl border border-white/10 max-h-[90vh] overflow-hidden flex flex-col"
+                        >
+                            {/* Modal Header */}
+                            <div className="p-5 bg-gradient-to-r from-orange-500 to-amber-500 text-white flex items-center justify-between shrink-0">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
+                                        <ScanLine className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-black text-base uppercase italic">On-Spot Registration</h3>
+                                        <p className="text-[9px] text-white/70 font-bold uppercase tracking-widest">Scan Student ID Card QR</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setShowOnSpotModal(false)}
+                                    disabled={onSpotLoading}
+                                    className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            {/* Modal Content - Scrollable */}
+                            <div className="p-5 overflow-y-auto flex-1">
+                                {onSpotScanning && !fetchedStudent ? (
+                                    <div className="space-y-6">
+                                        {!showManualEntry ? (
+                                            <>
+                                                {/* QR Scanner */}
+                                                <div className="relative aspect-square max-w-xs mx-auto bg-black rounded-3xl overflow-hidden border-4 border-white/10">
+                                                    <Scanner
+                                                        onScan={(result) => {
+                                                            const val = result[0]?.rawValue;
+                                                            if (val) {
+                                                                console.log("QR Scanned Value:", val);
+                                                                // Try to extract any number (roll number) from the QR
+                                                                const cleanedVal = val.trim();
+
+                                                                // Direct roll number
+                                                                if (/^\d+$/.test(cleanedVal)) {
+                                                                    processOnSpotScan(cleanedVal);
+                                                                } else {
+                                                                    // Extract digits from URL or mixed content
+                                                                    const digits = cleanedVal.match(/\d+/g);
+                                                                    if (digits) {
+                                                                        // Take the longest number sequence (likely roll number)
+                                                                        const rollNumber = digits.sort((a, b) => b.length - a.length)[0];
+                                                                        processOnSpotScan(rollNumber);
+                                                                    } else {
+                                                                        setOnSpotError(`QR scanned: "${cleanedVal.substring(0, 50)}..." - No roll number found. Use Manual Entry.`);
+                                                                    }
+                                                                }
+                                                            }
+                                                        }}
+                                                        onError={(err) => console.error(err)}
+                                                        styles={{
+                                                            container: { width: '100%', height: '100%' },
+                                                            video: { objectFit: 'cover' }
+                                                        }}
+                                                        allowMultiple={false}
+                                                        scanDelay={1500}
+                                                    />
+                                                    {/* Scanner Frame */}
+                                                    <div className="absolute inset-0 pointer-events-none p-6">
+                                                        <div className="w-full h-full border-2 border-orange-500/30 rounded-2xl relative">
+                                                            <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-orange-500 rounded-tl-lg" />
+                                                            <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-orange-500 rounded-tr-lg" />
+                                                            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-orange-500 rounded-bl-lg" />
+                                                            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-orange-500 rounded-br-lg" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <p className="text-center text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                                                    Point camera at Student ID Card QR Code
+                                                </p>
+
+                                                {/* Manual Entry Toggle */}
+                                                <button
+                                                    onClick={() => setShowManualEntry(true)}
+                                                    className="w-full py-3 bg-white/5 border border-white/10 text-slate-400 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
+                                                >
+                                                    📝 QR not working? Enter Roll Number Manually
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                {/* Manual Entry Form */}
+                                                <div className="space-y-4">
+                                                    <div className="text-center mb-4">
+                                                        <User className="w-12 h-12 text-orange-400 mx-auto mb-2" />
+                                                        <h4 className="text-white font-bold uppercase">Manual Entry</h4>
+                                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Enter student roll number</p>
+                                                    </div>
+
+                                                    <input
+                                                        type="text"
+                                                        value={manualRollNumber}
+                                                        onChange={(e) => setManualRollNumber(e.target.value)}
+                                                        placeholder="Enter Roll Number (e.g., 23CSR001)"
+                                                        className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl text-white font-bold text-center text-lg placeholder:text-slate-600 outline-none focus:border-orange-500 transition-all"
+                                                    />
+
+                                                    <div className="flex gap-3">
+                                                        <button
+                                                            onClick={() => {
+                                                                setShowManualEntry(false);
+                                                                setManualRollNumber('');
+                                                            }}
+                                                            className="flex-1 py-3 bg-white/5 text-slate-400 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
+                                                        >
+                                                            Back to Scan
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                if (manualRollNumber.trim()) {
+                                                                    processOnSpotScan(manualRollNumber.trim());
+                                                                    setShowManualEntry(false);
+                                                                }
+                                                            }}
+                                                            disabled={!manualRollNumber.trim() || onSpotLoading}
+                                                            className="flex-1 py-3 bg-orange-500 text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-orange-600 transition-all disabled:opacity-50"
+                                                        >
+                                                            {onSpotLoading ? 'Searching...' : 'Search Student'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {onSpotLoading && (
+                                            <div className="text-center">
+                                                <Loader2 className="w-8 h-8 text-orange-400 animate-spin mx-auto mb-2" />
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Fetching Student Data...</p>
+                                            </div>
+                                        )}
+
+                                        {onSpotError && (
+                                            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-center">
+                                                <AlertTriangle className="w-6 h-6 text-red-400 mx-auto mb-2" />
+                                                <p className="text-xs text-red-400 font-bold">{onSpotError}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : fetchedStudent ? (
+                                    <div className="space-y-6">
+                                        {/* Student Data Card */}
+                                        <div className="p-6 bg-white/5 rounded-3xl border border-white/10">
+                                            <div className="flex items-center gap-4 mb-6">
+                                                <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-amber-500 rounded-2xl flex items-center justify-center text-white text-2xl font-black">
+                                                    {fetchedStudent.fullName?.charAt(0) || 'S'}
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-lg font-black text-white uppercase">{fetchedStudent.fullName}</h4>
+                                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{fetchedStudent.rollNumber}</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="p-3 bg-white/5 rounded-xl">
+                                                    <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-1">Department</p>
+                                                    <p className="text-xs font-bold text-white uppercase">{fetchedStudent.department}</p>
+                                                </div>
+                                                <div className="p-3 bg-white/5 rounded-xl">
+                                                    <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-1">Year</p>
+                                                    <p className="text-xs font-bold text-white uppercase">{fetchedStudent.yearOfStudy}</p>
+                                                </div>
+                                                <div className="p-3 bg-white/5 rounded-xl col-span-2">
+                                                    <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-1">Email</p>
+                                                    <p className="text-xs font-bold text-white truncate">{fetchedStudent.email}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {onSpotError && (
+                                            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-center">
+                                                <p className="text-xs text-red-400 font-bold">{onSpotError}</p>
+                                            </div>
+                                        )}
+
+                                        {/* Action Buttons */}
+                                        <div className="flex gap-4">
+                                            <button
+                                                onClick={() => {
+                                                    setFetchedStudent(null);
+                                                    setOnSpotScanning(true);
+                                                    setOnSpotError('');
+                                                }}
+                                                disabled={onSpotLoading}
+                                                className="flex-1 py-4 bg-white/10 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-white/20 transition-all flex items-center justify-center gap-2"
+                                            >
+                                                <ScanLine className="w-4 h-4" />
+                                                Scan Again
+                                            </button>
+                                            <button
+                                                onClick={confirmOnSpotRegistration}
+                                                disabled={onSpotLoading}
+                                                className="flex-1 py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                            >
+                                                {onSpotLoading ? (
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                ) : (
+                                                    <>
+                                                        <CheckCircle2 className="w-4 h-4" />
+                                                        Register & Check-In
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : null}
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

@@ -92,14 +92,15 @@ const Chatbot = () => {
 
     return (
         <div className="fixed bottom-6 right-6 z-[9999]">
+            {/* Chat Window - Positioned above the toggle button */}
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
-                        initial={{ opacity: 0, y: 30, scale: 0.9, filter: 'blur(10px)' }}
-                        animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-                        exit={{ opacity: 0, y: 30, scale: 0.9, filter: 'blur(10px)' }}
-                        transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                        className="bg-white/95 backdrop-blur-xl w-[380px] h-[580px] rounded-[2.5rem] shadow-[0_30px_100px_rgba(0,0,0,0.15)] border border-white/20 flex flex-col overflow-hidden mb-6 mr-2"
+                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute bottom-20 right-0 bg-white w-[360px] h-[480px] rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden"
                     >
                         {/* Premium Header */}
                         <div className="bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-950 p-7 text-white flex justify-between items-center shrink-0 relative overflow-hidden">
@@ -131,8 +132,8 @@ const Chatbot = () => {
                             {messages.map((m) => (
                                 <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                                     <div className={`max-w-[85%] p-4 rounded-[1.5rem] text-sm font-semibold leading-relaxed shadow-sm transition-all hover:shadow-md ${m.sender === 'user'
-                                            ? 'bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-tr-none'
-                                            : 'bg-white text-slate-700 border border-slate-100 rounded-tl-none'
+                                        ? 'bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-tr-none'
+                                        : 'bg-white text-slate-700 border border-slate-100 rounded-tl-none'
                                         }`}>
                                         {m.text}
                                     </div>
