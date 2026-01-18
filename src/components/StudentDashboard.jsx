@@ -91,6 +91,7 @@ const StudentDashboard = () => {
     const [iframeLoadCount, setIframeLoadCount] = useState(0);
     const [showFinishButton, setShowFinishButton] = useState(false);
     const quizStartTime = useRef(null);
+    const isQuizFinishing = useRef(false);
     const [currentTime, setCurrentTime] = useState(new Date());
 
     // --- PROCTORING SYSTEM STATE ---
@@ -197,7 +198,7 @@ const StudentDashboard = () => {
         if (!showQuizModal) return;
 
         const handleVisibilityChange = async () => {
-            if (document.hidden && showQuizModal) {
+            if (document.hidden && showQuizModal && !isQuizFinishing.current) {
                 const newCount = tabSwitchCount + 1;
                 setTabSwitchCount(newCount);
                 setProctorWarning(`⚠️ TAB SWITCH DETECTED! Violation ${newCount}/${MAX_VIOLATIONS}`);
@@ -276,7 +277,7 @@ const StudentDashboard = () => {
 
         // Detect fullscreen exit
         const handleFullscreenChange = async () => {
-            if (!document.fullscreenElement && !document.webkitFullscreenElement && showQuizModal) {
+            if (!document.fullscreenElement && !document.webkitFullscreenElement && showQuizModal && !isQuizFinishing.current) {
                 const newCount = tabSwitchCount + 1;
                 setTabSwitchCount(newCount);
                 setProctorWarning(`🚨 FULLSCREEN EXIT! VIOLATION ${newCount}/${MAX_VIOLATIONS}`);
@@ -458,6 +459,7 @@ const StudentDashboard = () => {
 
         // Block before unload (closing/refreshing)
         const handleBeforeUnload = (e) => {
+            if (isQuizFinishing.current) return;
             e.preventDefault();
             e.returnValue = 'Are you sure you want to leave? Your quiz progress may be lost!';
             return e.returnValue;
@@ -465,6 +467,7 @@ const StudentDashboard = () => {
 
         // Block browser back button (including mobile back)
         const handlePopState = (e) => {
+            if (isQuizFinishing.current) return;
             e.preventDefault();
             // Push state back to prevent navigation
             window.history.pushState(null, '', window.location.href);
@@ -489,7 +492,9 @@ const StudentDashboard = () => {
 
     // Quiz Auto-Completion Logic
     const handleQuizCompletion = async () => {
-        if (!activeQuizRegId) return;
+        if (!activeQuizRegId || isQuizFinishing.current) return;
+
+        isQuizFinishing.current = true;
 
         try {
             const regRef = doc(db, 'registrations', activeQuizRegId);
@@ -2632,6 +2637,7 @@ const StudentDashboard = () => {
                                                 setTabSwitchCount(0);
                                                 setProctorWarning('');
                                                 quizStartTime.current = null;
+                                                isQuizFinishing.current = false;
                                                 setShowQuizModal(true);
                                                 setShowQuizRulesModal(false);
                                                 setPendingQuizData(null);
