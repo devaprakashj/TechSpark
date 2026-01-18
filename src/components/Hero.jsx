@@ -88,7 +88,7 @@ const Hero = () => {
                                 rotationInterval={2000}
                             />
                         </div>
-                    </h1>
+                    </h2>
 
                     {/* Subheading */}
                     <p className="text-lg lg:text-2xl text-gray-600 mb-10 leading-relaxed max-w-3xl mx-auto px-4 md:px-0">
