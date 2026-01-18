@@ -95,40 +95,44 @@ const Chatbot = () => {
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
-                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 20, scale: 0.95 }}
-                        className="bg-white w-[350px] h-[500px] rounded-[2rem] shadow-2xl border border-slate-100 flex flex-col overflow-hidden mb-4"
+                        initial={{ opacity: 0, y: 30, scale: 0.9, filter: 'blur(10px)' }}
+                        animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+                        exit={{ opacity: 0, y: 30, scale: 0.9, filter: 'blur(10px)' }}
+                        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                        className="bg-white/95 backdrop-blur-xl w-[380px] h-[580px] rounded-[2.5rem] shadow-[0_30px_100px_rgba(0,0,0,0.15)] border border-white/20 flex flex-col overflow-hidden mb-6 mr-2"
                     >
-                        {/* Header */}
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white flex justify-between items-center shrink-0">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
-                                    <Bot className="w-6 h-6" />
+                        {/* Premium Header */}
+                        <div className="bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-950 p-7 text-white flex justify-between items-center shrink-0 relative overflow-hidden">
+                            {/* Animated background element */}
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl -mr-16 -mt-16 animate-pulse" />
+
+                            <div className="flex items-center gap-4 relative z-10">
+                                <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-2xl border border-white/20 shadow-inner">
+                                    <Bot className="w-7 h-7 text-blue-400" />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-sm">Sparky AI</h3>
-                                    <div className="flex items-center gap-1.5 mt-0.5">
-                                        <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-                                        <span className="text-[10px] text-white/80 font-medium uppercase tracking-wider">Online</span>
+                                    <h3 className="font-black text-base tracking-tight italic uppercase">Sparky <span className="text-blue-400">AI</span></h3>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                        <div className="w-2 h-2 bg-emerald-400 rounded-full shadow-[0_0_10px_rgba(52,211,153,0.5)] animate-pulse" />
+                                        <span className="text-[10px] text-white/60 font-black uppercase tracking-widest">Core Intelligence Active</span>
                                     </div>
                                 </div>
                             </div>
                             <button
                                 onClick={() => setIsOpen(false)}
-                                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                                className="p-2.5 hover:bg-white/10 rounded-2xl transition-all active:scale-90"
                             >
-                                <X className="w-5 h-5" />
+                                <X className="w-5 h-5 text-white/50" />
                             </button>
                         </div>
 
-                        {/* Messages */}
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
+                        {/* Messages Area - Glassy background */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gradient-to-b from-slate-50/50 to-white">
                             {messages.map((m) => (
                                 <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-[80%] p-4 rounded-2xl text-sm font-medium shadow-sm ${m.sender === 'user'
-                                        ? 'bg-blue-600 text-white rounded-tr-none'
-                                        : 'bg-white text-slate-700 border border-slate-100 rounded-tl-none'
+                                    <div className={`max-w-[85%] p-4 rounded-[1.5rem] text-sm font-semibold leading-relaxed shadow-sm transition-all hover:shadow-md ${m.sender === 'user'
+                                            ? 'bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-tr-none'
+                                            : 'bg-white text-slate-700 border border-slate-100 rounded-tl-none'
                                         }`}>
                                         {m.text}
                                     </div>
@@ -136,29 +140,39 @@ const Chatbot = () => {
                             ))}
                             {isTyping && (
                                 <div className="flex justify-start">
-                                    <div className="bg-white p-4 rounded-2xl rounded-tl-none border border-slate-100 shadow-sm flex gap-1">
-                                        <div className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce" />
-                                        <div className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce [animation-delay:0.2s]" />
-                                        <div className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce [animation-delay:0.4s]" />
+                                    <div className="bg-white px-5 py-4 rounded-[1.5rem] rounded-tl-none border border-slate-100 shadow-sm flex gap-1.5 items-center">
+                                        <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" />
+                                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:0.2s]" />
+                                        <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce [animation-delay:0.4s]" />
                                     </div>
                                 </div>
                             )}
                             <div ref={chatEndRef} />
                         </div>
 
-                        {/* Input */}
-                        <div className="p-4 bg-white border-t border-slate-100 flex gap-2 shrink-0">
-                            <input
-                                type="text"
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                                placeholder="Ask Sparky anything..."
-                                className="flex-1 bg-slate-50 border-none rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 transition-all outline-none"
-                            />
+                        {/* Premium Input Section */}
+                        <div className="p-5 bg-white border-t border-slate-50 flex gap-3 shrink-0 items-center">
+                            <div className="flex-1 relative">
+                                <input
+                                    type="text"
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                                    placeholder="Type your message..."
+                                    className="w-full bg-slate-100/50 border border-slate-200/50 rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all outline-none placeholder:text-slate-400"
+                                />
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                    <motion.div
+                                        animate={{ rotate: [0, 10, -10, 0] }}
+                                        transition={{ duration: 3, repeat: Infinity }}
+                                    >
+                                        <Sparkles className="w-4 h-4 text-blue-400/50" />
+                                    </motion.div>
+                                </div>
+                            </div>
                             <button
                                 onClick={handleSend}
-                                className="bg-blue-600 text-white p-2 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 active:scale-95"
+                                className="bg-slate-900 text-white p-3.5 rounded-2xl hover:bg-blue-600 transition-all shadow-xl shadow-slate-200 active:scale-90 flex items-center justify-center"
                             >
                                 <Send className="w-5 h-5" />
                             </button>
@@ -168,28 +182,54 @@ const Chatbot = () => {
             </AnimatePresence>
 
             {/* Toggle Button */}
-            <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setIsOpen(!isOpen)}
-                className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-2xl transition-all duration-300 ${isOpen ? 'bg-slate-900 rotate-90' : 'bg-blue-600'
-                    }`}
-            >
-                {isOpen ? (
-                    <X className="w-6 h-6 text-white" />
-                ) : (
-                    <div className="relative">
-                        <MessageSquare className="w-6 h-6 text-white" />
-                        <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            className="absolute -top-3 -right-3 w-6 h-6 bg-red-500 rounded-full border-2 border-white flex items-center justify-center shadow-lg"
-                        >
-                            <Sparkles className="w-3 h-3 text-white" />
-                        </motion.div>
-                    </div>
+            <div className="relative">
+                {/* Sonar Pulse Effect */}
+                {!isOpen && (
+                    <motion.div
+                        animate={{
+                            scale: [1, 1.5, 2],
+                            opacity: [0.3, 0.1, 0],
+                        }}
+                        transition={{
+                            duration: 2,
+                            repeat: Infinity,
+                            ease: "easeOut",
+                        }}
+                        className="absolute inset-0 bg-blue-400 rounded-3xl z-[-1]"
+                    />
                 )}
-            </motion.button>
+
+                <motion.button
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setIsOpen(!isOpen)}
+                    className={`w-16 h-16 rounded-3xl flex items-center justify-center shadow-[0_20px_50px_rgba(37,99,235,0.3)] border-2 transition-all duration-500 ${isOpen
+                        ? 'bg-slate-900 border-slate-800 rotate-90 shadow-none'
+                        : 'bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 border-blue-400/30'
+                        }`}
+                >
+                    {isOpen ? (
+                        <X className="w-7 h-7 text-white" />
+                    ) : (
+                        <div className="relative group">
+                            {/* Main Bot Icon */}
+                            <Bot className="w-8 h-8 text-white drop-shadow-md group-hover:rotate-12 transition-transform duration-300" />
+
+                            {/* Notification Badge - More Premium */}
+                            <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="absolute -top-3 -right-3 w-7 h-7 bg-white rounded-2xl flex items-center justify-center shadow-xl border border-blue-100"
+                            >
+                                <Sparkles className="w-3.5 h-3.5 text-blue-600 fill-blue-50" />
+
+                                {/* Inner Soft Glow */}
+                                <div className="absolute inset-0 bg-blue-400/20 rounded-2xl animate-pulse" />
+                            </motion.div>
+                        </div>
+                    )}
+                </motion.button>
+            </div>
         </div>
     );
 };
