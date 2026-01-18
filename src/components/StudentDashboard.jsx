@@ -101,6 +101,58 @@ const StudentDashboard = () => {
     const [pendingQuizData, setPendingQuizData] = useState(null);
     const [showFullscreenOverlay, setShowFullscreenOverlay] = useState(false);
 
+    // --- RELOAD DETECTION: Check if quiz was active before page reload ---
+    useEffect(() => {
+        const savedQuizState = sessionStorage.getItem('techspark_quiz_active');
+        if (savedQuizState) {
+            const quizData = JSON.parse(savedQuizState);
+            // Quiz was active and page was reloaded - this is a violation!
+            const newViolationCount = (quizData.violations || 0) + 1;
+
+            if (newViolationCount >= MAX_VIOLATIONS) {
+                // Too many violations - terminate
+                sessionStorage.removeItem('techspark_quiz_active');
+                alert('🚨 QUIZ TERMINATED!\n\nYou refreshed the page during the quiz. This is a serious violation.\n\nYour attempt has been FLAGGED for review.');
+
+                // Update Firebase
+                if (quizData.regId) {
+                    const regRef = doc(db, 'registrations', quizData.regId);
+                    updateDoc(regRef, {
+                        status: 'FLAGGED',
+                        proctorViolations: newViolationCount,
+                        terminatedAt: serverTimestamp(),
+                        terminationReason: 'Page Reload Violation'
+                    }).catch(console.error);
+                }
+            } else {
+                // Restore quiz state but count as violation
+                alert(`⚠️ WARNING: Page Reload Detected!\n\nViolation ${newViolationCount} of ${MAX_VIOLATIONS}\n\nDO NOT refresh the page again!\nYour quiz will be terminated after ${MAX_VIOLATIONS} violations.`);
+
+                setShowQuizModal(true);
+                setActiveQuizUrl(quizData.url);
+                setActiveQuizTitle(quizData.title);
+                setActiveQuizRegId(quizData.regId);
+                setTabSwitchCount(newViolationCount);
+
+                // Update session storage with new violation count
+                sessionStorage.setItem('techspark_quiz_active', JSON.stringify({
+                    ...quizData,
+                    violations: newViolationCount
+                }));
+
+                // Update Firebase
+                if (quizData.regId) {
+                    const regRef = doc(db, 'registrations', quizData.regId);
+                    updateDoc(regRef, {
+                        proctorViolations: newViolationCount,
+                        lastViolationType: 'Page Reload',
+                        lastViolationAt: serverTimestamp()
+                    }).catch(console.error);
+                }
+            }
+        }
+    }, []);
+
     // Live Clock Effect
     useEffect(() => {
         const timer = setInterval(() => {
@@ -345,6 +397,10 @@ const StudentDashboard = () => {
                 { key: 'V', ctrl: true },
                 { key: 'X', ctrl: true },
                 { key: 'A', ctrl: true }, // Select All
+                // Page Refresh - BLOCKED
+                { key: 'F5' }, // F5 refresh
+                { key: 'r', ctrl: true }, // Ctrl+R refresh
+                { key: 'R', ctrl: true }, // Ctrl+Shift+R hard refresh
             ];
 
             const isBlocked = blockedKeys.some(blocked => {
@@ -358,6 +414,13 @@ const StudentDashboard = () => {
             if (isBlocked) {
                 e.preventDefault();
                 e.stopPropagation();
+
+                // Special handling for refresh attempts
+                if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && (e.key === 'r' || e.key === 'R'))) {
+                    setProctorWarning('🚫 PAGE REFRESH is DISABLED during quiz! Complete your quiz to continue.');
+                    setTimeout(() => setProctorWarning(''), 4000);
+                    return false;
+                }
 
                 // Special handling for dev tools attempts
                 if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && ['I', 'J', 'C'].includes(e.key))) {
@@ -437,12 +500,16 @@ const StudentDashboard = () => {
                 lastUpdated: serverTimestamp()
             });
 
+            // Clear session storage on successful completion
+            sessionStorage.removeItem('techspark_quiz_active');
+
             setShowQuizModal(false);
             setActiveQuizUrl('');
             setActiveQuizTitle('');
             setActiveQuizRegId(null);
             setIframeLoadCount(0);
             setShowFinishButton(false);
+            setTabSwitchCount(0);
             quizStartTime.current = null;
             alert("✨ BRAVO! Quiz Submission Verified. Your participation has been recorded and your dashboard is now updated to COMPLETED! 🚀");
         } catch (error) {
@@ -2316,24 +2383,6 @@ const StudentDashboard = () => {
                                             VERIFY & FINISH
                                         </motion.button>
                                     )}
-
-                                    <button
-                                        onClick={() => {
-                                            if (window.confirm('Are you sure you want to exit the quiz? Your progress may be lost.')) {
-                                                setShowQuizModal(false);
-                                                setActiveQuizUrl('');
-                                                setActiveQuizTitle('');
-                                                setActiveQuizRegId(null);
-                                                setIframeLoadCount(0);
-                                                setShowFinishButton(false);
-                                            }
-                                        }}
-                                        className="px-3 md:px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg md:rounded-xl font-black text-[10px] md:text-xs uppercase tracking-widest transition-all flex items-center gap-1 md:gap-2 shrink-0"
-                                    >
-                                        <X className="w-3 h-3 md:w-4 h-4" />
-                                        <span className="hidden sm:inline">EXIT QUIZ</span>
-                                        <span className="sm:hidden">EXIT</span>
-                                    </button>
                                 </div>
                             </div>
 
@@ -2436,6 +2485,47 @@ const StudentDashboard = () => {
                                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                     allowFullScreen
                                 />
+
+                                {/* Watermark Overlay - Screenshot Deterrent */}
+                                <div className="absolute inset-0 z-[12] pointer-events-none overflow-hidden select-none" style={{ userSelect: 'none' }}>
+                                    {/* Diagonal Watermarks Pattern */}
+                                    <div className="absolute inset-0 flex flex-wrap gap-20 rotate-[-25deg] scale-150 origin-center opacity-[0.04]">
+                                        {[...Array(30)].map((_, i) => (
+                                            <div key={i} className="whitespace-nowrap text-slate-900 font-black text-lg uppercase tracking-widest">
+                                                {user?.fullName || 'Student'} • {user?.rollNumber || 'ID'} • {new Date().toLocaleDateString()}
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Corner Watermarks */}
+                                    <div className="absolute top-2 left-2 px-3 py-1.5 bg-black/5 rounded-lg backdrop-blur-sm">
+                                        <p className="text-[8px] text-black/20 font-bold uppercase tracking-widest">
+                                            {user?.fullName} | {user?.rollNumber}
+                                        </p>
+                                    </div>
+                                    <div className="absolute top-2 right-2 px-3 py-1.5 bg-black/5 rounded-lg backdrop-blur-sm">
+                                        <p className="text-[8px] text-black/20 font-bold uppercase tracking-widest">
+                                            {currentTime.toLocaleTimeString()}
+                                        </p>
+                                    </div>
+                                    <div className="absolute bottom-16 left-2 px-3 py-1.5 bg-black/5 rounded-lg backdrop-blur-sm">
+                                        <p className="text-[8px] text-black/20 font-bold uppercase tracking-widest">
+                                            PROCTORED | {user?.department}
+                                        </p>
+                                    </div>
+                                    <div className="absolute bottom-16 right-2 px-3 py-1.5 bg-black/5 rounded-lg backdrop-blur-sm">
+                                        <p className="text-[8px] text-black/20 font-bold uppercase tracking-widest">
+                                            {user?.fullName} | {new Date().toLocaleDateString()}
+                                        </p>
+                                    </div>
+
+                                    {/* Center Watermark */}
+                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-[-25deg]">
+                                        <p className="text-4xl md:text-6xl font-black text-black/[0.03] uppercase tracking-widest whitespace-nowrap">
+                                            {user?.rollNumber || 'PROCTORED'}
+                                        </p>
+                                    </div>
+                                </div>
                             </motion.div>
 
                             {/* Footer */}
@@ -2449,103 +2539,114 @@ const StudentDashboard = () => {
                 </AnimatePresence>
 
                 {/* Quiz Rules Modal */}
-                {showQuizRulesModal && pendingQuizData && createPortal(
-                    <AnimatePresence>
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
-                        >
+                {
+                    showQuizRulesModal && pendingQuizData && createPortal(
+                        <AnimatePresence>
                             <motion.div
-                                initial={{ scale: 0.9, opacity: 0, y: -20 }}
-                                animate={{ scale: 1, opacity: 1, y: 0 }}
-                                exit={{ scale: 0.9, opacity: 0, y: -20 }}
-                                className="bg-white rounded-[2rem] max-w-md w-full shadow-2xl overflow-hidden flex flex-col"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
                             >
-                                {/* Header - Compact */}
-                                <div className="bg-gradient-to-r from-red-600 to-orange-600 p-4 text-white text-center shrink-0">
-                                    <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                                        <ShieldCheck className="w-6 h-6" />
+                                <motion.div
+                                    initial={{ scale: 0.9, opacity: 0, y: -20 }}
+                                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                                    exit={{ scale: 0.9, opacity: 0, y: -20 }}
+                                    className="bg-white rounded-[2rem] max-w-md w-full shadow-2xl overflow-hidden flex flex-col"
+                                >
+                                    {/* Header - Compact */}
+                                    <div className="bg-gradient-to-r from-red-600 to-orange-600 p-4 text-white text-center shrink-0">
+                                        <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                                            <ShieldCheck className="w-6 h-6" />
+                                        </div>
+                                        <h2 className="text-lg font-black uppercase tracking-wide">⚠️ Proctored Quiz</h2>
+                                        <p className="text-xs text-white/80 mt-1 font-medium">{pendingQuizData.title}</p>
                                     </div>
-                                    <h2 className="text-lg font-black uppercase tracking-wide">⚠️ Proctored Quiz</h2>
-                                    <p className="text-xs text-white/80 mt-1 font-medium">{pendingQuizData.title}</p>
-                                </div>
 
-                                {/* Rules List - Scrollable */}
-                                <div className="p-4 space-y-3 overflow-y-auto flex-1 max-h-[50vh]">
-                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest text-center mb-2">
-                                        📋 Read Carefully Before Starting
-                                    </p>
+                                    {/* Rules List - Scrollable */}
+                                    <div className="p-4 space-y-3 overflow-y-auto flex-1 max-h-[50vh]">
+                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest text-center mb-2">
+                                            📋 Read Carefully Before Starting
+                                        </p>
 
-                                    {/* Rule Items - Compact */}
-                                    <div className="space-y-2">
-                                        <div className="flex items-center gap-3 p-3 bg-red-50 rounded-xl border border-red-100">
-                                            <div className="w-8 h-8 bg-red-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">🚫</div>
-                                            <div>
-                                                <p className="text-xs font-black text-red-700 uppercase">No Tab Switching / Alt+Tab</p>
-                                                <p className="text-[10px] text-red-600">3 violations = Quiz Terminated</p>
+                                        {/* Rule Items - Compact */}
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-3 p-3 bg-red-50 rounded-xl border border-red-100">
+                                                <div className="w-8 h-8 bg-red-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">🚫</div>
+                                                <div>
+                                                    <p className="text-xs font-black text-red-700 uppercase">No Tab Switching / Alt+Tab</p>
+                                                    <p className="text-[10px] text-red-600">3 violations = Quiz Terminated</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100">
+                                                <div className="w-8 h-8 bg-amber-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">👁️</div>
+                                                <div>
+                                                    <p className="text-xs font-black text-amber-700 uppercase">Activity Monitored</p>
+                                                    <p className="text-[10px] text-amber-600">Session and visibility are logged</p>
+                                                </div>
                                             </div>
                                         </div>
-
-                                        <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100">
-                                            <div className="w-8 h-8 bg-amber-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">👁️</div>
+                                        <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                                            <div className="w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">✅</div>
                                             <div>
-                                                <p className="text-xs font-black text-amber-700 uppercase">Activity Monitored</p>
-                                                <p className="text-[10px] text-amber-600">Session and visibility are logged</p>
+                                                <p className="text-xs font-black text-blue-700 uppercase">How to Complete</p>
+                                                <p className="text-[10px] text-blue-600">Submit form → Click "VERIFY & FINISH"</p>
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
-                                        <div className="w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">✅</div>
-                                        <div>
-                                            <p className="text-xs font-black text-blue-700 uppercase">How to Complete</p>
-                                            <p className="text-[10px] text-blue-600">Submit form → Click "VERIFY & FINISH"</p>
-                                        </div>
+
+                                    <div className="mt-3 p-3 bg-slate-900 rounded-xl text-center">
+                                        <p className="text-[9px] text-white font-bold uppercase tracking-widest">
+                                            ⚠️ By clicking "Start Quiz", you agree to be monitored
+                                        </p>
                                     </div>
-                                </div>
 
-                                <div className="mt-3 p-3 bg-slate-900 rounded-xl text-center">
-                                    <p className="text-[9px] text-white font-bold uppercase tracking-widest">
-                                        ⚠️ By clicking "Start Quiz", you agree to be monitored
-                                    </p>
-                                </div>
+                                    {/* Action Buttons - Compact */}
+                                    <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-3 shrink-0">
+                                        <button
+                                            onClick={() => {
+                                                setShowQuizRulesModal(false);
+                                                setPendingQuizData(null);
+                                            }}
+                                            className="flex-1 py-3 px-4 bg-white border border-slate-200 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all"
+                                        >
+                                            ← Cancel
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                // Save quiz state to session storage for reload detection
+                                                sessionStorage.setItem('techspark_quiz_active', JSON.stringify({
+                                                    url: pendingQuizData.url,
+                                                    title: pendingQuizData.title,
+                                                    regId: pendingQuizData.regId,
+                                                    violations: 0,
+                                                    startTime: Date.now()
+                                                }));
 
-                                {/* Action Buttons - Compact */}
-                                <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-3 shrink-0">
-                                    <button
-                                        onClick={() => {
-                                            setShowQuizRulesModal(false);
-                                            setPendingQuizData(null);
-                                        }}
-                                        className="flex-1 py-3 px-4 bg-white border border-slate-200 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all"
-                                    >
-                                        ← Cancel
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            setActiveQuizUrl(pendingQuizData.url);
-                                            setActiveQuizTitle(pendingQuizData.title);
-                                            setActiveQuizRegId(pendingQuizData.regId);
-                                            setIframeLoadCount(0);
-                                            setShowFinishButton(false);
-                                            setTabSwitchCount(0);
-                                            setProctorWarning('');
-                                            quizStartTime.current = null;
-                                            setShowQuizModal(true);
-                                            setShowQuizRulesModal(false);
-                                            setPendingQuizData(null);
-                                        }}
-                                        className="flex-1 py-3 px-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
-                                    >
-                                        <Rocket className="w-3 h-3" /> Start Quiz
-                                    </button>
-                                </div>
+                                                setActiveQuizUrl(pendingQuizData.url);
+                                                setActiveQuizTitle(pendingQuizData.title);
+                                                setActiveQuizRegId(pendingQuizData.regId);
+                                                setIframeLoadCount(0);
+                                                setShowFinishButton(false);
+                                                setTabSwitchCount(0);
+                                                setProctorWarning('');
+                                                quizStartTime.current = null;
+                                                setShowQuizModal(true);
+                                                setShowQuizRulesModal(false);
+                                                setPendingQuizData(null);
+                                            }}
+                                            className="flex-1 py-3 px-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <Rocket className="w-3 h-3" /> Start Quiz
+                                        </button>
+                                    </div>
+                                </motion.div>
                             </motion.div>
-                        </motion.div>
-                    </AnimatePresence>,
-                    document.body
-                )}
+                        </AnimatePresence>,
+                        document.body
+                    )
+                }
             </div >
         </div >
     );
