@@ -20,6 +20,7 @@ import SecretaryDashboard from './components/Admin/SecretaryDashboard';
 import CheckinConsole from './components/Admin/CheckinConsole';
 import CertificateVerification from './components/CertificateVerification';
 import ScrollToTop from './components/ScrollToTop';
+import Chatbot from './components/Chatbot';
 import './index.css';
 
 const MainContent = () => {
@@ -155,6 +156,7 @@ function App() {
             />
           </Routes>
           <AuthOverlays />
+          <Chatbot />
         </div>
       </Router>
     </AuthProvider>
