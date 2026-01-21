@@ -198,9 +198,25 @@ const Events = () => {
 
     const types = ['All', 'WORKSHOP', 'COMPETITION', 'HACKATHON', 'SEMINAR'];
 
-    const filteredEvents = filter === 'All'
-        ? liveEvents
-        : liveEvents.filter(event => event.type === filter);
+    // Filter events based on type AND department restrictions
+    const filteredEvents = liveEvents.filter(event => {
+        // Filter by event type
+        const matchesType = filter === 'All' || event.type === filter;
+
+        // Filter by department restriction (if set)
+        let matchesDepartment = true;
+        if (event.audienceType === 'Specific' && event.departments && event.departments.length > 0) {
+            // If user is logged in, check their department
+            if (user && user.department) {
+                matchesDepartment = event.departments.includes(user.department);
+            } else {
+                // If not logged in, hide restricted events
+                matchesDepartment = false;
+            }
+        }
+
+        return matchesType && matchesDepartment;
+    });
 
     const getColorClasses = (type) => {
         const colors = {
@@ -258,7 +274,7 @@ const Events = () => {
                                 </div>
 
                                 <div className="p-8 pb-4 flex-1">
-                                    <div className="flex items-center gap-2 mb-4">
+                                    <div className="flex items-center gap-2 mb-4 flex-wrap">
                                         <span className={`px-3 py-1 rounded-lg text-[9px] font-black tracking-widest uppercase ${getColorClasses(event.type)}`}>
                                             {event.type}
                                         </span>
@@ -266,6 +282,11 @@ const Events = () => {
                                             <Clock className="w-3.5 h-3.5" />
                                             {event.date}
                                         </span>
+                                        {event.audienceType === 'Specific' && event.departments && event.departments.length > 0 && (
+                                            <span className="px-2 py-0.5 rounded-lg text-[8px] font-black tracking-widest uppercase bg-purple-100 text-purple-600 border border-purple-200">
+                                                {event.departments.length === 1 ? event.departments[0] : `${event.departments.length} Depts`}
+                                            </span>
+                                        )}
                                     </div>
 
                                     <h3 className="text-2xl font-black text-slate-800 mb-4 group-hover:text-blue-600 transition-colors uppercase leading-tight">

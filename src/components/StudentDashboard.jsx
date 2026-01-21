@@ -2391,6 +2391,15 @@ const StudentDashboard = () => {
 
                                         {/* Rule Items - Compact */}
                                         <div className="space-y-2">
+                                            {/* IMPORTANT: College Email Warning */}
+                                            <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-xl border-2 border-purple-300 animate-pulse">
+                                                <div className="w-8 h-8 bg-purple-600 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">📧</div>
+                                                <div>
+                                                    <p className="text-xs font-black text-purple-700 uppercase">Login to College Email FIRST!</p>
+                                                    <p className="text-[10px] text-purple-600">DO NOT click "Switch Account" inside quiz</p>
+                                                </div>
+                                            </div>
+
                                             <div className="flex items-center gap-3 p-3 bg-red-50 rounded-xl border border-red-100">
                                                 <div className="w-8 h-8 bg-red-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">🚫</div>
                                                 <div>
