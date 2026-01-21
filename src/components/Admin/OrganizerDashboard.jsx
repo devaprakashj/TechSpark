@@ -1257,12 +1257,33 @@ const OrganizerDashboard = () => {
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 {selectedEvent.status === 'LIVE' && (
-                                                    <button
-                                                        onClick={() => navigate('/checkin')}
-                                                        className="px-6 py-3.5 bg-blue-600 text-white rounded-2xl font-black text-xs shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center gap-2 uppercase tracking-widest"
-                                                    >
-                                                        <QrCode className="w-5 h-5" /> Launch Terminal
-                                                    </button>
+                                                    <div className="flex items-center gap-3">
+                                                        <button
+                                                            onClick={() => navigate('/checkin')}
+                                                            className="px-6 py-3.5 bg-blue-600 text-white rounded-2xl font-black text-xs shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center gap-2 uppercase tracking-widest"
+                                                        >
+                                                            <QrCode className="w-5 h-5" /> Launch Terminal
+                                                        </button>
+
+                                                        {/* Quiz Toggle in Header */}
+                                                        {selectedEvent.type?.toLowerCase() === 'quiz' && (
+                                                            selectedEvent.quizEnabled ? (
+                                                                <button
+                                                                    onClick={() => handleDisableQuiz(selectedEvent.id)}
+                                                                    className="px-6 py-3.5 bg-red-500 text-white rounded-2xl font-black text-xs shadow-xl shadow-red-500/20 hover:bg-red-600 transition-all flex items-center gap-2 uppercase tracking-widest"
+                                                                >
+                                                                    🚫 Disable Quiz
+                                                                </button>
+                                                            ) : (
+                                                                <button
+                                                                    onClick={() => handleEnableQuiz(selectedEvent.id)}
+                                                                    className="px-6 py-3.5 bg-emerald-600 text-white rounded-2xl font-black text-xs shadow-xl shadow-emerald-500/20 hover:bg-emerald-700 transition-all flex items-center gap-2 uppercase tracking-widest"
+                                                                >
+                                                                    ✅ Enable Quiz
+                                                                </button>
+                                                            )
+                                                        )}
+                                                    </div>
                                                 )}
                                                 <button
                                                     onClick={() => {
@@ -1591,48 +1612,50 @@ const OrganizerDashboard = () => {
                                                                     >
                                                                         <CheckCircle className="w-3 h-3" /> Complete
                                                                     </button>
-
-                                                                    {/* Quiz Enable/Disable Toggle - Only for Quiz type events */}
-                                                                    {event.type === 'Quiz' && (
-                                                                        event.quizEnabled ? (
-                                                                            <button
-                                                                                onClick={() => handleDisableQuiz(event.id)}
-                                                                                className="text-[10px] font-black text-red-600 uppercase tracking-widest hover:underline flex items-center gap-1 bg-red-50 px-2 py-1 rounded-lg"
-                                                                            >
-                                                                                🚫 Disable Quiz
-                                                                            </button>
-                                                                        ) : (
-                                                                            <button
-                                                                                onClick={() => handleEnableQuiz(event.id)}
-                                                                                className="text-[10px] font-black text-emerald-600 uppercase tracking-widest hover:underline flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-lg"
-                                                                            >
-                                                                                ✅ Enable Quiz
-                                                                            </button>
-                                                                        )
-                                                                    )}
                                                                 </>
                                                             )}
-
-                                                            {/* COMPLETED: View Feedback */}
-                                                            {event.status === 'COMPLETED' && (
-                                                                <button
-                                                                    onClick={() => handleViewFeedback(event.id)}
-                                                                    className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline flex items-center gap-1"
-                                                                >
-                                                                    <Activity className="w-3 h-3" /> Pulse
-                                                                </button>
-                                                            )}
-
-                                                            {/* Delete for non-LIVE/non-COMPLETED events */}
-                                                            {(event.status === 'DRAFT' || event.status === 'REJECTED') && (
-                                                                <button
-                                                                    onClick={() => handleDeleteEvent(event.id)}
-                                                                    className="text-[10px] font-black text-red-400 uppercase tracking-widest hover:text-red-600 ml-auto"
-                                                                >
-                                                                    Delete
-                                                                </button>
-                                                            )}
                                                         </div>
+
+                                                        {/* Quiz Enable/Disable Toggle - Prominent Button for Quiz type events */}
+                                                        {event.status === 'LIVE' && event.type?.toLowerCase() === 'quiz' && (
+                                                            <div className="mt-2">
+                                                                {event.quizEnabled ? (
+                                                                    <button
+                                                                        onClick={() => handleDisableQuiz(event.id)}
+                                                                        className="w-full py-3 bg-red-100 text-red-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-200 transition-all flex items-center justify-center gap-2 border border-red-200"
+                                                                    >
+                                                                        🚫 Disable Quiz (Students Cannot Start)
+                                                                    </button>
+                                                                ) : (
+                                                                    <button
+                                                                        onClick={() => handleEnableQuiz(event.id)}
+                                                                        className="w-full py-3 bg-emerald-100 text-emerald-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-200 transition-all flex items-center justify-center gap-2 border border-emerald-200"
+                                                                    >
+                                                                        ✅ Enable Quiz (Allow Students to Start)
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        )}
+
+                                                        {/* COMPLETED: View Feedback */}
+                                                        {event.status === 'COMPLETED' && (
+                                                            <button
+                                                                onClick={() => handleViewFeedback(event.id)}
+                                                                className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline flex items-center gap-1 mt-4"
+                                                            >
+                                                                <Activity className="w-3 h-3" /> Pulse
+                                                            </button>
+                                                        )}
+
+                                                        {/* Delete for non-LIVE/non-COMPLETED events */}
+                                                        {(event.status === 'DRAFT' || event.status === 'REJECTED') && (
+                                                            <button
+                                                                onClick={() => handleDeleteEvent(event.id)}
+                                                                className="text-[10px] font-black text-red-400 uppercase tracking-widest hover:text-red-600 ml-auto mt-4"
+                                                            >
+                                                                Delete
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
                                             ))}
@@ -2659,10 +2682,10 @@ const OrganizerDashboard = () => {
                         ) : null}
                     </AnimatePresence>
                 </div>
-            </main>
+            </main >
 
             {/* Global Custom Scrollbar Style */}
-            <style>{`
+            < style > {`
                 .custom-scrollbar::-webkit-scrollbar {
                     width: 6px;
                 }
@@ -2676,10 +2699,10 @@ const OrganizerDashboard = () => {
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
                     background: #cbd5e1;
                 }
-            `}</style>
+            `}</style >
 
             {/* Feedback Visualization Modal */}
-            <AnimatePresence>
+            < AnimatePresence >
                 {showFeedbackModal && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                         <motion.div
@@ -2796,139 +2819,141 @@ const OrganizerDashboard = () => {
                 )}
 
                 {/* Export Configuration Modal */}
-                {isExportModalOpen && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setIsExportModalOpen(false)}
-                            className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: 30 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 30 }}
-                            className="relative w-full max-w-4xl bg-white rounded-[3rem] shadow-[0_32px_128px_-16px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col max-h-[90vh]"
-                        >
-                            {/* Premium Header */}
-                            <div className="p-10 bg-slate-900 text-white relative overflow-hidden shrink-0">
-                                <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 blur-[120px] -mr-48 -mt-48" />
-                                <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-600/5 blur-[80px] -ml-32 -mb-32" />
+                {
+                    isExportModalOpen && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                onClick={() => setIsExportModalOpen(false)}
+                                className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
+                            />
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95, y: 30 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: 30 }}
+                                className="relative w-full max-w-4xl bg-white rounded-[3rem] shadow-[0_32px_128px_-16px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col max-h-[90vh]"
+                            >
+                                {/* Premium Header */}
+                                <div className="p-10 bg-slate-900 text-white relative overflow-hidden shrink-0">
+                                    <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 blur-[120px] -mr-48 -mt-48" />
+                                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-600/5 blur-[80px] -ml-32 -mb-32" />
 
-                                <div className="flex items-center justify-between relative z-10">
-                                    <div className="flex items-center gap-6">
-                                        <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/20 ring-4 ring-blue-500/10">
-                                            <Download className="w-8 h-8 text-white" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-2xl font-black uppercase italic tracking-tight mb-1">Export Matrix Configuration</h3>
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em]">Operational Dimension Selection for {exportType} extraction</p>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => setIsExportModalOpen(false)}
-                                        className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all border border-white/10 group"
-                                    >
-                                        <X className="w-6 h-6 text-slate-400 group-hover:text-white transition-colors" />
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Configuration Body */}
-                            <div className="p-10 space-y-10 overflow-y-auto custom-scrollbar">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-12">
-                                    {['Identity', 'Academic', 'Contact', 'Team', 'Strategic', 'Timeline', 'Admin'].map(category => (
-                                        <div key={category} className="space-y-5">
-                                            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-2 h-5 bg-blue-600 rounded-full" />
-                                                    <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em]">{category} Infrastructure</h4>
-                                                </div>
-                                                <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{availableFields.filter(f => f.category === category).length} Nodes</span>
+                                    <div className="flex items-center justify-between relative z-10">
+                                        <div className="flex items-center gap-6">
+                                            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/20 ring-4 ring-blue-500/10">
+                                                <Download className="w-8 h-8 text-white" />
                                             </div>
-                                            <div className="space-y-3">
-                                                {availableFields.filter(f => f.category === category).map(field => (
-                                                    <label key={field.id} className="flex items-center gap-4 p-4 bg-slate-50/50 border border-slate-100 rounded-2xl cursor-pointer hover:border-blue-300 hover:bg-white hover:shadow-xl hover:shadow-blue-500/5 transition-all group relative overflow-hidden">
-                                                        {selectedFields.includes(field.id) && (
-                                                            <motion.div layoutId={`bg-${field.id}`} className="absolute inset-0 bg-blue-50/50" />
-                                                        )}
-                                                        <div className="relative z-10 flex items-center gap-4 w-full">
-                                                            <div className="relative flex items-center justify-center">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={selectedFields.includes(field.id)}
-                                                                    onChange={(e) => {
-                                                                        if (e.target.checked) setSelectedFields([...selectedFields, field.id]);
-                                                                        else setSelectedFields(selectedFields.filter(f => f !== field.id));
-                                                                    }}
-                                                                    className="w-6 h-6 rounded-lg border-2 border-slate-200 text-blue-600 focus:ring-blue-500/20 transition-all cursor-pointer accent-blue-600"
-                                                                />
-                                                            </div>
-                                                            <span className={`text-[11px] font-black uppercase tracking-wide transition-colors ${selectedFields.includes(field.id) ? 'text-blue-600' : 'text-slate-600 group-hover:text-blue-500'}`}>
-                                                                {field.label}
-                                                            </span>
-                                                        </div>
-                                                    </label>
-                                                ))}
+                                            <div>
+                                                <h3 className="text-2xl font-black uppercase italic tracking-tight mb-1">Export Matrix Configuration</h3>
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em]">Operational Dimension Selection for {exportType} extraction</p>
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
-
-                                {/* Summary & Actions */}
-                                <div className="space-y-8 pt-6">
-                                    <div className="flex items-center gap-6 p-6 bg-slate-900 rounded-[2rem] text-white shadow-2xl shadow-slate-900/20 relative overflow-hidden group">
-                                        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 blur-[40px] group-hover:bg-blue-500/20 transition-all" />
-                                        <div className="flex-1 space-y-2">
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">Selection Intelligence</p>
-                                            <div className="flex items-center gap-4">
-                                                <button
-                                                    onClick={() => setSelectedFields(availableFields.map(f => f.id))}
-                                                    className="px-6 py-2.5 bg-white/10 hover:bg-white text-[10px] font-black text-white hover:text-slate-900 uppercase tracking-widest rounded-xl transition-all border border-white/10"
-                                                >
-                                                    Full Extraction
-                                                </button>
-                                                <button
-                                                    onClick={() => setSelectedFields(['name', 'roll'])}
-                                                    className="px-6 py-2.5 bg-white/5 hover:bg-white/10 text-[10px] font-black text-slate-400 hover:text-white uppercase tracking-widest rounded-xl transition-all border border-white/5"
-                                                >
-                                                    Core Essentials
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div className="text-right border-l border-white/10 pl-8">
-                                            <h4 className="text-3xl font-black italic mb-1 text-blue-400">{selectedFields.length}</h4>
-                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Dimensions Active</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex gap-6">
                                         <button
                                             onClick={() => setIsExportModalOpen(false)}
-                                            className="flex-1 py-6 bg-slate-100 text-slate-600 rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] hover:bg-slate-200 transition-all border border-slate-200"
+                                            className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all border border-white/10 group"
                                         >
-                                            Abort Extraction
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                handleDownloadSubReport(selectedEvent, exportType);
-                                                setIsExportModalOpen(false);
-                                            }}
-                                            disabled={selectedFields.length === 0}
-                                            className="flex-[2] py-6 bg-blue-600 text-white rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] shadow-[0_20px_40px_-12px_rgba(37,99,235,0.4)] hover:shadow-[0_25px_50px_-12px_rgba(37,99,235,0.6)] hover:bg-blue-700 transition-all flex items-center justify-center gap-4 disabled:opacity-40 disabled:shadow-none"
-                                        >
-                                            <ShieldCheck className="w-6 h-6 text-emerald-400" />
-                                            <span>Generate Official Report</span>
+                                            <X className="w-6 h-6 text-slate-400 group-hover:text-white transition-colors" />
                                         </button>
                                     </div>
                                 </div>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-        </div>
+
+                                {/* Configuration Body */}
+                                <div className="p-10 space-y-10 overflow-y-auto custom-scrollbar">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-12">
+                                        {['Identity', 'Academic', 'Contact', 'Team', 'Strategic', 'Timeline', 'Admin'].map(category => (
+                                            <div key={category} className="space-y-5">
+                                                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-2 h-5 bg-blue-600 rounded-full" />
+                                                        <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em]">{category} Infrastructure</h4>
+                                                    </div>
+                                                    <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{availableFields.filter(f => f.category === category).length} Nodes</span>
+                                                </div>
+                                                <div className="space-y-3">
+                                                    {availableFields.filter(f => f.category === category).map(field => (
+                                                        <label key={field.id} className="flex items-center gap-4 p-4 bg-slate-50/50 border border-slate-100 rounded-2xl cursor-pointer hover:border-blue-300 hover:bg-white hover:shadow-xl hover:shadow-blue-500/5 transition-all group relative overflow-hidden">
+                                                            {selectedFields.includes(field.id) && (
+                                                                <motion.div layoutId={`bg-${field.id}`} className="absolute inset-0 bg-blue-50/50" />
+                                                            )}
+                                                            <div className="relative z-10 flex items-center gap-4 w-full">
+                                                                <div className="relative flex items-center justify-center">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={selectedFields.includes(field.id)}
+                                                                        onChange={(e) => {
+                                                                            if (e.target.checked) setSelectedFields([...selectedFields, field.id]);
+                                                                            else setSelectedFields(selectedFields.filter(f => f !== field.id));
+                                                                        }}
+                                                                        className="w-6 h-6 rounded-lg border-2 border-slate-200 text-blue-600 focus:ring-blue-500/20 transition-all cursor-pointer accent-blue-600"
+                                                                    />
+                                                                </div>
+                                                                <span className={`text-[11px] font-black uppercase tracking-wide transition-colors ${selectedFields.includes(field.id) ? 'text-blue-600' : 'text-slate-600 group-hover:text-blue-500'}`}>
+                                                                    {field.label}
+                                                                </span>
+                                                            </div>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Summary & Actions */}
+                                    <div className="space-y-8 pt-6">
+                                        <div className="flex items-center gap-6 p-6 bg-slate-900 rounded-[2rem] text-white shadow-2xl shadow-slate-900/20 relative overflow-hidden group">
+                                            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 blur-[40px] group-hover:bg-blue-500/20 transition-all" />
+                                            <div className="flex-1 space-y-2">
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">Selection Intelligence</p>
+                                                <div className="flex items-center gap-4">
+                                                    <button
+                                                        onClick={() => setSelectedFields(availableFields.map(f => f.id))}
+                                                        className="px-6 py-2.5 bg-white/10 hover:bg-white text-[10px] font-black text-white hover:text-slate-900 uppercase tracking-widest rounded-xl transition-all border border-white/10"
+                                                    >
+                                                        Full Extraction
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setSelectedFields(['name', 'roll'])}
+                                                        className="px-6 py-2.5 bg-white/5 hover:bg-white/10 text-[10px] font-black text-slate-400 hover:text-white uppercase tracking-widest rounded-xl transition-all border border-white/5"
+                                                    >
+                                                        Core Essentials
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div className="text-right border-l border-white/10 pl-8">
+                                                <h4 className="text-3xl font-black italic mb-1 text-blue-400">{selectedFields.length}</h4>
+                                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Dimensions Active</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex gap-6">
+                                            <button
+                                                onClick={() => setIsExportModalOpen(false)}
+                                                className="flex-1 py-6 bg-slate-100 text-slate-600 rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] hover:bg-slate-200 transition-all border border-slate-200"
+                                            >
+                                                Abort Extraction
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    handleDownloadSubReport(selectedEvent, exportType);
+                                                    setIsExportModalOpen(false);
+                                                }}
+                                                disabled={selectedFields.length === 0}
+                                                className="flex-[2] py-6 bg-blue-600 text-white rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] shadow-[0_20px_40px_-12px_rgba(37,99,235,0.4)] hover:shadow-[0_25px_50px_-12px_rgba(37,99,235,0.6)] hover:bg-blue-700 transition-all flex items-center justify-center gap-4 disabled:opacity-40 disabled:shadow-none"
+                                            >
+                                                <ShieldCheck className="w-6 h-6 text-emerald-400" />
+                                                <span>Generate Official Report</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )
+                }
+            </AnimatePresence >
+        </div >
     );
 };
 

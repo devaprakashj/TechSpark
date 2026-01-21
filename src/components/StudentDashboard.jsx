@@ -1178,7 +1178,7 @@ const StudentDashboard = () => {
                                                         ) : (
                                                             <div className="flex items-center gap-2">
                                                                 {/* Quiz: Start Quiz Button - Shows Rules First (Only for non-flagged, upcoming, and quizEnabled) */}
-                                                                {eventActualData?.type === 'Quiz' && currentStatus === 'Upcoming' && !isFlagged && generateQuizUrl(reg) && (
+                                                                {eventActualData?.type?.toLowerCase() === 'quiz' && currentStatus === 'Upcoming' && !isFlagged && generateQuizUrl(reg) && (
                                                                     eventActualData?.quizEnabled ? (
                                                                         <button
                                                                             onClick={(e) => {
