@@ -528,6 +528,38 @@ const OrganizerDashboard = () => {
         }
     };
 
+    // Quick Action: Enable Quiz (Allow students to start the quiz)
+    const handleEnableQuiz = async (eventId) => {
+        if (!window.confirm("Enable quiz for this event? Students will be able to start the quiz.")) return;
+        try {
+            await updateDoc(doc(db, 'events', eventId), {
+                quizEnabled: true,
+                quizEnabledAt: serverTimestamp()
+            });
+            fetchEvents();
+            alert("✅ Quiz ENABLED! Students can now start the quiz.");
+        } catch (error) {
+            console.error("Error enabling quiz:", error);
+            alert("Failed to enable quiz.");
+        }
+    };
+
+    // Quick Action: Disable Quiz (Prevent students from starting the quiz)
+    const handleDisableQuiz = async (eventId) => {
+        if (!window.confirm("Disable quiz for this event? Students won't be able to start the quiz.")) return;
+        try {
+            await updateDoc(doc(db, 'events', eventId), {
+                quizEnabled: false,
+                quizDisabledAt: serverTimestamp()
+            });
+            fetchEvents();
+            alert("🚫 Quiz DISABLED! Students cannot start the quiz now.");
+        } catch (error) {
+            console.error("Error disabling quiz:", error);
+            alert("Failed to disable quiz.");
+        }
+    };
+
     const handleViewFeedback = async (eventId) => {
         setLoadingFeedback(true);
         setShowFeedbackModal(true);
@@ -1559,6 +1591,25 @@ const OrganizerDashboard = () => {
                                                                     >
                                                                         <CheckCircle className="w-3 h-3" /> Complete
                                                                     </button>
+
+                                                                    {/* Quiz Enable/Disable Toggle - Only for Quiz type events */}
+                                                                    {event.type === 'Quiz' && (
+                                                                        event.quizEnabled ? (
+                                                                            <button
+                                                                                onClick={() => handleDisableQuiz(event.id)}
+                                                                                className="text-[10px] font-black text-red-600 uppercase tracking-widest hover:underline flex items-center gap-1 bg-red-50 px-2 py-1 rounded-lg"
+                                                                            >
+                                                                                🚫 Disable Quiz
+                                                                            </button>
+                                                                        ) : (
+                                                                            <button
+                                                                                onClick={() => handleEnableQuiz(event.id)}
+                                                                                className="text-[10px] font-black text-emerald-600 uppercase tracking-widest hover:underline flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-lg"
+                                                                            >
+                                                                                ✅ Enable Quiz
+                                                                            </button>
+                                                                        )
+                                                                    )}
                                                                 </>
                                                             )}
 

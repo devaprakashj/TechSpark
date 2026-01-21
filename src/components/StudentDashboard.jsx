@@ -1177,23 +1177,29 @@ const StudentDashboard = () => {
                                                             )
                                                         ) : (
                                                             <div className="flex items-center gap-2">
-                                                                {/* Quiz: Start Quiz Button - Shows Rules First (Only for non-flagged, upcoming) */}
+                                                                {/* Quiz: Start Quiz Button - Shows Rules First (Only for non-flagged, upcoming, and quizEnabled) */}
                                                                 {eventActualData?.type === 'Quiz' && currentStatus === 'Upcoming' && !isFlagged && generateQuizUrl(reg) && (
-                                                                    <button
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            // Store quiz data and show rules modal first
-                                                                            setPendingQuizData({
-                                                                                url: generateQuizUrl(reg),
-                                                                                title: reg.eventTitle,
-                                                                                regId: reg.id
-                                                                            });
-                                                                            setShowQuizRulesModal(true);
-                                                                        }}
-                                                                        className="px-4 py-1.5 bg-purple-600 text-white rounded-xl text-[10px] font-black uppercase hover:bg-purple-700 transition-colors shadow-lg shadow-purple-200 flex items-center gap-1.5"
-                                                                    >
-                                                                        <Rocket className="w-3 h-3" /> START QUIZ
-                                                                    </button>
+                                                                    eventActualData?.quizEnabled ? (
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                // Store quiz data and show rules modal first
+                                                                                setPendingQuizData({
+                                                                                    url: generateQuizUrl(reg),
+                                                                                    title: reg.eventTitle,
+                                                                                    regId: reg.id
+                                                                                });
+                                                                                setShowQuizRulesModal(true);
+                                                                            }}
+                                                                            className="px-4 py-1.5 bg-purple-600 text-white rounded-xl text-[10px] font-black uppercase hover:bg-purple-700 transition-colors shadow-lg shadow-purple-200 flex items-center gap-1.5"
+                                                                        >
+                                                                            <Rocket className="w-3 h-3" /> START QUIZ
+                                                                        </button>
+                                                                    ) : (
+                                                                        <span className="px-3 py-1.5 bg-slate-200 text-slate-500 rounded-xl text-[9px] font-black uppercase flex items-center gap-1.5">
+                                                                            ⏳ Quiz Not Started Yet
+                                                                        </span>
+                                                                    )
                                                                 )}
                                                                 {/* FLAGGED Status for Quiz */}
                                                                 {currentStatus === 'FLAGGED' && (
