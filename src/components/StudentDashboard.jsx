@@ -100,7 +100,6 @@ const StudentDashboard = () => {
     const MAX_VIOLATIONS = 3;
     const [showQuizRulesModal, setShowQuizRulesModal] = useState(false);
     const [pendingQuizData, setPendingQuizData] = useState(null);
-    const [emailVerificationStep, setEmailVerificationStep] = useState(false); // Pre-quiz email check
 
     // --- RELOAD DETECTION: Check if quiz was active before page reload ---
     useEffect(() => {
@@ -130,7 +129,7 @@ const StudentDashboard = () => {
     useEffect(() => {
         const navbar = document.querySelector('nav');
         const header = document.querySelector('header');
-        const isModalOpen = showQuizModal || showQuizRulesModal || emailVerificationStep;
+        const isModalOpen = showQuizModal || showQuizRulesModal;
 
         if (isModalOpen) {
             document.body.style.overflow = 'hidden';
@@ -155,7 +154,7 @@ const StudentDashboard = () => {
             if (navbar) navbar.style.display = '';
             if (header) header.style.display = '';
         };
-    }, [showQuizModal, showQuizRulesModal, emailVerificationStep]);
+    }, [showQuizModal, showQuizRulesModal]);
 
     // --- PROCTORING: Tab Switch Detection ---
     useEffect(() => {
@@ -1189,7 +1188,7 @@ const StudentDashboard = () => {
                                                                                 title: reg.eventTitle,
                                                                                 regId: reg.id
                                                                             });
-                                                                            setEmailVerificationStep(true); // Show email verification first
+                                                                            setShowQuizRulesModal(true);
                                                                         }}
                                                                         className="px-4 py-1.5 bg-purple-600 text-white rounded-xl text-[10px] font-black uppercase hover:bg-purple-700 transition-colors shadow-lg shadow-purple-200 flex items-center gap-1.5"
                                                                     >
@@ -2392,24 +2391,6 @@ const StudentDashboard = () => {
 
                                         {/* Rule Items - Compact */}
                                         <div className="space-y-2">
-                                            {/* CRITICAL: College Email Warning */}
-                                            <div className="p-4 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl border-2 border-purple-400 shadow-lg">
-                                                <div className="flex items-start gap-3">
-                                                    <div className="w-10 h-10 bg-white text-purple-600 rounded-xl flex items-center justify-center shrink-0 text-lg font-black">⚠️</div>
-                                                    <div>
-                                                        <p className="text-sm font-black text-white uppercase tracking-wide">Login to College Email BEFORE Starting!</p>
-                                                        <p className="text-[11px] text-purple-200 mt-1 leading-relaxed">
-                                                            Open a new tab → Go to gmail.com → Login with your <span className="font-bold text-white">@ritchennai.edu.in</span> email → Then start quiz
-                                                        </p>
-                                                        <div className="mt-2 p-2 bg-red-500/20 rounded-lg border border-red-400/30">
-                                                            <p className="text-[10px] text-red-200 font-bold">
-                                                                ❌ If you click "Switch Account" inside quiz, you'll be redirected OUT and need to restart!
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
                                             <div className="flex items-center gap-3 p-3 bg-red-50 rounded-xl border border-red-100">
                                                 <div className="w-8 h-8 bg-red-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">🚫</div>
                                                 <div>
@@ -2496,117 +2477,6 @@ const StudentDashboard = () => {
                                         >
                                             <Rocket className="w-3 h-3" /> Start Quiz
                                         </button>
-                                    </div>
-                                </motion.div>
-                            </motion.div>
-                        </AnimatePresence>,
-                        document.body
-                    )
-                }
-
-                {/* Email Verification Modal - Shows BEFORE Quiz Rules */}
-                {
-                    emailVerificationStep && pendingQuizData && createPortal(
-                        <AnimatePresence>
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
-                            >
-                                <motion.div
-                                    initial={{ scale: 0.9, opacity: 0, y: -20 }}
-                                    animate={{ scale: 1, opacity: 1, y: 0 }}
-                                    exit={{ scale: 0.9, opacity: 0, y: -20 }}
-                                    className="bg-white rounded-[2rem] max-w-md w-full shadow-2xl overflow-hidden"
-                                >
-                                    {/* Header */}
-                                    <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 text-white text-center">
-                                        <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
-                                            <span className="text-3xl">📧</span>
-                                        </div>
-                                        <h2 className="text-xl font-black uppercase tracking-wide">Email Verification Required</h2>
-                                        <p className="text-xs text-purple-200 mt-2 font-medium">Before starting the quiz</p>
-                                    </div>
-
-                                    {/* Content */}
-                                    <div className="p-6 space-y-4">
-                                        <div className="p-4 bg-amber-50 rounded-xl border-2 border-amber-200">
-                                            <p className="text-sm text-amber-800 font-bold mb-2">⚠️ Important:</p>
-                                            <p className="text-xs text-amber-700 leading-relaxed">
-                                                The quiz form requires you to be logged in with your <span className="font-black">College Email (@ritchennai.edu.in)</span>.
-                                                If you click "Switch Account" inside the quiz, you'll be redirected out!
-                                            </p>
-                                        </div>
-
-                                        <div className="space-y-3">
-                                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest text-center">Follow these steps:</p>
-
-                                            <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
-                                                <div className="w-7 h-7 bg-purple-600 text-white rounded-lg flex items-center justify-center shrink-0 text-xs font-black">1</div>
-                                                <div>
-                                                    <p className="text-xs font-bold text-slate-800">Click the button below to open Google Forms</p>
-                                                    <p className="text-[10px] text-slate-500 mt-0.5">Opens in a new tab</p>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
-                                                <div className="w-7 h-7 bg-purple-600 text-white rounded-lg flex items-center justify-center shrink-0 text-xs font-black">2</div>
-                                                <div>
-                                                    <p className="text-xs font-bold text-slate-800">Check the email shown at the top</p>
-                                                    <p className="text-[10px] text-slate-500 mt-0.5">It should be your @ritchennai.edu.in email</p>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
-                                                <div className="w-7 h-7 bg-purple-600 text-white rounded-lg flex items-center justify-center shrink-0 text-xs font-black">3</div>
-                                                <div>
-                                                    <p className="text-xs font-bold text-slate-800">If wrong email, switch account there</p>
-                                                    <p className="text-[10px] text-slate-500 mt-0.5">Close that tab and come back here</p>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-start gap-3 p-3 bg-emerald-50 rounded-xl border border-emerald-200">
-                                                <div className="w-7 h-7 bg-emerald-600 text-white rounded-lg flex items-center justify-center shrink-0 text-xs font-black">4</div>
-                                                <div>
-                                                    <p className="text-xs font-bold text-emerald-800">Come back here and click "I'm Ready"</p>
-                                                    <p className="text-[10px] text-emerald-600 mt-0.5">You can now start the proctored quiz safely!</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Actions */}
-                                    <div className="p-4 bg-slate-50 border-t border-slate-100 space-y-3">
-                                        <a
-                                            href="https://docs.google.com/forms"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2"
-                                        >
-                                            🔗 Open Google Forms (New Tab)
-                                        </a>
-
-                                        <div className="flex gap-3">
-                                            <button
-                                                onClick={() => {
-                                                    setEmailVerificationStep(false);
-                                                    setPendingQuizData(null);
-                                                }}
-                                                className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all"
-                                            >
-                                                ← Cancel
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    setEmailVerificationStep(false);
-                                                    setShowQuizRulesModal(true);
-                                                }}
-                                                className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
-                                            >
-                                                ✅ I'm Ready - Continue
-                                            </button>
-                                        </div>
                                     </div>
                                 </motion.div>
                             </motion.div>
