@@ -866,7 +866,7 @@ const StudentDashboard = () => {
                 eventId: eventToRegister.id,
                 eventTitle: eventToRegister.title,
                 eventDate: eventToRegister.date,
-                eventTime: eventToRegister.time || 'TBA',
+                eventTime: eventToRegister.time || (eventToRegister.date?.includes('|') ? eventToRegister.date.split('|')[1].trim() : 'TBA'),
                 userId: user.uid,
                 studentName: user.fullName,
                 studentEmail: user.email,
@@ -1115,15 +1115,38 @@ const StudentDashboard = () => {
                                                     className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl group hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 transition-all duration-300 cursor-pointer"
                                                 >
                                                     <div className="flex items-center gap-4">
-                                                        <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold">
-                                                            <span className="uppercase">{reg.eventDate?.split(' ')[0]}</span>
-                                                            <span className="text-lg leading-none">{reg.eventDate?.split(' ')[1]?.replace(',', '')}</span>
+                                                        <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex flex-col items-center justify-center font-bold overflow-hidden">
+                                                            {(() => {
+                                                                const fullDate = reg.eventDate || '';
+                                                                const datePart = fullDate.split('|')[0].trim();
+
+                                                                if (datePart.includes('-')) {
+                                                                    const [y, m, d] = datePart.split('-');
+                                                                    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+                                                                    return (
+                                                                        <>
+                                                                            <span className="text-[9px] uppercase leading-tight opacity-70">{months[parseInt(m) - 1] || '---'}</span>
+                                                                            <span className="text-lg leading-tight">{d}</span>
+                                                                        </>
+                                                                    );
+                                                                } else {
+                                                                    const parts = datePart.split(' ');
+                                                                    return (
+                                                                        <>
+                                                                            <span className="text-[9px] uppercase leading-tight opacity-70">{parts[0]}</span>
+                                                                            <span className="text-lg leading-tight">{parts[1]?.replace(',', '')}</span>
+                                                                        </>
+                                                                    );
+                                                                }
+                                                            })()}
                                                         </div>
                                                         <div>
                                                             <h3 className="font-bold text-slate-800 group-hover:text-blue-600 transition-colors uppercase">{reg.eventTitle}</h3>
                                                             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
                                                                 <p className="text-xs text-slate-500 flex items-center gap-1 font-medium">
-                                                                    <Clock className="w-3 h-3" /> {reg.eventTime}
+                                                                    <Clock className="w-3 h-3" /> {(!reg.eventTime || reg.eventTime === 'TBA') && eventActualData?.date?.includes('|')
+                                                                        ? eventActualData.date.split('|')[1].trim()
+                                                                        : (reg.eventTime || 'TBA')}
                                                                 </p>
                                                                 {reg.isTeamRegistration && (
                                                                     <div className="flex items-center gap-2">
@@ -1143,9 +1166,9 @@ const StudentDashboard = () => {
                                                                             e.stopPropagation();
                                                                             window.open(generateCalendarUrl(reg), '_blank');
                                                                         }}
-                                                                        className="text-[9px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100 hover:bg-blue-100 transition-colors flex items-center gap-1 uppercase"
+                                                                        className="text-[9px] font-black text-blue-600 bg-blue-50/50 px-2 py-1 rounded-lg border border-blue-100/50 hover:bg-blue-600 hover:text-white transition-all flex items-center gap-1 uppercase tracking-tight"
                                                                     >
-                                                                        <CalendarPlus className="w-3 h-3" /> Add to Calendar
+                                                                        <CalendarPlus className="w-3 h-3" /> Calendar
                                                                     </button>
                                                                 )}
                                                             </div>
