@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, ExternalLink, Heart, MessageSquare, Lightbulb } from 'lucide-react';
+import { Users, ExternalLink, Heart, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../firebase';
 import { doc, onSnapshot, setDoc, updateDoc, increment, getDoc } from 'firebase/firestore';
@@ -192,36 +192,6 @@ const Projects = () => {
                     ))}
                 </div>
 
-                {/* CTA - Premium Style */}
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
-                    viewport={{ once: true }}
-                    className="mt-20 bg-gradient-to-r from-slate-900 to-slate-800 p-12 lg:p-16 rounded-[3rem] text-center relative overflow-hidden shadow-2xl"
-                >
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/20 rounded-full blur-[100px] -mr-32 -mt-32" />
-                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-600/20 rounded-full blur-[100px] -ml-32 -mb-32" />
-
-                    <div className="relative z-10 max-w-2xl mx-auto space-y-6">
-                        <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-8 backdrop-blur-md">
-                            <Lightbulb className="w-8 h-8 text-blue-400" />
-                        </div>
-                        <h3 className="text-3xl lg:text-4xl font-black text-white uppercase italic">
-                            Ignite Your <span className="text-blue-400">Concept</span>
-                        </h3>
-                        <p className="text-slate-400 font-medium leading-relaxed">
-                            Have a disruptive idea? TechSpark provides the tactical mentorship, community support, and resources to build the future.
-                        </p>
-                        <div className="pt-8">
-                            <button
-                                onClick={() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })}
-                                className="px-10 py-5 bg-white text-slate-900 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all shadow-xl shadow-white/5 active:scale-95"
-                            >
-                                Start Incubation
-                            </button>
-                        </div>
-                    </div>
-                </motion.div>
             </div>
         </section>
     );
