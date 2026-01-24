@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import AuthModal from './components/AuthModal';
@@ -64,7 +63,7 @@ const ProtectedSecretaryRoute = ({ children }) => {
 };
 
 const AuthOverlays = () => {
-  const { isAuthModalOpen, showBadge, setShowBadge, user } = useAuth();
+  const { showBadge, setShowBadge, user } = useAuth();
 
   return (
     <>

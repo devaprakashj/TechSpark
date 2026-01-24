@@ -676,7 +676,8 @@ const SecretaryDashboard = () => {
             <aside className="w-80 bg-slate-900 text-white flex flex-col sticky top-0 h-screen shrink-0 border-r border-slate-800 shadow-2xl z-50">
                 <div className="p-8 border-b border-slate-800/50">
                     <div className="flex items-center gap-4 mb-8">
-                        <img src={techsparkLogo} alt="Logo" className="w-12 h-12 filter brightness-0 invert opacity-90 drop-shadow-xl" />
+                        <img src={techsparkLogo} alt="Logo" className="h-10 w-auto object-contain filter brightness-0 invert opacity-90 drop-shadow-xl" />
+                        <div className="w-px h-8 bg-white/10 mx-1" />
                         <div>
                             <h2 className="text-xl font-black tracking-tighter italic uppercase text-white leading-none">Secretary</h2>
                             <p className="text-[9px] font-black text-blue-400 uppercase tracking-[0.3em] mt-1 italic">Intelligence Ops</p>

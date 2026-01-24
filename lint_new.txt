@@ -1,0 +1,8 @@
+
+C:\Users\hp\OneDrive\Documents\Portfolilo\TechSpark\src\components\Admin\OrganizerDashboard.jsx
+    3:10  error    'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                           no-unused-vars
+  291:8   warning  React Hook useEffect has a missing dependency: 'navigate'. Either include it or remove the dependency array             react-hooks/exhaustive-deps
+  319:8   warning  React Hook useEffect has a missing dependency: 'selectedEvent.title'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+✖ 3 problems (1 error, 2 warnings)
+

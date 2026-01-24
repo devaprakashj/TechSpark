@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Calendar,
@@ -39,10 +40,12 @@ import {
     QrCode,
     Activity,
     RotateCcw,
-    Zap
+    Zap,
+    Menu
 } from 'lucide-react';
 import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, deleteDoc, doc, where, updateDoc, increment, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { Scanner } from '@yudiel/react-qr-scanner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import ritLogo from '../../assets/rit-logo.png';
@@ -60,7 +63,7 @@ const OrganizerDashboard = () => {
         draft: 0,
         totalRegs: 0
     });
-    const [loadingData, setLoadingData] = useState(true);
+    const [, setLoadingData] = useState(true);
     const [currentView, setCurrentView] = useState('dashboard');
     const [activeStep, setActiveStep] = useState(1);
     const [selectedEvent, setSelectedEvent] = useState(null);
@@ -80,6 +83,9 @@ const OrganizerDashboard = () => {
     const [regDeptFilter, setRegDeptFilter] = useState('all');
     const [regYearFilter, setRegYearFilter] = useState('all');
     const [showFlaggedOnly, setShowFlaggedOnly] = useState(false);
+    const [isScannerOpen, setIsScannerOpen] = useState(false);
+    const [isScanning, setIsScanning] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     // Custom Export System
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -217,7 +223,7 @@ const OrganizerDashboard = () => {
 
                 // Year Mapper for professional display
                 const yearMap = { '1': 'I', '2': 'II', '3': 'III', '4': 'IV', 'Alumni': 'Alumni' };
-                const yearReverseMap = { 'I': '1', 'II': '2', 'III': '3', 'IV': '4' };
+
 
                 allUsers.forEach(u => {
                     if (u.department) depts.add(u.department.toUpperCase());
@@ -283,7 +289,7 @@ const OrganizerDashboard = () => {
             localStorage.removeItem('organizerToken');
             navigate('/organizer/login');
         }
-    }, []);
+    }, [navigate]);
 
     // Real-time listener for DETAILED registrations when an event is selected
     useEffect(() => {
@@ -311,7 +317,7 @@ const OrganizerDashboard = () => {
         });
 
         return () => unsubscribe();
-    }, [selectedEvent?.id]);
+    }, [selectedEvent?.id, selectedEvent?.title]);
 
     // Real-time listener for Quiz Submissions
     useEffect(() => {
@@ -486,6 +492,70 @@ const OrganizerDashboard = () => {
         setCurrentView('create');
     };
 
+
+    const handleScannerResult = async (result) => {
+        if (!result || isScanning) return;
+        setIsScanning(true);
+
+        try {
+            let scannedValue = result[0]?.rawValue || result;
+            console.log('Raw Scan Output:', scannedValue);
+
+            // 1. Check if it's already a clean roll number
+            if (/^\d{10,15}$/.test(scannedValue)) {
+                setRegSearchQuery(scannedValue);
+                setIsScannerOpen(false);
+                return;
+            }
+
+            // 2. Check if it's a URL (Extract from RIT Verification Page if applicable)
+            if (scannedValue.startsWith('http')) {
+                const url = scannedValue;
+                let response;
+                try {
+                    response = await fetch(url, { method: 'GET', mode: 'cors', headers: { 'Accept': 'text/html' } });
+                } catch {
+                    const proxyUrl = 'https://api.allorigins.win/raw?url=';
+                    response = await fetch(proxyUrl + encodeURIComponent(url));
+                }
+
+                if (response.ok) {
+                    const html = await response.text();
+                    const patterns = [
+                        /Register Number[:\s]*(\d+)/i,
+                        /Registration Number[:\s]*(\d+)/i,
+                        /Roll Number[:\s]*(\d+)/i,
+                        /Roll No[:\s.]*(\d+)/i,
+                        /Reg\.?\s*No\.?[:\s]*(\d+)/i,
+                        /<td[^>]*>(\d{10,15})<\/td>/i,
+                    ];
+
+                    let rollNumber = null;
+                    for (const pattern of patterns) {
+                        const match = html.match(pattern);
+                        if (match && match[1]) {
+                            rollNumber = match[1];
+                            break;
+                        }
+                    }
+
+                    if (rollNumber) {
+                        setRegSearchQuery(rollNumber);
+                        setIsScannerOpen(false);
+                        return;
+                    }
+                }
+            }
+
+            // If we reach here, we couldn't parse it
+            alert("No recognizable Register Number found in this QR code.");
+        } catch (error) {
+            console.error('Scan Error:', error);
+            alert("Failed to read QR code. Please try manual entry.");
+        } finally {
+            setIsScanning(false);
+        }
+    };
 
     const handleDeleteEvent = async (id) => {
         if (!window.confirm("Are you sure you want to delete this operation? This action is irreversible.")) return;
@@ -947,7 +1017,7 @@ const OrganizerDashboard = () => {
         try {
             const doc = new jsPDF('l', 'mm', 'a4');
             const pageWidth = doc.internal.pageSize.width;
-            const pageHeight = doc.internal.pageSize.height;
+
 
             const loadImg = (path) => new Promise(res => {
                 const img = new Image();
@@ -1046,16 +1116,7 @@ const OrganizerDashboard = () => {
         }
     };
 
-    const handleRemoveRegistration = async (registrationId, studentName) => {
-        if (!confirm(`Remove ${studentName} from this operation?`)) return;
-        try {
-            await deleteDoc(doc(db, 'registrations', registrationId));
-            setRegistrations(prev => prev.filter(reg => reg.id !== registrationId));
-            alert("Entry purged successfully. 👤🚫");
-        } catch (error) {
-            console.error("Error removing member:", error);
-        }
-    };
+
 
     if (!organizer) {
         return (
@@ -1069,17 +1130,17 @@ const OrganizerDashboard = () => {
     }
 
     const renderStepIndicator = () => (
-        <div className="flex items-center justify-between mb-12">
+        <div className="flex items-center justify-between mb-8 md:mb-12 px-2 md:px-0">
             {[1, 2, 3, 4].map((step) => (
                 <div key={step} className="flex items-center flex-1 last:flex-none">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm transition-all duration-300 ${activeStep === step
+                    <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center font-bold text-xs md:text-sm transition-all duration-300 ${activeStep === step
                         ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
                         : activeStep > step ? 'bg-emerald-500 text-white' : 'bg-white border border-slate-200 text-slate-400'
                         }`}>
-                        {activeStep > step ? <CheckCircle className="w-5 h-5" /> : step}
+                        {activeStep > step ? <CheckCircle className="w-4 h-4 md:w-5 md:h-5" /> : step}
                     </div>
                     {step < 4 && (
-                        <div className={`h-0.5 flex-1 mx-4 rounded-full ${activeStep > step ? 'bg-emerald-500' : 'bg-slate-200'}`} />
+                        <div className={`h-0.5 flex-1 mx-2 md:mx-4 rounded-full ${activeStep > step ? 'bg-emerald-500' : 'bg-slate-200'}`} />
                     )}
                 </div>
             ))}
@@ -1087,16 +1148,44 @@ const OrganizerDashboard = () => {
     );
 
     return (
-        <div className="min-h-screen bg-slate-50 flex">
+        <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
+            {/* Mobile Header */}
+            <header className="lg:hidden bg-[#0f172a] text-white p-4 flex items-center justify-between sticky top-0 z-[60] shadow-md">
+                <div className="flex items-center gap-3">
+                    <img src={techsparkLogo} alt="TechSpark" className="h-8 w-auto object-contain" />
+                </div>
+                <button
+                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                    className="p-2 hover:bg-white/10 rounded-xl transition-colors"
+                >
+                    {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                </button>
+            </header>
+
+            {/* Mobile Backdrop */}
+            <AnimatePresence>
+                {isMobileMenuOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden"
+                    />
+                )}
+            </AnimatePresence>
+
             {/* SaaS Dark Sidebar */}
-            <aside className="w-80 bg-[#0f172a] flex flex-col fixed inset-y-0 shadow-2xl z-50">
+            <aside className={`
+                w-72 lg:w-80 bg-[#0f172a] flex flex-col fixed lg:sticky shadow-2xl z-50 transition-transform duration-300
+                ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+                top-[64px] lg:top-0 h-[calc(100vh-64px)] lg:h-screen lg:inset-y-0
+            `}>
                 <div className="p-8 flex items-center gap-4 mb-8">
-                    <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-                        <Shield className="w-6 h-6 text-white" />
-                    </div>
+                    <img src={techsparkLogo} alt="TechSpark Logo" className="h-10 w-auto object-contain" />
+                    <div className="w-px h-8 bg-white/10 mx-2" />
                     <div>
-                        <h2 className="text-xl font-black text-white tracking-tighter uppercase italic">TechSpark</h2>
-                        <p className="text-[10px] text-slate-500 font-bold tracking-[0.2em] uppercase">Control Center</p>
+                        <p className="text-[10px] text-blue-500 font-bold tracking-[0.2em] uppercase">Control Center</p>
                     </div>
                 </div>
 
@@ -1114,6 +1203,7 @@ const OrganizerDashboard = () => {
                             key={item.id}
                             onClick={() => {
                                 setCurrentView(item.id);
+                                setIsMobileMenuOpen(false); // Close on selection on mobile
                                 if (item.id === 'create') {
                                     setActiveStep(1);
                                     setSelectedEvent(null);
@@ -1158,61 +1248,61 @@ const OrganizerDashboard = () => {
             </aside>
 
             {/* Main Content Area */}
-            <main className="flex-1 ml-80 overflow-y-auto min-h-screen">
-                <div className="max-w-7xl mx-auto p-12">
+            <main className="flex-1 overflow-y-auto min-h-screen">
+                <div className="max-w-7xl mx-auto p-4 md:p-8 lg:p-12">
                     <AnimatePresence mode="wait">
                         {currentView === 'dashboard' ? (
                             <motion.div key="dashboard" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
                                 <div className="space-y-12 text-left">
                                     <header>
-                                        <h1 className="text-5xl font-black text-slate-900 tracking-tighter uppercase italic mb-2">Tactical <span className="text-blue-600">Overview</span></h1>
-                                        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Organizer Mission Intelligence Portal</p>
+                                        <h1 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tighter uppercase italic mb-2 pt-4 md:pt-0">Tactical <span className="text-blue-600">Overview</span></h1>
+                                        <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] md:text-xs">Organizer Mission Intelligence Portal</p>
                                     </header>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                                         {[
                                             { label: 'Total Missions', val: stats.total, icon: <Briefcase className="w-5 h-5" />, color: 'blue' },
-                                            { label: 'Authorization Pending', val: stats.pending, icon: <Clock className="w-5 h-5" />, color: 'orange' },
-                                            { label: 'Live Broadcasts', val: stats.live, icon: <ShieldCheck className="w-5 h-5" />, color: 'emerald' },
-                                            { label: 'Total Unit Regs', val: stats.totalRegs, icon: <Users className="w-5 h-5" />, color: 'indigo' }
+                                            { label: 'Pending', val: stats.pending, icon: <Clock className="w-5 h-5" />, color: 'orange' },
+                                            { label: 'Live', val: stats.live, icon: <ShieldCheck className="w-5 h-5" />, color: 'emerald' },
+                                            { label: 'Total Regs', val: stats.totalRegs, icon: <Users className="w-5 h-5" />, color: 'indigo' }
                                         ].map((s, i) => (
-                                            <div key={i} className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-6">
-                                                <div className={`w-14 h-14 bg-${s.color}-50 text-${s.color}-600 rounded-2xl flex items-center justify-center shadow-inner`}>
+                                            <div key={i} className="bg-white p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 md:gap-6">
+                                                <div className={`w-12 h-12 md:w-14 md:h-14 bg-${s.color}-50 text-${s.color}-600 rounded-xl md:rounded-2xl flex items-center justify-center shadow-inner shrink-0`}>
                                                     {s.icon}
                                                 </div>
                                                 <div>
-                                                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">{s.label}</p>
-                                                    <h3 className="text-3xl font-black text-slate-900 tabular-nums">{s.val}</h3>
+                                                    <p className="text-[9px] md:text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">{s.label}</p>
+                                                    <h3 className="text-2xl md:text-3xl font-black text-slate-900 tabular-nums">{s.val}</h3>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
 
                                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-[2.5rem] p-8">
+                                        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8">
                                             <div className="flex items-center justify-between mb-8">
-                                                <h3 className="text-[11px] text-slate-400 font-black uppercase tracking-[0.2em]">Recent Operations</h3>
+                                                <h3 className="text-[10px] md:text-[11px] text-slate-400 font-black uppercase tracking-[0.2em]">Recent Operations</h3>
                                                 <button onClick={() => setCurrentView('my_events')} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">View All Registry</button>
                                             </div>
                                             <div className="space-y-4">
                                                 {events.slice(0, 3).map(event => (
-                                                    <div key={event.id} className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between group cursor-pointer hover:bg-white transition-all" onClick={() => { setSelectedEvent(event); setCurrentView('my_events'); }}>
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-black text-slate-300 group-hover:text-blue-600 border border-slate-100">{event.title.charAt(0)}</div>
-                                                            <div>
-                                                                <h4 className="text-sm font-black text-slate-800 uppercase italic leading-none mb-1">{event.title}</h4>
-                                                                <p className="text-[10px] text-slate-400 font-bold uppercase">{event.date}</p>
+                                                    <div key={event.id} className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between group cursor-pointer hover:bg-white transition-all overflow-hidden" onClick={() => { setSelectedEvent(event); setCurrentView('my_events'); }}>
+                                                        <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
+                                                            <div className="w-8 h-8 md:w-10 md:h-10 bg-white rounded-xl flex items-center justify-center font-black text-slate-300 group-hover:text-blue-600 border border-slate-100 shrink-0">{event.title.charAt(0)}</div>
+                                                            <div className="truncate">
+                                                                <h4 className="text-xs md:text-sm font-black text-slate-800 uppercase italic leading-none mb-1 truncate">{event.title}</h4>
+                                                                <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase">{event.date}</p>
                                                             </div>
                                                         </div>
-                                                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${event.status === 'LIVE' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'
+                                                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest shrink-0 ${event.status === 'LIVE' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'
                                                             }`}>{event.status}</span>
                                                     </div>
                                                 ))}
-                                                {events.length === 0 && <p className="text-center py-8 text-xs text-slate-400 font-bold italic uppercase">No operations documented.</p>}
+                                                {events.length === 0 && <p className="text-center py-8 text-[10px] text-slate-400 font-bold italic uppercase">No operations documented.</p>}
                                             </div>
                                         </div>
-                                        <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 text-white">
-                                            <h3 className="text-[11px] text-slate-500 font-black uppercase tracking-[0.2em] mb-6">Authorization Alerts</h3>
+                                        <div className="bg-slate-900 border border-slate-800 rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 text-white">
+                                            <h3 className="text-[10px] md:text-[11px] text-slate-500 font-black uppercase tracking-[0.2em] mb-6">Authorization Alerts</h3>
                                             <div className="space-y-4">
                                                 {events.filter(e => e.status === 'REJECTED').slice(0, 2).map(e => (
                                                     <div key={e.id} className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
@@ -1241,28 +1331,28 @@ const OrganizerDashboard = () => {
                             <motion.div key="my_events" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
                                 {selectedEvent ? (
                                     <div className="space-y-12 text-left">
-                                        <header className="flex items-center justify-between pb-8 border-b border-slate-200">
-                                            <div className="flex items-center gap-6">
-                                                <button onClick={() => setSelectedEvent(null)} className="w-12 h-12 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-900 transition-all shadow-sm">
-                                                    <ChevronLeft className="w-6 h-6" />
+                                        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-slate-200">
+                                            <div className="flex items-center gap-4 md:gap-6">
+                                                <button onClick={() => setSelectedEvent(null)} className="w-10 h-10 md:w-12 md:h-12 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-900 transition-all shadow-sm shrink-0">
+                                                    <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
                                                 </button>
                                                 <div>
                                                     <div className="flex items-center gap-2 mb-1">
-                                                        <span className="px-2.5 py-1 bg-blue-50 text-blue-600 text-[10px] font-black rounded-lg uppercase tracking-widest">{selectedEvent.type}</span>
-                                                        <span className={`px-2.5 py-1 text-[10px] font-black rounded-lg uppercase tracking-widest ${selectedEvent.status === 'LIVE' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'
+                                                        <span className="px-2 md:px-2.5 py-1 bg-blue-50 text-blue-600 text-[8px] md:text-[10px] font-black rounded-lg uppercase tracking-widest">{selectedEvent.type}</span>
+                                                        <span className={`px-2 md:px-2.5 py-1 text-[8px] md:text-[10px] font-black rounded-lg uppercase tracking-widest ${selectedEvent.status === 'LIVE' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'
                                                             }`}>{selectedEvent.status}</span>
                                                     </div>
-                                                    <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic">{selectedEvent.title}</h1>
+                                                    <h1 className="text-xl md:text-3xl font-black text-slate-900 tracking-tighter uppercase italic line-clamp-1">{selectedEvent.title}</h1>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-3">
+                                            <div className="flex flex-wrap items-center gap-2 md:gap-3">
                                                 {selectedEvent.status === 'LIVE' && (
-                                                    <div className="flex items-center gap-3">
+                                                    <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto">
                                                         <button
                                                             onClick={() => navigate('/checkin')}
-                                                            className="px-6 py-3.5 bg-blue-600 text-white rounded-2xl font-black text-xs shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center gap-2 uppercase tracking-widest"
+                                                            className="flex-1 md:flex-none px-4 md:px-6 py-3 md:py-3.5 bg-blue-600 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
                                                         >
-                                                            <QrCode className="w-5 h-5" /> Launch Terminal
+                                                            <QrCode className="w-4 h-4 md:w-5 md:h-5" /> <span className="hidden sm:inline">Launch</span> Terminal
                                                         </button>
 
                                                         {/* Quiz Toggle in Header */}
@@ -1291,9 +1381,9 @@ const OrganizerDashboard = () => {
                                                         setIsExportModalOpen(true);
                                                     }}
                                                     disabled={registrations.length === 0}
-                                                    className="px-6 py-3.5 bg-slate-900 text-white rounded-2xl font-black text-xs shadow-xl shadow-slate-900/10 hover:bg-black transition-all flex items-center gap-2 uppercase tracking-widest disabled:opacity-30"
+                                                    className="flex-1 md:flex-none px-4 md:px-6 py-3 md:py-3.5 bg-slate-900 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs shadow-xl shadow-slate-900/10 hover:bg-black transition-all flex items-center justify-center gap-2 uppercase tracking-widest disabled:opacity-30"
                                                 >
-                                                    <FileText className="w-5 h-5" /> Register Report
+                                                    <FileText className="w-4 h-4 md:w-5 md:h-5" /> <span className="hidden sm:inline">Register</span> Report
                                                 </button>
                                                 <button
                                                     onClick={() => {
@@ -1301,9 +1391,9 @@ const OrganizerDashboard = () => {
                                                         setIsExportModalOpen(true);
                                                     }}
                                                     disabled={registrations.length === 0}
-                                                    className="px-6 py-3.5 bg-emerald-600 text-white rounded-2xl font-black text-xs shadow-xl shadow-emerald-500/10 hover:bg-emerald-700 transition-all flex items-center gap-2 uppercase tracking-widest disabled:opacity-30"
+                                                    className="flex-1 md:flex-none px-4 md:px-6 py-3 md:py-3.5 bg-emerald-600 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs shadow-xl shadow-emerald-500/10 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 uppercase tracking-widest disabled:opacity-30"
                                                 >
-                                                    <ShieldCheck className="w-5 h-5" /> Attendee Report
+                                                    <ShieldCheck className="w-4 h-4 md:w-5 md:h-5" /> <span className="hidden sm:inline">Attendee</span> Report
                                                 </button>
                                             </div>
                                         </header>
@@ -1338,11 +1428,11 @@ const OrganizerDashboard = () => {
                                             <div className="lg:col-span-3">
                                                 <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm overflow-hidden h-full flex flex-col">
                                                     {/* Search & Filter Bar */}
-                                                    <div className="p-6 border-b border-slate-100 space-y-4">
-                                                        <div className="flex items-center justify-between">
-                                                            <h3 className="text-[11px] text-slate-400 font-black uppercase tracking-[0.2em]">Registered Participants</h3>
-                                                            <div className="flex items-center gap-3">
-                                                                <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full">
+                                                    <div className="p-4 md:p-6 border-b border-slate-100 space-y-4">
+                                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                                            <h3 className="text-[10px] md:text-[11px] text-slate-400 font-black uppercase tracking-[0.2em]">Participants Registry</h3>
+                                                            <div className="flex items-center gap-2 md:gap-3">
+                                                                <span className="px-2 py-0.5 md:px-3 md:py-1 bg-blue-50 text-blue-600 text-[8px] md:text-[10px] font-bold rounded-full">
                                                                     {registrations.length} Total
                                                                 </span>
                                                                 {regSearchQuery || regDeptFilter !== 'all' || regYearFilter !== 'all' ? (
@@ -1354,49 +1444,55 @@ const OrganizerDashboard = () => {
                                                         </div>
 
                                                         {/* Search Input */}
-                                                        <div className="flex items-center gap-4">
+                                                        <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
                                                             <div className="flex-1 relative">
                                                                 <input
                                                                     type="text"
-                                                                    placeholder="Search by name or roll number..."
+                                                                    placeholder="Search name/roll..."
                                                                     value={regSearchQuery}
                                                                     onChange={(e) => setRegSearchQuery(e.target.value)}
-                                                                    className="w-full px-5 py-3 pl-12 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
+                                                                    className="w-full px-4 py-2.5 md:px-5 md:py-3 pl-10 md:pl-12 pr-10 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
                                                                 />
-                                                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                                                <Search className="absolute left-3.5 md:left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" />
+                                                                <button
+                                                                    onClick={() => setIsScannerOpen(true)}
+                                                                    className="absolute right-3.5 md:right-4 top-1/2 -translate-y-1/2 p-1 bg-white shadow-sm border border-slate-200 rounded-lg text-slate-400 hover:text-blue-600 transition-colors"
+                                                                    title="Scan QR to Find"
+                                                                >
+                                                                    <QrCode className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                                                                </button>
                                                             </div>
 
-                                                            {/* Department Filter */}
-                                                            <select
-                                                                value={regDeptFilter}
-                                                                onChange={(e) => setRegDeptFilter(e.target.value)}
-                                                                className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-blue-500/20 uppercase"
-                                                            >
-                                                                <option value="all">All Depts</option>
-                                                                {getUniqueValues('studentDept').map(dept => (
-                                                                    <option key={dept} value={dept}>{dept}</option>
-                                                                ))}
-                                                            </select>
+                                                            <div className="flex gap-2">
+                                                                <select
+                                                                    value={regDeptFilter}
+                                                                    onChange={(e) => setRegDeptFilter(e.target.value)}
+                                                                    className="flex-1 md:flex-none px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[10px] md:text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-blue-500/20 uppercase"
+                                                                >
+                                                                    <option value="all">Depts</option>
+                                                                    {getUniqueValues('studentDept').map(dept => (
+                                                                        <option key={dept} value={dept}>{dept}</option>
+                                                                    ))}
+                                                                </select>
 
-                                                            {/* Year Filter */}
-                                                            <select
-                                                                value={regYearFilter}
-                                                                onChange={(e) => setRegYearFilter(e.target.value)}
-                                                                className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-blue-500/20 uppercase"
-                                                            >
-                                                                <option value="all">All Years</option>
-                                                                {getUniqueValues('studentYear').map(year => (
-                                                                    <option key={year} value={year}>{year} Year</option>
-                                                                ))}
-                                                            </select>
+                                                                <select
+                                                                    value={regYearFilter}
+                                                                    onChange={(e) => setRegYearFilter(e.target.value)}
+                                                                    className="flex-1 md:flex-none px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[10px] md:text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-blue-500/20 uppercase"
+                                                                >
+                                                                    <option value="all">Years</option>
+                                                                    {getUniqueValues('studentYear').map(year => (
+                                                                        <option key={year} value={year}>{year} Yr</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
 
-                                                            {/* Flagged Only Toggle - Only for Quiz Events */}
                                                             {selectedEvent?.type === 'Quiz' && (
                                                                 <button
                                                                     onClick={() => setShowFlaggedOnly(!showFlaggedOnly)}
-                                                                    className={`px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 border ${showFlaggedOnly ? 'bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/20' : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-red-300 hover:text-red-500'}`}
+                                                                    className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 border ${showFlaggedOnly ? 'bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/20' : 'bg-slate-50 text-slate-500 border-slate-200'}`}
                                                                 >
-                                                                    🚩 {showFlaggedOnly ? 'FLAGGED ONLY' : 'SHOW FLAGGED'}
+                                                                    🚩 {showFlaggedOnly ? 'FLAGGED' : 'SHOW FLAGGED'}
                                                                 </button>
                                                             )}
                                                         </div>
@@ -1410,9 +1506,9 @@ const OrganizerDashboard = () => {
                                                                 <p className="text-[10px] font-black uppercase tracking-[0.2em]">Accessing Directory...</p>
                                                             </div>
                                                         ) : getFilteredRegistrations().length > 0 ? getFilteredRegistrations().map((reg) => (
-                                                            <div key={reg.id} className="p-5 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between group hover:border-blue-200 hover:bg-blue-50/10 transition-all">
-                                                                <div className="flex items-center gap-5">
-                                                                    <div className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-black bg-white border border-slate-200 text-slate-400 group-hover:text-blue-600 group-hover:border-blue-200 transition-all">
+                                                            <div key={reg.id} className="p-4 md:p-5 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-blue-200 hover:bg-blue-50/10 transition-all">
+                                                                <div className="flex items-center gap-3 md:gap-5">
+                                                                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-base md:text-lg font-black bg-white border border-slate-200 text-slate-400 group-hover:text-blue-600 transition-all shrink-0">
                                                                         {reg.studentName?.charAt(0) || '?'}
                                                                     </div>
                                                                     <div>
@@ -1458,29 +1554,29 @@ const OrganizerDashboard = () => {
 
                                                                 {/* Participant Actions - Only show if event is NOT completed */}
                                                                 {selectedEvent?.status !== 'COMPLETED' ? (
-                                                                    <div className="flex items-center gap-2">
+                                                                    <div className="flex items-center gap-2 w-full sm:w-auto">
                                                                         {/* Remove Flag Button - Only for Quiz Events with Flagged Students */}
                                                                         {selectedEvent?.type === 'Quiz' && (reg.status === 'FLAGGED' || reg.proctorViolations > 0) && (
                                                                             <button
                                                                                 onClick={() => handleRemoveFlag(reg.id, reg.studentName)}
-                                                                                className="px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all flex items-center gap-2 border border-amber-100 shadow-sm"
+                                                                                className="flex-1 sm:flex-none px-3 md:px-4 py-2 md:py-3 rounded-xl md:rounded-2xl text-[8px] md:text-[10px] font-black uppercase tracking-widest bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all flex items-center justify-center gap-2 border border-amber-100"
                                                                             >
-                                                                                🔄 REMOVE FLAG
+                                                                                🔄 <span className="hidden xs:inline">REMOVE</span> FLAG
                                                                             </button>
                                                                         )}
                                                                         {(reg.status === 'Present' || reg.isAttended) && (
                                                                             <button
                                                                                 onClick={() => handleUndoCheckIn(reg.id)}
-                                                                                className="px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all flex items-center gap-2 border border-emerald-100 shadow-sm"
+                                                                                className="flex-1 sm:flex-none px-3 md:px-4 py-2 md:py-3 rounded-xl md:rounded-2xl text-[8px] md:text-[10px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all flex items-center justify-center gap-2 border border-emerald-100"
                                                                             >
-                                                                                <RotateCcw className="w-4 h-4" /> UNDO
+                                                                                <RotateCcw className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden xs:inline">UNDO</span>
                                                                             </button>
                                                                         )}
                                                                         <button
                                                                             onClick={() => handleDeleteRegistration(reg.id, reg.eventId)}
-                                                                            className="px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-slate-50 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-all flex items-center gap-2 border border-slate-100 shadow-sm"
+                                                                            className="flex-1 sm:flex-none px-3 md:px-4 py-2 md:py-3 rounded-xl md:rounded-2xl text-[8px] md:text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-all flex items-center justify-center gap-2 border border-slate-200"
                                                                         >
-                                                                            <UserMinus className="w-4 h-4" /> REMOVE
+                                                                            <UserMinus className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden xs:inline">REMOVE</span>
                                                                         </button>
                                                                     </div>
                                                                 ) : (
@@ -1512,13 +1608,13 @@ const OrganizerDashboard = () => {
                                 ) : (
                                     <div className="space-y-12 text-left">
                                         <header>
-                                            <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2">Operation <span className="text-blue-600">Registry</span></h1>
-                                            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Managing your commissioned missions</p>
+                                            <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tighter uppercase italic mb-2">Operation <span className="text-blue-600">Registry</span></h1>
+                                            <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] md:text-xs">Managing your commissioned missions</p>
                                         </header>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                                             {events.map((event) => (
-                                                <div key={event.id} className="group bg-white border border-slate-200 rounded-[3rem] p-8 hover:shadow-2xl hover:shadow-slate-200/50 hover:border-blue-500 transition-all duration-500 flex flex-col relative overflow-hidden">
+                                                <div key={event.id} className="group bg-white border border-slate-200 rounded-[2rem] md:rounded-[3rem] p-6 md:p-8 hover:shadow-2xl hover:shadow-slate-200/50 hover:border-blue-500 transition-all duration-500 flex flex-col relative overflow-hidden">
                                                     {/* Status Badges */}
                                                     <div className="flex items-center justify-between mb-6">
                                                         <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black rounded-lg uppercase tracking-widest">{event.type}</span>
@@ -1666,10 +1762,10 @@ const OrganizerDashboard = () => {
                         ) : currentView === 'registrations' ? (
                             <motion.div key="registrations" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                                 <div className="space-y-8 text-left">
-                                    <header className="flex items-center justify-between">
+                                    <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                         <div>
-                                            <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic">Unit <span className="text-blue-600">Oracle</span></h1>
-                                            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Global participant manifest across all operations</p>
+                                            <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tighter uppercase italic">Unit <span className="text-blue-600">Oracle</span></h1>
+                                            <p className="text-slate-400 font-bold uppercase tracking-widest text-[9px] md:text-xs">Global participant manifest across all operations</p>
                                         </div>
                                         <button
                                             onClick={() => {
@@ -1681,71 +1777,73 @@ const OrganizerDashboard = () => {
                                                 a.setAttribute('download', 'techspark_manifest.csv');
                                                 a.click();
                                             }}
-                                            className="px-6 py-4 border border-slate-200 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2"
+                                            className="w-full sm:w-auto px-6 py-3.5 border border-slate-200 text-slate-600 rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
                                         >
                                             <Download className="w-4 h-4" /> Export CSV
                                         </button>
                                     </header>
 
-                                    <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm overflow-hidden min-h-[500px]">
-                                        <table className="w-full text-left">
-                                            <thead className="bg-[#fcfdfe] text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                                                <tr>
-                                                    <th className="px-8 py-6">Operation Objective</th>
-                                                    <th className="px-8 py-6">Unit Signature</th>
-                                                    <th className="px-8 py-6">Identity Trace</th>
-                                                    <th className="px-8 py-6 text-right">Operational Status</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-50">
-                                                {allRegs.map((reg) => (
-                                                    <tr key={reg.id} className="hover:bg-slate-50/50 transition-colors group">
-                                                        <td className="px-8 py-6">
-                                                            <p className="text-sm font-black text-slate-800 uppercase tracking-tight italic">{reg.eventTitle}</p>
-                                                            <p className="text-[10px] text-slate-400 font-bold uppercase">{reg.eventId?.slice(0, 8)}</p>
-                                                        </td>
-                                                        <td className="px-8 py-6 font-black text-slate-700 uppercase italic text-xs">{reg.studentName}</td>
-                                                        <td className="px-8 py-6">
-                                                            <p className="text-[10px] font-black text-blue-600 uppercase tabular-nums">{reg.studentRoll}</p>
-                                                            <p className="text-[9px] text-slate-400 font-bold uppercase">{reg.studentDept}</p>
-                                                        </td>
-                                                        <td className="px-8 py-6 text-right">
-                                                            <div className="flex items-center justify-end gap-3">
-                                                                {(reg.status === 'Present' || reg.isAttended) ? (
-                                                                    <>
-                                                                        <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-100">VERIFIED</span>
-                                                                        <button
-                                                                            onClick={() => handleUndoCheckIn(reg.id)}
-                                                                            className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                                                                            title="Undo Check-in"
-                                                                        >
-                                                                            <X className="w-4 h-4" />
-                                                                        </button>
-                                                                    </>
-                                                                ) : (
-                                                                    <span className="bg-slate-50 text-slate-400 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-slate-100">REGISTERED</span>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                                {allRegs.length === 0 && (
+                                    <div className="bg-white border border-slate-200 rounded-[2rem] md:rounded-[2.5rem] shadow-sm overflow-hidden min-h-[500px]">
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-left min-w-[600px]">
+                                                <thead className="bg-[#fcfdfe] text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
                                                     <tr>
-                                                        <td colSpan="4" className="px-8 py-20 text-center text-slate-300 font-black uppercase italic text-xs">Awaiting Global Registrations</td>
+                                                        <th className="px-8 py-6">Operation Objective</th>
+                                                        <th className="px-8 py-6">Unit Signature</th>
+                                                        <th className="px-8 py-6">Identity Trace</th>
+                                                        <th className="px-8 py-6 text-right">Operational Status</th>
                                                     </tr>
-                                                )}
-                                            </tbody>
-                                        </table>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-50">
+                                                    {allRegs.map((reg) => (
+                                                        <tr key={reg.id} className="hover:bg-slate-50/50 transition-colors group">
+                                                            <td className="px-8 py-6">
+                                                                <p className="text-sm font-black text-slate-800 uppercase tracking-tight italic">{reg.eventTitle}</p>
+                                                                <p className="text-[10px] text-slate-400 font-bold uppercase">{reg.eventId?.slice(0, 8)}</p>
+                                                            </td>
+                                                            <td className="px-8 py-6 font-black text-slate-700 uppercase italic text-xs">{reg.studentName}</td>
+                                                            <td className="px-8 py-6">
+                                                                <p className="text-[10px] font-black text-blue-600 uppercase tabular-nums">{reg.studentRoll}</p>
+                                                                <p className="text-[9px] text-slate-400 font-bold uppercase">{reg.studentDept}</p>
+                                                            </td>
+                                                            <td className="px-8 py-6 text-right">
+                                                                <div className="flex items-center justify-end gap-3">
+                                                                    {(reg.status === 'Present' || reg.isAttended) ? (
+                                                                        <>
+                                                                            <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-100">VERIFIED</span>
+                                                                            <button
+                                                                                onClick={() => handleUndoCheckIn(reg.id)}
+                                                                                className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                                                                title="Undo Check-in"
+                                                                            >
+                                                                                <X className="w-4 h-4" />
+                                                                            </button>
+                                                                        </>
+                                                                    ) : (
+                                                                        <span className="bg-slate-50 text-slate-400 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-slate-100">REGISTERED</span>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                    {allRegs.length === 0 && (
+                                                        <tr>
+                                                            <td colSpan="4" className="px-8 py-20 text-center text-slate-300 font-black uppercase italic text-xs">Awaiting Global Registrations</td>
+                                                        </tr>
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
                                 </div>
                             </motion.div>
                         ) : currentView === 'submissions' ? (
                             <motion.div key="submissions" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                                 <div className="space-y-8 text-left">
-                                    <header className="flex items-center justify-between">
+                                    <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                         <div>
-                                            <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic">Live <span className="text-blue-600">Scores</span></h1>
-                                            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Real-time event performance and evaluation data</p>
+                                            <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tighter uppercase italic">Live <span className="text-blue-600">Scores</span></h1>
+                                            <p className="text-slate-400 font-bold uppercase tracking-widest text-[9px] md:text-xs">Real-time event performance and evaluation data</p>
                                         </div>
                                         <button
                                             onClick={() => {
@@ -1758,7 +1856,7 @@ const OrganizerDashboard = () => {
                                                 a.setAttribute('download', 'techspark_quiz_results.csv');
                                                 a.click();
                                             }}
-                                            className="px-6 py-4 bg-white border border-slate-200 text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm"
+                                            className="w-full sm:w-auto px-6 py-3.5 bg-white border border-slate-200 text-slate-900 rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center justify-center gap-2 shadow-sm"
                                         >
                                             <Download className="w-4 h-4" /> Export Results
                                         </button>
@@ -1772,52 +1870,54 @@ const OrganizerDashboard = () => {
                                     ) : (
                                         <div className="grid grid-cols-1 gap-6">
                                             {submissions.length > 0 ? (
-                                                <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm overflow-hidden">
-                                                    <table className="w-full text-left">
-                                                        <thead className="bg-[#fcfdfe] text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                                                            <tr>
-                                                                <th className="px-8 py-6">Operation / Quiz</th>
-                                                                <th className="px-8 py-6">Agent Identity</th>
-                                                                <th className="px-8 py-6">Performance Metric</th>
-                                                                <th className="px-8 py-6 text-right">Submission Time</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="divide-y divide-slate-50">
-                                                            {submissions.map((sub) => (
-                                                                <tr key={sub.id} className="hover:bg-slate-50/50 transition-colors group">
-                                                                    <td className="px-8 py-6">
-                                                                        <p className="text-sm font-black text-slate-800 uppercase tracking-tight italic">{sub.eventTitle || 'Untitled Quiz'}</p>
-                                                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{sub.eventId?.slice(0, 8)}</p>
-                                                                    </td>
-                                                                    <td className="px-8 py-6">
-                                                                        <p className="font-black text-slate-700 uppercase italic text-sm">{sub.name}</p>
-                                                                        <p className="text-[10px] font-bold text-blue-600 uppercase tabular-nums">{sub.rollNumber}</p>
-                                                                    </td>
-                                                                    <td className="px-8 py-6">
-                                                                        <div className="flex items-center gap-3">
-                                                                            <div className="px-4 py-2 bg-blue-50 text-blue-600 rounded-xl font-black text-sm border border-blue-100 italic">
-                                                                                {sub.score || 0} PTS
-                                                                            </div>
-                                                                            <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden">
-                                                                                <div
-                                                                                    className="h-full bg-blue-600"
-                                                                                    style={{ width: `${Math.min((sub.score / 100) * 100, 100)}%` }}
-                                                                                />
-                                                                            </div>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="px-8 py-6 text-right">
-                                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                                                            {sub.timestamp?.toDate ? sub.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                                                                        </p>
-                                                                        <p className="text-[9px] text-slate-300 font-bold uppercase tracking-widest">
-                                                                            {sub.timestamp?.toDate ? sub.timestamp.toDate().toLocaleDateString() : 'LOGGED'}
-                                                                        </p>
-                                                                    </td>
+                                                <div className="bg-white border border-slate-200 rounded-[2rem] md:rounded-[2.5rem] shadow-sm overflow-hidden">
+                                                    <div className="overflow-x-auto">
+                                                        <table className="w-full text-left min-w-[700px]">
+                                                            <thead className="bg-[#fcfdfe] text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                                                                <tr>
+                                                                    <th className="px-8 py-6">Operation / Quiz</th>
+                                                                    <th className="px-8 py-6">Agent Identity</th>
+                                                                    <th className="px-8 py-6">Performance Metric</th>
+                                                                    <th className="px-8 py-6 text-right">Submission Time</th>
                                                                 </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-slate-50">
+                                                                {submissions.map((sub) => (
+                                                                    <tr key={sub.id} className="hover:bg-slate-50/50 transition-colors group">
+                                                                        <td className="px-8 py-6">
+                                                                            <p className="text-sm font-black text-slate-800 uppercase tracking-tight italic">{sub.eventTitle || 'Untitled Quiz'}</p>
+                                                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{sub.eventId?.slice(0, 8)}</p>
+                                                                        </td>
+                                                                        <td className="px-8 py-6">
+                                                                            <p className="font-black text-slate-700 uppercase italic text-sm">{sub.name}</p>
+                                                                            <p className="text-[10px] font-bold text-blue-600 uppercase tabular-nums">{sub.rollNumber}</p>
+                                                                        </td>
+                                                                        <td className="px-8 py-6">
+                                                                            <div className="flex items-center gap-3">
+                                                                                <div className="px-4 py-2 bg-blue-50 text-blue-600 rounded-xl font-black text-sm border border-blue-100 italic">
+                                                                                    {sub.score || 0} PTS
+                                                                                </div>
+                                                                                <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                                                    <div
+                                                                                        className="h-full bg-blue-600"
+                                                                                        style={{ width: `${Math.min((sub.score / 100) * 100, 100)}%` }}
+                                                                                    />
+                                                                                </div>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="px-8 py-6 text-right">
+                                                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                                                {sub.timestamp?.toDate ? sub.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                                                                            </p>
+                                                                            <p className="text-[9px] text-slate-300 font-bold uppercase tracking-widest">
+                                                                                {sub.timestamp?.toDate ? sub.timestamp.toDate().toLocaleDateString() : 'LOGGED'}
+                                                                            </p>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
                                                 </div>
                                             ) : (
                                                 <div className="h-96 bg-white border border-slate-200 border-dashed rounded-[3rem] flex flex-col items-center justify-center gap-6 opacity-40">
@@ -1836,21 +1936,21 @@ const OrganizerDashboard = () => {
                             <motion.div key="reports" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }}>
                                 <div className="space-y-8 text-left">
                                     <header>
-                                        <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic">Mission <span className="text-blue-600">Intelligence</span></h1>
-                                        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Strategic impact and participation analytics</p>
+                                        <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tighter uppercase italic">Mission <span className="text-blue-600">Intelligence</span></h1>
+                                        <p className="text-slate-400 font-bold uppercase tracking-widest text-[9px] md:text-xs">Strategic impact and participation analytics</p>
                                     </header>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                                         {[
-                                            { title: 'Demographic Reach', desc: 'Department and Year-wise breakdown of participants.', icon: <Users className="w-6 h-6" /> },
-                                            { title: 'Engagement Study', desc: 'Operation popularity and registration velocity trends.', icon: <TrendingUp className="w-6 h-6" /> },
-                                            { title: 'Operational Audit', desc: 'Complete mission logs and coordinator activity.', icon: <ClipboardList className="w-6 h-6" /> }
+                                            { title: 'Demographics', desc: 'Department and Year-wise breakdown of participants.', icon: <Users className="w-6 h-6" /> },
+                                            { title: 'Engagement', desc: 'Operation popularity and registration velocity trends.', icon: <TrendingUp className="w-6 h-6" /> },
+                                            { title: 'Audit', desc: 'Complete mission logs and coordinator activity.', icon: <ClipboardList className="w-6 h-6" /> }
                                         ].map((rep, i) => (
-                                            <div key={i} className="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-sm hover:shadow-xl transition-all group">
-                                                <div className="w-16 h-16 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center mb-8 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-inner">{rep.icon}</div>
-                                                <h4 className="text-xl font-black text-slate-800 uppercase italic mb-2">{rep.title}</h4>
-                                                <p className="text-xs text-slate-400 font-bold uppercase leading-relaxed mb-8">{rep.desc}</p>
-                                                <button onClick={() => alert("Report generation sequence initiated. High-fidelity PDF will be ready in 10s.")} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">Generate PDF Intel</button>
+                                            <div key={i} className="bg-white p-8 md:p-10 rounded-[2rem] md:rounded-[2.5rem] border border-slate-200 shadow-sm hover:shadow-xl transition-all group">
+                                                <div className="w-14 h-14 md:w-16 md:h-16 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center mb-6 md:mb-8 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-inner">{rep.icon}</div>
+                                                <h4 className="text-lg md:text-xl font-black text-slate-800 uppercase italic mb-2">{rep.title}</h4>
+                                                <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase leading-relaxed mb-6 md:mb-8">{rep.desc}</p>
+                                                <button onClick={() => alert("Report generation sequence initiated. High-fidelity PDF will be ready in 10s.")} className="w-full py-4 bg-slate-900 text-white rounded-xl md:rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">Generate PDF Intel</button>
                                             </div>
                                         ))}
                                     </div>
@@ -1860,22 +1960,22 @@ const OrganizerDashboard = () => {
                             <motion.div key="profile" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
                                 <div className="max-w-2xl mx-auto space-y-8 text-left">
                                     <header>
-                                        <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic">Lead <span className="text-blue-600">Identity</span></h1>
-                                        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Credential and persona management terminal</p>
+                                        <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tighter uppercase italic">Lead <span className="text-blue-600">Identity</span></h1>
+                                        <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] md:text-xs">Credential and persona management terminal</p>
                                     </header>
 
-                                    <div className="bg-white border border-slate-200 rounded-[2.5rem] p-10 shadow-sm space-y-8">
-                                        <div className="flex items-center gap-8 pb-8 border-b border-slate-50">
-                                            <div className="w-24 h-24 bg-slate-900 rounded-[2rem] flex items-center justify-center text-3xl font-black text-white italic shadow-2xl">
+                                    <div className="bg-white border border-slate-200 rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-10 shadow-sm space-y-8">
+                                        <div className="flex flex-col sm:flex-row items-center gap-6 md:gap-8 pb-8 border-b border-slate-50 text-center sm:text-left">
+                                            <div className="w-20 h-20 md:w-24 md:h-24 bg-slate-900 rounded-[1.5rem] md:rounded-[2rem] flex items-center justify-center text-2xl md:text-3xl font-black text-white italic shadow-2xl shrink-0">
                                                 {organizer.username.charAt(0).toUpperCase()}
                                             </div>
                                             <div>
-                                                <h3 className="text-2xl font-black text-slate-900 uppercase italic mb-1">{profileData.fullName}</h3>
+                                                <h3 className="text-xl md:text-2xl font-black text-slate-900 uppercase italic mb-1">{profileData.fullName}</h3>
                                                 <p className="text-[10px] text-blue-600 font-black uppercase tracking-[0.2em]">{organizer.username} | {profileData.department}</p>
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-6">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                                             {[
                                                 { label: 'Full Identity', key: 'fullName', type: 'text' },
                                                 { label: 'Official Email', key: 'email', type: 'email' },
@@ -1888,7 +1988,7 @@ const OrganizerDashboard = () => {
                                                         type={field.type}
                                                         value={profileData[field.key]}
                                                         onChange={(e) => setProfileData({ ...profileData, [field.key]: e.target.value })}
-                                                        className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-bold text-slate-800 text-sm focus:ring-4 focus:ring-blue-500/5 transition-all"
+                                                        className="w-full px-4 md:px-5 py-3 md:py-4 bg-slate-50 border border-slate-100 rounded-xl md:rounded-2xl outline-none font-bold text-slate-800 text-sm focus:ring-4 focus:ring-blue-500/5 transition-all"
                                                     />
                                                 </div>
                                             ))}
@@ -1928,14 +2028,14 @@ const OrganizerDashboard = () => {
                                     <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic">
                                         {editingEventId ? 'Modify' : 'Strategic Event'} <span className="text-blue-600">{editingEventId ? 'Event' : 'Creation'}</span>
                                     </h1>
-                                    <p className="text-slate-400 font-bold text-xs uppercase tracking-[0.2em] mt-2">
+                                    <p className="text-slate-400 font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] mt-2">
                                         {editingEventId ? 'Update event details and resubmit for approval' : 'Authorization Workflow Protocol v2.4'}
                                     </p>
                                 </div>
 
                                 {renderStepIndicator()}
 
-                                <div className="bg-white border border-slate-200 rounded-[3rem] shadow-2xl p-12 text-left relative overflow-hidden">
+                                <div className="bg-white border border-slate-200 rounded-[2rem] md:rounded-[3rem] shadow-2xl p-6 md:p-12 text-left relative overflow-hidden">
                                     {/* Step 1: Basic Details */}
                                     {activeStep === 1 && (
                                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
@@ -1960,13 +2060,13 @@ const OrganizerDashboard = () => {
                                                     />
                                                 </div>
 
-                                                <div className="grid grid-cols-2 gap-6">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                     <div className="space-y-2">
                                                         <label className="block text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Event Type *</label>
                                                         <select
                                                             value={formData.type}
                                                             onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                                                            className="w-full px-6 py-5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 outline-none font-black text-slate-800 transition-all uppercase"
+                                                            className="w-full px-5 md:px-6 py-4 md:py-5 bg-slate-50 border border-slate-200 rounded-xl md:rounded-2xl focus:ring-4 focus:ring-blue-500/5 outline-none font-black text-slate-800 transition-all uppercase text-sm"
                                                         >
                                                             <option>Workshop</option>
                                                             <option>Seminar</option>
@@ -1984,9 +2084,9 @@ const OrganizerDashboard = () => {
                                                                 placeholder="IMAGE_ASSET_LINK"
                                                                 value={formData.posterUrl}
                                                                 onChange={(e) => setFormData({ ...formData, posterUrl: e.target.value })}
-                                                                className="w-full px-6 py-5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 outline-none font-black text-slate-800 transition-all"
+                                                                className="w-full px-5 md:px-6 py-4 md:py-5 bg-slate-50 border border-slate-200 rounded-xl md:rounded-2xl focus:ring-4 focus:ring-blue-500/5 outline-none font-black text-slate-800 transition-all text-sm"
                                                             />
-                                                            <Upload className="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+                                                            <Upload className="absolute right-6 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
                                                         </div>
                                                     </div>
                                                 </div>
@@ -2141,7 +2241,7 @@ const OrganizerDashboard = () => {
                                                                                         updatedData.quizFormUrl = url.split('?')[0];
                                                                                         alert("✨ Magic Extraction Successful! I've automatically identified and mapped your Form Entry IDs. Please verify them below.");
                                                                                     }
-                                                                                } catch (err) {
+                                                                                } catch {
                                                                                     console.log("Extraction failed, proceeding with literal URL");
                                                                                 }
                                                                             }
@@ -2950,10 +3050,74 @@ const OrganizerDashboard = () => {
                                 </div>
                             </motion.div>
                         </div>
-                    )
+                    )}
+            </AnimatePresence>
+
+            {/* QR Scanner Modal for Finding Students */}
+            <AnimatePresence>
+                {isScannerOpen && (
+                    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsScannerOpen(false)}
+                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border border-slate-100"
+                        >
+                            <div className="p-8 border-b border-slate-100 flex items-center justify-between text-left">
+                                <div>
+                                    <h3 className="text-2xl font-black text-slate-800 italic uppercase">Find via QR</h3>
+                                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mt-1">Scan ID card or Verification Page</p>
+                                </div>
+                                <button onClick={() => setIsScannerOpen(false)} className="p-2 hover:bg-slate-50 rounded-xl transition-colors">
+                                    <X className="w-6 h-6 text-slate-400" />
+                                </button>
+                            </div>
+
+                            <div className="p-8 space-y-6">
+                                <div className="aspect-square w-full bg-slate-100 rounded-[2rem] overflow-hidden border-4 border-slate-50 relative">
+                                    <Scanner
+                                        onScan={handleScannerResult}
+                                        onError={(error) => console.log('Scanner Error:', error)}
+                                        styles={{ container: { width: '100%', height: '100%' } }}
+                                    />
+                                    <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
+                                        <div className="w-64 h-64 border-2 border-blue-500/50 rounded-3xl relative">
+                                            <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-600 rounded-tl-xl" />
+                                            <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-600 rounded-tr-xl" />
+                                            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-blue-600 rounded-bl-xl" />
+                                            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-blue-600 rounded-br-xl" />
+                                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent animate-scan" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <p className="text-[10px] text-center text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
+                                    Position student's QR code within the frame <br />
+                                    to automatically find them in the mission roster.
+                                </p>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            <style jsx="true">{`
+                @keyframes scan {
+                    0%, 100% { top: 0%; }
+                    50% { top: 100%; }
                 }
-            </AnimatePresence >
-        </div >
+                .animate-scan {
+                    animation: scan 3s ease-in-out infinite;
+                }
+            `}</style>
+        </div>
     );
 };
 

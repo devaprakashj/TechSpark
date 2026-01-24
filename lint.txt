@@ -1,0 +1,14 @@
+
+C:\Users\hp\OneDrive\Documents\Portfolilo\TechSpark\src\components\Admin\OrganizerDashboard.jsx
+     3:10  error    'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                           no-unused-vars
+    65:12  error    'loadingData' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                             no-unused-vars
+   225:23  error    'yearReverseMap' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                          no-unused-vars
+   291:8   warning  React Hook useEffect has a missing dependency: 'navigate'. Either include it or remove the dependency array             react-hooks/exhaustive-deps
+   319:8   warning  React Hook useEffect has a missing dependency: 'selectedEvent.title'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   516:26  error    '_' is defined but never used                                                                                           no-unused-vars
+  1019:19  error    'pageHeight' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                              no-unused-vars
+  1118:11  error    'handleRemoveRegistration' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                no-unused-vars
+  2255:90  error    '_' is defined but never used                                                                                           no-unused-vars
+
+✖ 9 problems (7 errors, 2 warnings)
+

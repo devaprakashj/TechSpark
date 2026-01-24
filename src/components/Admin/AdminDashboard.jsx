@@ -40,7 +40,8 @@ import {
     Clock,
     MapPin,
     UserCheck,
-    FileText
+    FileText,
+    Bell
 } from 'lucide-react';
 import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, where, updateDoc, doc, increment, deleteDoc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -133,6 +134,10 @@ const AdminDashboard = () => {
         quizEntryMobile: ''
     });
     const [savingQuizSettings, setSavingQuizSettings] = useState(false);
+    const [isEditEventOrganizerModalOpen, setIsEditEventOrganizerModalOpen] = useState(false);
+    const [eventToEditOrganizer, setEventToEditOrganizer] = useState(null);
+    const [selectedNewOrganizer, setSelectedNewOrganizer] = useState('');
+    const [isReassigning, setIsReassigning] = useState(false);
 
     const fetchDashboardData = () => {
         console.log("Strategic Refresh Triggered");
@@ -768,6 +773,48 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleOpenEditOrganizer = (event) => {
+        setEventToEditOrganizer(event);
+        setSelectedNewOrganizer(event.createdBy || '');
+        setIsEditEventOrganizerModalOpen(true);
+    };
+
+    const handleUpdateOrganizer = async () => {
+        if (!eventToEditOrganizer || !selectedNewOrganizer) return;
+        setIsReassigning(true);
+
+        try {
+            const eventRef = doc(db, 'events', eventToEditOrganizer.id);
+            await updateDoc(eventRef, {
+                createdBy: selectedNewOrganizer
+            });
+
+            // Log the action
+            await addDoc(collection(db, 'security_logs'), {
+                action: 'UPDATE_EVENT_ORGANIZER',
+                target: eventToEditOrganizer.title,
+                executedBy: admin?.username || 'Admin',
+                timestamp: serverTimestamp(),
+                details: `Changed organizer from ${eventToEditOrganizer.createdBy} to ${selectedNewOrganizer}`,
+                status: 'SUCCESS'
+            });
+
+            // Update selectedEventDetails if open to reflect change immediately
+            if (selectedEventDetails && selectedEventDetails.id === eventToEditOrganizer.id) {
+                setSelectedEventDetails({ ...selectedEventDetails, createdBy: selectedNewOrganizer });
+            }
+
+            alert(`Mission Command reassigned to ${selectedNewOrganizer} successfully! 🎯`);
+            setIsEditEventOrganizerModalOpen(false);
+            setEventToEditOrganizer(null);
+        } catch (error) {
+            console.error("Organizer reassignment failed:", error);
+            alert("Error in strategic reassignment.");
+        } finally {
+            setIsReassigning(false);
+        }
+    };
+
     const handleDeleteStudent = async (studentId) => {
         if (!window.confirm("Are you sure you want to remove this member? This action cannot be undone.")) return;
         try {
@@ -1382,120 +1429,281 @@ const AdminDashboard = () => {
             case 'overview':
                 return (
                     <div className="space-y-8 animate-in fade-in duration-500">
-                        {/* Summary Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                        {/* Premium Stat Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5">
                             {[
-                                { label: 'Total Students', value: stats.totalMembers, icon: <Users className="w-4 h-4" />, color: 'blue' },
-                                { label: 'Total Organizers', value: organizers.length, icon: <UserCog className="w-4 h-4" />, color: 'indigo' },
-                                { label: 'Total Events', value: events.length, icon: <Calendar className="w-4 h-4" />, color: 'purple' },
-                                { label: 'Pending Approvals', value: events.filter(e => e.status === 'PENDING').length, icon: <ShieldAlert className="w-4 h-4" />, color: 'orange' },
-                                { label: 'Active Events', value: events.filter(e => e.status === 'LIVE').length, icon: <TrendingUp className="w-4 h-4" />, color: 'emerald' },
-                                { label: 'Total Regs', value: registrations.length, icon: <ClipboardList className="w-4 h-4" />, color: 'cyan' }
+                                { label: 'Total Students', value: stats.totalMembers, icon: <Users className="w-5 h-5" />, gradient: 'from-blue-500 to-cyan-400', bgGlow: 'bg-blue-500/10', change: '+12%', changeUp: true },
+                                { label: 'Organizers', value: organizers.length, icon: <UserCog className="w-5 h-5" />, gradient: 'from-indigo-500 to-purple-500', bgGlow: 'bg-indigo-500/10', change: '+2', changeUp: true },
+                                { label: 'Total Events', value: events.length, icon: <Calendar className="w-5 h-5" />, gradient: 'from-violet-500 to-purple-600', bgGlow: 'bg-violet-500/10', change: 'All Time', changeUp: null },
+                                { label: 'Pending', value: events.filter(e => e.status === 'PENDING').length, icon: <ShieldAlert className="w-5 h-5" />, gradient: 'from-orange-500 to-amber-500', bgGlow: 'bg-orange-500/10', change: 'Awaiting', changeUp: null, pulse: true },
+                                { label: 'Live Now', value: events.filter(e => e.status === 'LIVE').length, icon: <TrendingUp className="w-5 h-5" />, gradient: 'from-emerald-500 to-teal-500', bgGlow: 'bg-emerald-500/10', change: 'Active', changeUp: true, live: true },
+                                { label: 'Registrations', value: registrations.length, icon: <ClipboardList className="w-5 h-5" />, gradient: 'from-cyan-500 to-blue-500', bgGlow: 'bg-cyan-500/10', change: '+5.2%', changeUp: true }
                             ].map((stat, i) => (
-                                <div key={i} className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
-                                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center mb-3 bg-${stat.color}-50 text-${stat.color}-600`}>
+                                <motion.div
+                                    key={i}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: i * 0.1 }}
+                                    whileHover={{ y: -4, scale: 1.02 }}
+                                    className={`relative overflow-hidden bg-white p-6 rounded-3xl border border-slate-200/60 shadow-lg shadow-slate-200/50 group cursor-pointer`}
+                                >
+                                    {/* Glow Effect */}
+                                    <div className={`absolute -top-12 -right-12 w-32 h-32 ${stat.bgGlow} rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-all duration-500`} />
+
+                                    {/* Icon with Gradient */}
+                                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center mb-4 bg-gradient-to-br ${stat.gradient} text-white shadow-lg relative`}>
                                         {stat.icon}
+                                        {stat.live && (
+                                            <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white animate-ping" />
+                                        )}
+                                        {stat.pulse && stat.value > 0 && (
+                                            <span className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full border-2 border-white animate-bounce" />
+                                        )}
                                     </div>
-                                    <div className="text-2xl font-black text-slate-900">{stat.value}</div>
-                                    <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1">{stat.label}</div>
-                                </div>
+
+                                    {/* Value */}
+                                    <div className="flex items-end gap-2 mb-1">
+                                        <span className="text-3xl font-black text-slate-900 tracking-tight">{stat.value.toLocaleString()}</span>
+                                        {stat.changeUp !== null && (
+                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full mb-1 ${stat.changeUp ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                                                {stat.changeUp ? '↑' : '↓'} {stat.change}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Label */}
+                                    <div className="text-[11px] text-slate-500 font-bold uppercase tracking-widest">{stat.label}</div>
+
+                                    {/* Sparkline Visual */}
+                                    <div className="absolute bottom-0 left-0 right-0 h-1 opacity-50">
+                                        <div className={`h-full bg-gradient-to-r ${stat.gradient} rounded-b-3xl`} style={{ width: `${Math.min(100, (stat.value / (stats.totalMembers || 1)) * 100)}%` }} />
+                                    </div>
+                                </motion.div>
                             ))}
                         </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            {/* Department-wise Breakdown */}
-                            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-                                <h3 className="font-black text-slate-800 text-lg mb-6 uppercase tracking-tight flex items-center gap-2">
-                                    <Briefcase className="w-5 h-5 text-blue-600" /> Dept Distribution
-                                </h3>
-                                <div className="space-y-4">
-                                    {Object.entries(analytics.deptWise).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([dept, count]) => (
-                                        <div key={dept}>
+                        {/* Analytics Grid */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Department Distribution - Premium Card */}
+                            <motion.div
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: 0.3 }}
+                                className="bg-white p-8 rounded-[2rem] border border-slate-200/60 shadow-xl shadow-slate-200/30 relative overflow-hidden"
+                            >
+                                {/* Decorative Element */}
+                                <div className="absolute -top-24 -right-24 w-48 h-48 bg-gradient-to-br from-blue-500/5 to-indigo-500/5 rounded-full blur-2xl" />
+
+                                <div className="flex items-center justify-between mb-8 relative">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl text-white shadow-lg shadow-blue-500/20">
+                                            <Briefcase className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Department Intel</h3>
+                                            <p className="text-xs text-slate-400 font-medium">Student distribution analysis</p>
+                                        </div>
+                                    </div>
+                                    <span className="text-[10px] font-black text-blue-500 bg-blue-50 px-3 py-1.5 rounded-full uppercase tracking-widest">{Object.keys(analytics.deptWise).length} Depts</span>
+                                </div>
+
+                                <div className="space-y-5 relative max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                    {Object.entries(analytics.deptWise).sort((a, b) => b[1] - a[1]).map(([dept, count], idx) => (
+                                        <motion.div
+                                            key={dept}
+                                            initial={{ opacity: 0, x: -20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            transition={{ delay: 0.4 + idx * 0.1 }}
+                                        >
                                             <div className="flex justify-between text-xs font-bold uppercase mb-2">
-                                                <span className="text-slate-600">{dept}</span>
-                                                <span className="text-blue-600">{count}</span>
+                                                <span className="text-slate-700 flex items-center gap-2">
+                                                    <span className="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500">{idx + 1}</span>
+                                                    {dept}
+                                                </span>
+                                                <span className="text-blue-600 font-black">{count} <span className="text-slate-400 font-medium">({((count / stats.totalMembers) * 100).toFixed(1)}%)</span></span>
                                             </div>
-                                            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                            <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
                                                 <motion.div
                                                     initial={{ width: 0 }}
                                                     animate={{ width: `${(count / stats.totalMembers) * 100}%` }}
-                                                    className="h-full bg-blue-600 rounded-full"
-                                                />
+                                                    transition={{ duration: 1, delay: 0.5 + idx * 0.1, ease: "easeOut" }}
+                                                    className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full relative"
+                                                >
+                                                    <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 animate-shimmer" />
+                                                </motion.div>
                                             </div>
-                                        </div>
+                                        </motion.div>
                                     ))}
                                 </div>
-                            </div>
+                            </motion.div>
 
-                            {/* Year-wise Breakdown */}
-                            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-                                <h3 className="font-black text-slate-800 text-lg mb-6 uppercase tracking-tight flex items-center gap-2">
-                                    <Calendar className="w-5 h-5 text-indigo-600" /> Attendance Trends
-                                </h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                    {Object.entries(analytics.yearWise).map(([year, count]) => (
-                                        <div key={year} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-center">
-                                            <div className="text-2xl font-black text-indigo-600">{count}</div>
-                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{year} Year</div>
+                            {/* Year-wise Distribution - Premium Card */}
+                            <motion.div
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: 0.4 }}
+                                className="bg-white p-8 rounded-[2rem] border border-slate-200/60 shadow-xl shadow-slate-200/30 relative overflow-hidden"
+                            >
+                                {/* Decorative Element */}
+                                <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 rounded-full blur-2xl" />
+
+                                <div className="flex items-center justify-between mb-8 relative">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl text-white shadow-lg shadow-indigo-500/20">
+                                            <Award className="w-5 h-5" />
                                         </div>
+                                        <div>
+                                            <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Year Breakdown</h3>
+                                            <p className="text-xs text-slate-400 font-medium">Student cohort analysis</p>
+                                        </div>
+                                    </div>
+                                    <span className="text-[10px] font-black text-indigo-500 bg-indigo-50 px-3 py-1.5 rounded-full uppercase tracking-widest">{Object.keys(analytics.yearWise).length} Years</span>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 relative">
+                                    {Object.entries(analytics.yearWise).map(([year, count], idx) => (
+                                        <motion.div
+                                            key={year}
+                                            initial={{ opacity: 0, scale: 0.9 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            transition={{ delay: 0.5 + idx * 0.1 }}
+                                            whileHover={{ scale: 1.03 }}
+                                            className="p-5 bg-gradient-to-br from-slate-50 to-white rounded-2xl border border-slate-100 text-center group cursor-pointer relative overflow-hidden"
+                                        >
+                                            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/0 via-indigo-500/0 to-indigo-500/0 group-hover:from-indigo-500/5 group-hover:via-indigo-500/3 group-hover:to-purple-500/5 transition-all duration-500" />
+                                            <div className="text-3xl font-black bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent relative">{count}</div>
+                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 relative">{year} Year</div>
+                                            <div className="text-[9px] text-slate-300 font-medium mt-1 relative">{((count / stats.totalMembers) * 100).toFixed(1)}% of total</div>
+                                        </motion.div>
                                     ))}
                                 </div>
-                            </div>
+                            </motion.div>
                         </div>
 
-                        {/* Recent Activity Section */}
-                        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
-                            <div className="p-8 border-b border-slate-100 flex items-center justify-between">
-                                <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Recent Live Operations</h3>
-                                <button onClick={() => setActiveTab('all_events')} className="text-blue-600 text-xs font-bold hover:underline uppercase tracking-widest">Global Register</button>
+                        {/* Recent Activity Section - Premium Table */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.5 }}
+                            className="bg-white rounded-[2rem] border border-slate-200/60 shadow-xl shadow-slate-200/30 overflow-hidden relative"
+                        >
+                            {/* Decorative gradient */}
+                            <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-blue-50/50 to-transparent pointer-events-none" />
+
+                            <div className="p-8 border-b border-slate-100 flex items-center justify-between relative">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl text-white shadow-lg shadow-emerald-500/20">
+                                        <Activity className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight flex items-center gap-3">
+                                            Live Operations
+                                            <span className="flex items-center gap-2 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full normal-case">
+                                                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                                                Real-time
+                                            </span>
+                                        </h3>
+                                        <p className="text-xs text-slate-400 font-medium mt-0.5">Recent event activity across the platform</p>
+                                    </div>
+                                </div>
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => setActiveTab('all_events')}
+                                    className="flex items-center gap-2 text-blue-600 text-xs font-black uppercase tracking-widest hover:bg-blue-50 px-4 py-2 rounded-xl transition-all"
+                                >
+                                    View All <ArrowRight className="w-4 h-4" />
+                                </motion.button>
                             </div>
-                            <div className="overflow-x-auto">
+
+                            <div className="overflow-x-auto relative">
                                 <table className="w-full text-left">
-                                    <thead className="bg-slate-50 text-[10px] font-black text-slate-500 uppercase tracking-[0.15em] border-b border-slate-100">
+                                    <thead className="bg-gradient-to-r from-slate-50 to-slate-100/50 text-[10px] font-black text-slate-500 uppercase tracking-[0.15em] border-b border-slate-100">
                                         <tr>
-                                            <th className="px-8 py-5">Event</th>
-                                            <th className="px-8 py-5">Organizer</th>
-                                            <th className="px-8 py-5 text-center">Registrations</th>
-                                            <th className="px-8 py-5 text-center">Status</th>
-                                            <th className="px-8 py-5 text-right">Actions</th>
+                                            <th className="px-6 py-4">Event</th>
+                                            <th className="px-4 py-4">Organizer</th>
+                                            <th className="px-4 py-4 text-center">Regs</th>
+                                            <th className="px-4 py-4 text-center">Status</th>
+                                            <th className="px-4 py-4 text-right">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
-                                        {events.slice(0, 5).map((event) => (
-                                            <tr key={event.id} className="hover:bg-slate-50/50 transition-colors">
-                                                <td className="px-8 py-5">
-                                                    <p className="text-sm font-bold text-slate-800 uppercase leading-none mb-1">{event.title}</p>
-                                                    <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">{event.type}</p>
+                                        {events.slice(0, 5).map((event, idx) => (
+                                            <motion.tr
+                                                key={event.id}
+                                                initial={{ opacity: 0, x: -20 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                transition={{ delay: 0.6 + idx * 0.1 }}
+                                                className="hover:bg-gradient-to-r hover:from-blue-50/30 hover:to-transparent transition-all duration-300 group"
+                                            >
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg ${event.type === 'WORKSHOP' ? 'bg-gradient-to-br from-blue-500 to-cyan-500' :
+                                                            event.type === 'HACKATHON' ? 'bg-gradient-to-br from-purple-500 to-pink-500' :
+                                                                event.type === 'SEMINAR' ? 'bg-gradient-to-br from-emerald-500 to-teal-500' :
+                                                                    'bg-gradient-to-br from-orange-500 to-amber-500'
+                                                            }`}>
+                                                            <Calendar className="w-4 h-4" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-bold text-slate-800 uppercase leading-none mb-1 group-hover:text-blue-600 transition-colors">{event.title}</p>
+                                                            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">{event.type}</p>
+                                                        </div>
+                                                    </div>
                                                 </td>
-                                                <td className="px-8 py-5 text-xs font-bold text-slate-600 uppercase">{event.createdBy}</td>
-                                                <td className="px-8 py-5 text-center">
-                                                    <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold">
+                                                <td className="px-4 py-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-7 h-7 bg-slate-100 rounded-lg flex items-center justify-center text-xs font-black text-slate-500">
+                                                            {event.createdBy?.charAt(0)?.toUpperCase() || 'A'}
+                                                        </div>
+                                                        <span className="text-xs font-bold text-slate-600 uppercase">{event.createdBy || 'Admin'}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-4 text-center">
+                                                    <span className="inline-flex items-center gap-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-600 px-3 py-1.5 rounded-full text-xs font-black border border-blue-100">
+                                                        <Users className="w-3 h-3" />
                                                         {event.attendeesCount || 0}
                                                     </span>
                                                 </td>
-                                                <td className="px-8 py-5 text-center">
-                                                    <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${event.status === 'LIVE' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                                                        event.status === 'PENDING' ? 'bg-orange-50 text-orange-600 border border-orange-100' :
-                                                            'bg-slate-100 text-slate-500'
+                                                <td className="px-4 py-4 text-center">
+                                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest ${event.status === 'LIVE'
+                                                        ? 'bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-600 border border-emerald-200'
+                                                        : event.status === 'PENDING'
+                                                            ? 'bg-gradient-to-r from-orange-50 to-amber-50 text-orange-600 border border-orange-200'
+                                                            : 'bg-slate-100 text-slate-500 border border-slate-200'
                                                         }`}>
+                                                        {event.status === 'LIVE' && <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />}
                                                         {event.status}
                                                     </span>
                                                 </td>
-                                                <td className="px-8 py-5 text-right">
-                                                    <button
-                                                        onClick={() => handleDeleteEvent(event.id)}
-                                                        className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all duration-300 hover:scale-110 group"
-                                                        title="Delete Event"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
+                                                <td className="px-4 py-4 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <motion.button
+                                                            whileHover={{ scale: 1.1 }}
+                                                            whileTap={{ scale: 0.9 }}
+                                                            onClick={(e) => { e.stopPropagation(); handleOpenEditOrganizer(event); }}
+                                                            className="p-2.5 bg-gradient-to-br from-blue-50 to-indigo-50 text-blue-600 rounded-xl hover:from-blue-500 hover:to-indigo-600 hover:text-white transition-all duration-300 shadow-lg shadow-transparent hover:shadow-blue-500/30"
+                                                            title="Change Organizer"
+                                                        >
+                                                            <UserCog className="w-4 h-4" />
+                                                        </motion.button>
+                                                        <motion.button
+                                                            whileHover={{ scale: 1.1 }}
+                                                            whileTap={{ scale: 0.9 }}
+                                                            onClick={() => handleDeleteEvent(event.id)}
+                                                            className="p-2.5 bg-gradient-to-br from-red-50 to-pink-50 text-red-500 rounded-xl hover:from-red-500 hover:to-pink-600 hover:text-white transition-all duration-300 shadow-lg shadow-transparent hover:shadow-red-500/30"
+                                                            title="Delete Event"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </motion.button>
+                                                    </div>
                                                 </td>
-                                            </tr>
+                                            </motion.tr>
                                         ))}
                                     </tbody>
                                 </table>
                             </div>
-                        </div>
+                        </motion.div>
 
                         {/* All Events Management Grid */}
                         <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
@@ -1545,6 +1753,14 @@ const AdminDashboard = () => {
                                                             </span>
                                                         </div>
                                                         <div className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handleOpenEditOrganizer(event); }}
+                                                                className="px-3 py-2 bg-indigo-100 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                                                                title="Change Organizer"
+                                                            >
+                                                                <UserCog className="w-4 h-4" />
+                                                                <span className="text-[10px] font-black uppercase">Lead</span>
+                                                            </button>
                                                             {event.type === 'Quiz' && (
                                                                 <button
                                                                     onClick={(e) => { e.stopPropagation(); handleOpenQuizSettings(event); }}
@@ -2035,6 +2251,14 @@ const AdminDashboard = () => {
                                             </td>
                                             <td className="px-8 py-6 text-right">
                                                 <div className="flex items-center gap-2 justify-end">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleOpenEditOrganizer(event); }}
+                                                        className="px-3 py-2 bg-blue-100 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                                                        title="Change Organizer"
+                                                    >
+                                                        <UserCog className="w-4 h-4" />
+                                                        <span className="text-[10px] font-black uppercase">Change Lead</span>
+                                                    </button>
                                                     {/* Revert to LIVE button for COMPLETED events */}
                                                     {event.status === 'COMPLETED' && (
                                                         <button
@@ -2056,9 +2280,6 @@ const AdminDashboard = () => {
                                                             <FileText className="w-4 h-4" />
                                                             <span className="text-[10px] font-black uppercase">Settings</span>
                                                         </button>
-                                                    )}
-                                                    {event.status !== 'COMPLETED' && event.type !== 'Quiz' && (
-                                                        <span className="text-[10px] text-slate-300 font-bold uppercase">-</span>
                                                     )}
                                                 </div>
                                             </td>
@@ -2640,75 +2861,226 @@ const AdminDashboard = () => {
 
     return (
         <div className="min-h-screen bg-[#f8fafc] flex">
-            {/* Sidebar */}
-            <aside className="w-72 bg-[#0f172a] text-white hidden lg:flex flex-col border-r border-white/5">
-                <div className="p-8">
-                    <div className="flex items-center gap-3 mb-10 text-left">
-                        <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-                            <ShieldCheck className="w-6 h-6 text-white" />
+            {/* Premium Glassmorphic Sidebar - Fixed */}
+            <aside className="w-80 h-screen sticky top-0 bg-gradient-to-b from-[#0a0f1a] via-[#0f172a] to-[#0a0f1a] text-white hidden lg:flex flex-col border-r border-white/5 relative overflow-hidden">
+                {/* Animated Background Effects */}
+                <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                    <div className="absolute -top-32 -left-32 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl animate-pulse" />
+                    <div className="absolute -bottom-32 -right-32 w-64 h-64 bg-indigo-600/10 rounded-full blur-3xl animate-pulse delay-1000" />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
+                </div>
+
+                <div className="relative z-10 p-8 flex-1 overflow-y-auto custom-scrollbar">
+                    {/* Brand Header with Live Status */}
+                    <div className="flex items-center justify-between mb-8">
+                        <div className="flex items-center gap-3">
+                            <img src={techsparkLogo} alt="TechSpark" className="h-9 w-auto object-contain" />
+                            <div className="w-px h-8 bg-gradient-to-b from-transparent via-white/20 to-transparent" />
+                            <div>
+                                <span className="text-xs font-black tracking-widest text-blue-400 uppercase block">Super Admin</span>
+                                <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Control Panel</span>
+                            </div>
                         </div>
-                        <span className="text-xl font-black tracking-tight">ADMIN PANEL</span>
+                        {/* Live Status Indicator */}
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 rounded-full border border-emerald-500/20">
+                            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                            <span className="text-[9px] font-black text-emerald-400 uppercase tracking-wider">Live</span>
+                        </div>
                     </div>
 
-                    <nav className="space-y-1">
+                    {/* System Health Banner */}
+                    <div className="mb-8 p-4 bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-purple-600/10 rounded-2xl border border-white/5 backdrop-blur-sm">
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">System Health</span>
+                            <span className="text-[10px] font-black text-emerald-400 uppercase">Optimal</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                            <div className="p-2 bg-white/5 rounded-xl text-center">
+                                <div className="text-lg font-black text-white">{stats.totalMembers}</div>
+                                <div className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">Users</div>
+                            </div>
+                            <div className="p-2 bg-white/5 rounded-xl text-center">
+                                <div className="text-lg font-black text-emerald-400">{events.filter(e => e.status === 'LIVE').length}</div>
+                                <div className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">Active</div>
+                            </div>
+                            <div className="p-2 bg-white/5 rounded-xl text-center relative">
+                                <div className="text-lg font-black text-orange-400">{events.filter(e => e.status === 'PENDING').length}</div>
+                                <div className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">Pending</div>
+                                {events.filter(e => e.status === 'PENDING').length > 0 && (
+                                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full animate-ping" />
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Advanced Navigation */}
+                    <nav className="space-y-1.5">
                         {[
-                            { id: 'overview', icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard' },
-                            { id: 'analytics', icon: <BarChart3 className="w-5 h-5" />, label: 'Student Analytics' },
-                            { id: 'organizers', icon: <UserCog className="w-5 h-5" />, label: 'Organizers' },
-                            { id: 'approvals', icon: <CalendarCheck className="w-5 h-5" />, label: 'Event Approvals' },
-                            { id: 'all_events', icon: <Calendar className="w-5 h-5" />, label: 'All Events' },
-                            { id: 'registrations', icon: <ClipboardList className="w-5 h-5" />, label: 'Registrations' },
-                            { id: 'reports', icon: <PieChart className="w-5 h-5" />, label: 'Reports' },
-                            { id: 'submissions', icon: <Activity className="w-5 h-5" />, label: 'Quiz Scores' },
-                            { id: 'settings', icon: <Settings className="w-5 h-5" />, label: 'Settings' },
-                            { id: 'logs', icon: <ShieldAlert className="w-5 h-5" />, label: 'Security Logs' }
+                            { id: 'overview', icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', desc: 'Overview & Analytics' },
+                            { id: 'analytics', icon: <BarChart3 className="w-5 h-5" />, label: 'Student Intel', desc: 'Demographics & Insights' },
+                            { id: 'organizers', icon: <UserCog className="w-5 h-5" />, label: 'Organizers', desc: 'Team Management', badge: organizers.length },
+                            { id: 'approvals', icon: <CalendarCheck className="w-5 h-5" />, label: 'Approvals', desc: 'Event Authorization', badge: events.filter(e => e.status === 'PENDING').length, badgeColor: 'orange' },
+                            { id: 'all_events', icon: <Calendar className="w-5 h-5" />, label: 'All Events', desc: 'Complete Registry' },
+                            { id: 'registrations', icon: <ClipboardList className="w-5 h-5" />, label: 'Registrations', desc: 'Participant Data' },
+                            { id: 'reports', icon: <PieChart className="w-5 h-5" />, label: 'Reports', desc: 'PDF Intelligence' },
+                            { id: 'submissions', icon: <Activity className="w-5 h-5" />, label: 'Quiz Scores', desc: 'Live Performance', isLive: true },
+                            { id: 'settings', icon: <Settings className="w-5 h-5" />, label: 'Settings', desc: 'System Config' },
+                            { id: 'logs', icon: <ShieldAlert className="w-5 h-5" />, label: 'Security', desc: 'Audit Trail' }
                         ].map((item) => (
-                            <button
+                            <motion.button
                                 key={item.id}
                                 onClick={() => setActiveTab(item.id)}
-                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === item.id
-                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+                                whileHover={{ x: 4 }}
+                                whileTap={{ scale: 0.98 }}
+                                className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold text-sm transition-all group relative overflow-hidden ${activeTab === item.id
+                                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xl shadow-blue-500/25'
                                     : 'text-slate-400 hover:bg-white/5 hover:text-white'
                                     }`}
                             >
-                                {item.icon}
-                                {item.label}
-                            </button>
+                                {activeTab === item.id && (
+                                    <motion.div
+                                        layoutId="activeNavBg"
+                                        className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-600 -z-10"
+                                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                                    />
+                                )}
+                                <div className={`p-2 rounded-xl ${activeTab === item.id ? 'bg-white/20' : 'bg-white/5 group-hover:bg-white/10'} transition-all`}>
+                                    {item.icon}
+                                </div>
+                                <div className="flex-1 text-left">
+                                    <div className="flex items-center gap-2">
+                                        <span>{item.label}</span>
+                                        {item.isLive && (
+                                            <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                                        )}
+                                    </div>
+                                    <span className={`text-[9px] font-medium ${activeTab === item.id ? 'text-white/70' : 'text-slate-600'}`}>
+                                        {item.desc}
+                                    </span>
+                                </div>
+                                {item.badge > 0 && (
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${item.badgeColor === 'orange'
+                                        ? 'bg-orange-500 text-white animate-pulse'
+                                        : 'bg-blue-500/20 text-blue-400'
+                                        }`}>
+                                        {item.badge}
+                                    </span>
+                                )}
+                            </motion.button>
                         ))}
                     </nav>
                 </div>
 
-                <div className="mt-auto p-6 border-t border-white/5">
-                    <div className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl mb-4 text-left">
-                        <div className="w-10 h-10 bg-gradient-to-tr from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center font-bold">
+                {/* Admin Profile Section */}
+                <div className="mt-auto relative z-10 p-6 border-t border-white/5 bg-gradient-to-t from-black/20 to-transparent">
+                    <div className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl mb-4 text-left backdrop-blur-sm border border-white/5">
+                        <div className="w-12 h-12 bg-gradient-to-tr from-blue-500 via-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center font-black text-lg shadow-lg shadow-blue-500/20 relative">
                             {admin.username?.charAt(0).toUpperCase()}
+                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-[#0f172a] flex items-center justify-center">
+                                <ShieldCheck className="w-2.5 h-2.5 text-white" />
+                            </div>
                         </div>
                         <div className="flex-1 overflow-hidden">
-                            <p className="text-sm font-bold truncate uppercase">{admin.username}</p>
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">SUPER ADMIN</p>
+                            <p className="text-sm font-black truncate uppercase text-white">{admin.username}</p>
+                            <p className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">Super Administrator</p>
+                            <p className="text-[9px] text-slate-600 font-medium mt-1">Last login: {new Date().toLocaleDateString()}</p>
                         </div>
                     </div>
-                    <button
+                    <motion.button
                         onClick={handleLogout}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-500/10 text-red-500 rounded-2xl font-bold text-sm hover:bg-red-500/20 transition-all font-mono"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="w-full flex items-center justify-center gap-3 px-4 py-4 bg-gradient-to-r from-red-500/10 to-red-600/10 text-red-400 rounded-2xl font-black text-xs uppercase tracking-widest hover:from-red-500/20 hover:to-red-600/20 transition-all border border-red-500/10"
                     >
                         <LogOut className="w-4 h-4" />
-                        LOGOUT
-                    </button>
+                        Terminate Session
+                    </motion.button>
                 </div>
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto">
-                <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-10 text-left">
-                    <div>
-                        <h2 className="text-xl font-bold text-slate-800 uppercase tracking-tight">
-                            {activeTab} <span className="text-slate-300 mx-2">/</span> <span className="text-blue-600 text-sm">TechSpark Control</span>
-                        </h2>
+            <main className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
+                {/* Premium Header */}
+                <header className="h-24 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 px-8 flex items-center justify-between sticky top-0 z-10">
+                    <div className="text-left">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg shadow-blue-500/20">
+                                {activeTab === 'overview' && <LayoutDashboard className="w-5 h-5 text-white" />}
+                                {activeTab === 'analytics' && <BarChart3 className="w-5 h-5 text-white" />}
+                                {activeTab === 'organizers' && <UserCog className="w-5 h-5 text-white" />}
+                                {activeTab === 'approvals' && <CalendarCheck className="w-5 h-5 text-white" />}
+                                {activeTab === 'all_events' && <Calendar className="w-5 h-5 text-white" />}
+                                {activeTab === 'registrations' && <ClipboardList className="w-5 h-5 text-white" />}
+                                {activeTab === 'reports' && <PieChart className="w-5 h-5 text-white" />}
+                                {activeTab === 'submissions' && <Activity className="w-5 h-5 text-white" />}
+                                {activeTab === 'settings' && <Settings className="w-5 h-5 text-white" />}
+                                {activeTab === 'logs' && <ShieldAlert className="w-5 h-5 text-white" />}
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
+                                    {activeTab.replace('_', ' ')}
+                                    <span className="text-slate-300 mx-1">/</span>
+                                    <span className="text-blue-600 text-sm font-bold normal-case tracking-normal">Control Center</span>
+                                </h2>
+                                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                                    {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Header Actions */}
+                    <div className="flex items-center gap-4">
+                        {/* Search Bar */}
+                        <div className="relative hidden xl:block">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <input
+                                type="text"
+                                placeholder="Search anything..."
+                                className="w-64 pl-11 pr-4 py-3 bg-slate-100/80 border border-slate-200/50 rounded-2xl text-sm font-medium text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/50 transition-all"
+                            />
+                            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 px-2 py-1 bg-white rounded-lg text-[10px] font-bold text-slate-400 border border-slate-200">⌘K</kbd>
+                        </div>
+
+                        {/* Notification Bell */}
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="relative p-3 bg-slate-100/80 hover:bg-slate-200/80 rounded-2xl transition-all group"
+                        >
+                            <Bell className="w-5 h-5 text-slate-600 group-hover:text-slate-800" />
+                            {events.filter(e => e.status === 'PENDING').length > 0 && (
+                                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center animate-pulse">
+                                    {events.filter(e => e.status === 'PENDING').length}
+                                </span>
+                            )}
+                        </motion.button>
+
+                        {/* Quick Stats */}
+                        <div className="hidden lg:flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl border border-emerald-200/50">
+                            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                            <span className="text-xs font-bold text-emerald-700">{events.filter(e => e.status === 'LIVE').length} Live Events</span>
+                        </div>
+
+                        {/* Refresh Button */}
+                        <motion.button
+                            whileHover={{ scale: 1.05, rotate: 180 }}
+                            whileTap={{ scale: 0.95 }}
+                            transition={{ duration: 0.3 }}
+                            onClick={() => window.location.reload()}
+                            className="p-3 bg-slate-100/80 hover:bg-blue-500 hover:text-white rounded-2xl transition-all text-slate-600"
+                        >
+                            <RefreshCw className="w-5 h-5" />
+                        </motion.button>
                     </div>
                 </header>
-                <div className="p-8">
-                    {renderContent()}
+
+                {/* Content Area with subtle pattern */}
+                <div className="p-8 relative">
+                    <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%239C92AC\' fill-opacity=\'0.4\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")' }} />
+                    <div className="relative z-10">
+                        {renderContent()}
+                    </div>
                 </div>
             </main>
 
@@ -2873,6 +3245,12 @@ const AdminDashboard = () => {
                                     <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-1 italic">Tactical deployment data & participation audit</p>
                                 </div>
                                 <div className="flex items-center gap-4">
+                                    <button
+                                        onClick={() => handleOpenEditOrganizer(selectedEventDetails)}
+                                        className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase tracking-widest rounded-xl flex items-center gap-2 transition-all border border-white/10"
+                                    >
+                                        <UserCog className="w-4 h-4" /> Change Lead
+                                    </button>
                                     <button
                                         onClick={() => handleDownloadFinalReport(selectedEventDetails)}
                                         className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl flex items-center gap-2 transition-all"
@@ -3597,6 +3975,72 @@ const AdminDashboard = () => {
                     </motion.div>
                 </div>
             )}
+
+            {/* Change Event Organizer Modal */}
+            <AnimatePresence>
+                {isEditEventOrganizerModalOpen && eventToEditOrganizer && (
+                    <div className="fixed inset-0 z-[140] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsEditEventOrganizerModalOpen(false)}
+                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border border-slate-100"
+                        >
+                            <div className="p-8 border-b border-slate-100 flex items-center justify-between text-left">
+                                <div>
+                                    <h3 className="text-2xl font-black text-slate-800 italic uppercase">Reassign Lead</h3>
+                                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mt-1">Transfer mission command safely</p>
+                                </div>
+                                <button onClick={() => setIsEditEventOrganizerModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-xl transition-colors">
+                                    <X className="w-6 h-6 text-slate-400" />
+                                </button>
+                            </div>
+
+                            <div className="p-8 space-y-6 text-left">
+                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Target Mission</p>
+                                    <p className="text-sm font-black text-slate-800 uppercase">{eventToEditOrganizer.title}</p>
+                                </div>
+
+                                <div className="space-y-2.5">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Assigned Organizer</label>
+                                    <div className="relative group">
+                                        <UserCog className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+                                        <select
+                                            value={selectedNewOrganizer}
+                                            onChange={(e) => setSelectedNewOrganizer(e.target.value)}
+                                            className="w-full pl-11 pr-10 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-blue-500/5 focus:bg-white focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                                        >
+                                            <option value="">Select New Organizer</option>
+                                            <option value="Admin">Admin (Main Command)</option>
+                                            {organizers.map(org => (
+                                                <option key={org.id} value={org.username}>{org.fullName} ({org.username})</option>
+                                            ))}
+                                        </select>
+                                        <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 rotate-90" />
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={handleUpdateOrganizer}
+                                    disabled={isReassigning || !selectedNewOrganizer}
+                                    className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-[11px] shadow-xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-[0.2em] flex items-center justify-center gap-3 disabled:opacity-50"
+                                >
+                                    {isReassigning ? 'Reassigning...' : 'Confirm Reassignment'}
+                                    <ShieldCheck className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
 
             <style jsx="true">{`
                 .custom-scrollbar::-webkit-scrollbar {
