@@ -118,8 +118,12 @@ const Navbar = () => {
                         className="flex items-center gap-3 cursor-pointer group"
                         onClick={() => scrollToSection('home')}
                     >
-                        <img src={ritLogo} alt="RIT Chennai Logo" className="h-10 w-auto object-contain hidden sm:block opacity-80 group-hover:opacity-100 transition-opacity" />
-                        <div className="w-px h-8 bg-gray-200 hidden sm:block" />
+                        {location.pathname !== '/dashboard' && (
+                            <>
+                                <img src={ritLogo} alt="RIT Chennai Logo" className="h-10 w-auto object-contain hidden sm:block opacity-80 group-hover:opacity-100 transition-opacity" />
+                                <div className="w-px h-8 bg-gray-200 hidden sm:block" />
+                            </>
+                        )}
                         <img src={logo} alt="Official TechSpark Club Logo" className="h-12 w-auto object-contain" />
                     </Link>
 
