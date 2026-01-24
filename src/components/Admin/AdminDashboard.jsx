@@ -115,6 +115,11 @@ const AdminDashboard = () => {
     const [showApproveModal, setShowApproveModal] = useState(false);
     const [eventToApprove, setEventToApprove] = useState(null);
 
+    // Student Analytics Filters
+    const [studentFilterDept, setStudentFilterDept] = useState('ALL');
+    const [studentFilterYear, setStudentFilterYear] = useState('ALL');
+    const [studentFilterBatch, setStudentFilterBatch] = useState('ALL');
+
     // Quiz Settings Modal State
     const [showQuizSettingsModal, setShowQuizSettingsModal] = useState(false);
     const [quizSettingsEvent, setQuizSettingsEvent] = useState(null);
@@ -132,6 +137,77 @@ const AdminDashboard = () => {
     const fetchDashboardData = () => {
         console.log("Strategic Refresh Triggered");
         // Real-time sync is active via initDashboardSync, no manual fetch required
+    };
+
+    // Dynamic extraction helper for missing student data
+    const getStudentExtendedData = (s) => {
+        let year = s.yearOfStudy || 'Unknown';
+        let admissionYear = s.admissionYear || 'Unknown';
+        let dept = s.department || 'Unknown';
+
+        // Auto-extract from email if data is missing or "Unknown"
+        if ((year === 'Unknown' || admissionYear === 'Unknown' || dept === 'Unknown') && s.email) {
+            try {
+                const email = s.email.toLowerCase();
+                const [local, domain] = email.split('@');
+                const domainSegments = domain.split('.');
+
+                // 1. Aggressive Admission Year Detection
+                if (admissionYear === 'Unknown') {
+                    // Try to find a 4-digit year (e.g. 2023)
+                    const yearMatch4 = local.match(/(20[1-2][0-9])/);
+                    if (yearMatch4) {
+                        admissionYear = parseInt(yearMatch4[0]);
+                    } else {
+                        // Try to find a 2-digit roll number prefix (e.g. 21, 22, 23, 24)
+                        // Looking for a sequence of 6+ digits
+                        const digitMatch = local.match(/(\d{6,12})/);
+                        const roll = digitMatch ? digitMatch[0] : (s.rollNumber || '');
+                        if (roll && roll.length >= 6) {
+                            const prefix = roll.substring(0, 2);
+                            if (parseInt(prefix) >= 15 && parseInt(prefix) <= 30) {
+                                admissionYear = 2000 + parseInt(prefix);
+                            }
+                        }
+                    }
+                }
+
+                // 2. Aggressive Department Detection
+                if (dept === 'Unknown') {
+                    // Check subdomain first
+                    if (domainSegments.length === 4 && domainSegments[1] === 'ritchennai') {
+                        dept = domainSegments[0].toUpperCase();
+                    } else {
+                        // Check for common department codes in local part
+                        const deptCodes = ['CSE', 'ECE', 'EEE', 'MECH', 'CIVIL', 'IT', 'AIDS', 'AIML', 'CSBS', 'BME', 'RA', 'FT'];
+                        for (const code of deptCodes) {
+                            if (local.toUpperCase().includes(code)) {
+                                dept = code;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // 3. Recalculate Year of Study if admission year was found
+                if (admissionYear !== 'Unknown' && (year === 'Unknown' || !year)) {
+                    const now = new Date();
+                    const academicYearRef = (now.getMonth() + 1) < 6 ? now.getFullYear() - 1 : now.getFullYear();
+                    const calc = academicYearRef - parseInt(admissionYear) + 1;
+                    if (calc > 0 && calc <= 4) year = calc.toString();
+                    else if (calc > 4) year = 'Alumni';
+                    else if (calc <= 0) year = '1'; // Default for future/incoming
+                }
+            } catch (e) {
+                console.error("Meta extraction failed for", s.email, e);
+            }
+        }
+
+        const batch = (admissionYear && admissionYear !== 'Unknown')
+            ? `${admissionYear}-${parseInt(admissionYear) + 4}`
+            : 'Unknown';
+
+        return { year, batch, dept, admissionYear };
     };
 
     const navigate = useNavigate();
@@ -167,15 +243,12 @@ const AdminDashboard = () => {
             totalXP += (s.points || 0);
             totalBadges += (s.badges?.length || 0);
 
-            const dept = s.department || 'Unknown';
-            const year = s.yearOfStudy || 'Unknown';
-            const batch = s.admissionYear ? `${s.admissionYear}-${parseInt(s.admissionYear) + 4}` : 'Unknown';
-            const section = s.section || 'Unknown';
+            const { year, batch, dept } = getStudentExtendedData(s);
 
             deptMap[dept] = (deptMap[dept] || 0) + 1;
             yearMap[year] = (yearMap[year] || 0) + 1;
             batchMap[batch] = (batchMap[batch] || 0) + 1;
-            sectionMap[section] = (sectionMap[section] || 0) + 1;
+            sectionMap[s.section || 'Unknown'] = (sectionMap[s.section || 'Unknown'] || 0) + 1;
         });
 
         setStats({
@@ -831,12 +904,20 @@ const AdminDashboard = () => {
 
     const filteredStudents = allStudents.filter(student => {
         const query = (searchQuery || '').toLowerCase();
-        return (
+        const { year, batch, dept } = getStudentExtendedData(student);
+
+        const matchesSearch = (
             (student.fullName || '').toLowerCase().includes(query) ||
             (student.rollNumber || '').toLowerCase().includes(query) ||
-            (student.department || '').toLowerCase().includes(query) ||
+            (dept || '').toLowerCase().includes(query) ||
             (student.email || '').toLowerCase().includes(query)
         );
+
+        const matchesDept = studentFilterDept === 'ALL' || dept === studentFilterDept;
+        const matchesYear = studentFilterYear === 'ALL' || year === studentFilterYear || student.yearOfStudy === studentFilterYear;
+        const matchesBatch = studentFilterBatch === 'ALL' || batch === studentFilterBatch;
+
+        return matchesSearch && matchesDept && matchesYear && matchesBatch;
     });
 
     const filteredEventsRegistry = (events || []).filter(event => {
@@ -1502,31 +1583,111 @@ const AdminDashboard = () => {
             case 'analytics':
                 return (
                     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div>
-                                <h3 className="text-3xl font-black text-slate-800 uppercase italic">Student Intelligence</h3>
-                                <p className="text-slate-500 font-medium">Demographic and participation breakdown across {allStudents.length} members</p>
+                                <h3 className="text-4xl font-black text-slate-900 uppercase italic tracking-tight">Student Intelligence</h3>
+                                <p className="text-slate-500 font-medium text-sm">Real-time demographic and participation analytics</p>
                             </div>
-                            <button
-                                onClick={() => {
-                                    const csv = [
-                                        ['Name', 'Roll Number', 'Dept', 'Year', 'Points'],
-                                        ...allStudents.map(s => [s.fullName, s.rollNumber, s.department, s.yearOfStudy, s.points])
-                                    ].map(e => e.join(",")).join("\n");
-                                    const blob = new Blob([csv], { type: 'text/csv' });
-                                    const url = window.URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.setAttribute('hidden', '');
-                                    a.setAttribute('href', url);
-                                    a.setAttribute('download', 'techspark_students.csv');
-                                    document.body.appendChild(a);
-                                    a.click();
-                                    document.body.removeChild(a);
-                                }}
-                                className="px-6 py-3.5 bg-slate-900 text-white rounded-2xl font-black text-xs hover:bg-slate-800 transition-all flex items-center gap-3 uppercase tracking-widest"
-                            >
-                                <Download className="w-4 h-4" /> Export Student Base
-                            </button>
+                            <div className="flex items-center gap-3">
+                                <span className="px-4 py-2 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-100">
+                                    {filteredStudents.length} Verified Members
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Advanced Filtration Terminal */}
+                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+                            <div className="flex flex-col lg:flex-row items-end gap-6">
+                                <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+                                    <div className="space-y-2.5">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Department Registry</label>
+                                        <div className="relative group">
+                                            <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+                                            <select
+                                                value={studentFilterDept}
+                                                onChange={(e) => setStudentFilterDept(e.target.value)}
+                                                className="w-full pl-11 pr-10 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-blue-500/5 focus:bg-white focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                                            >
+                                                <option value="ALL">All Departments</option>
+                                                {Object.keys(analytics.deptWise).sort().map(d => <option key={d} value={d}>{d}</option>)}
+                                            </select>
+                                            <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 rotate-90 pointer-events-none" />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2.5">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Academic Segment</label>
+                                        <div className="relative group">
+                                            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+                                            <select
+                                                value={studentFilterYear}
+                                                onChange={(e) => setStudentFilterYear(e.target.value)}
+                                                className="w-full pl-11 pr-10 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-blue-500/5 focus:bg-white focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                                            >
+                                                <option value="ALL">All Year Groups</option>
+                                                <option value="1">1st Year (Freshmen)</option>
+                                                <option value="2">2nd Year (Sophomore)</option>
+                                                <option value="3">3rd Year (Junior)</option>
+                                                <option value="4">4th Year (Senior)</option>
+                                                <option value="Alumni">Alumni / Graduates</option>
+                                            </select>
+                                            <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 rotate-90 pointer-events-none" />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2.5">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Batch Identification</label>
+                                        <div className="relative group">
+                                            <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+                                            <select
+                                                value={studentFilterBatch}
+                                                onChange={(e) => setStudentFilterBatch(e.target.value)}
+                                                className="w-full pl-11 pr-10 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-blue-500/5 focus:bg-white focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                                            >
+                                                <option value="ALL">All Batch Cycles</option>
+                                                {Object.keys(analytics.batchWise).sort().map(b => <option key={b} value={b}>{b}</option>)}
+                                            </select>
+                                            <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 rotate-90 pointer-events-none" />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3 w-full lg:w-auto">
+                                    {(studentFilterDept !== 'ALL' || studentFilterYear !== 'ALL' || studentFilterBatch !== 'ALL') && (
+                                        <button
+                                            onClick={() => {
+                                                setStudentFilterDept('ALL');
+                                                setStudentFilterYear('ALL');
+                                                setStudentFilterBatch('ALL');
+                                                setSearchQuery('');
+                                            }}
+                                            className="px-6 py-4 bg-red-50 text-red-600 rounded-2xl font-black text-[10px] hover:bg-red-600 hover:text-white transition-all uppercase tracking-widest flex-1 lg:flex-none border border-red-100"
+                                        >
+                                            Reset
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => {
+                                            const csv = [
+                                                ['Name', 'Roll Number', 'Dept', 'Year', 'Batch', 'Points'],
+                                                ...filteredStudents.map(s => {
+                                                    const { year, batch, dept } = getStudentExtendedData(s);
+                                                    return [s.fullName, s.rollNumber, dept, year, batch, s.points];
+                                                })
+                                            ].map(e => e.join(",")).join("\n");
+                                            const blob = new Blob([csv], { type: 'text/csv' });
+                                            const url = window.URL.createObjectURL(blob);
+                                            const a = document.createElement('a');
+                                            a.setAttribute('hidden', '');
+                                            a.setAttribute('href', url);
+                                            a.setAttribute('download', `TechSpark_Intelligence_${new Date().toISOString().split('T')[0]}.csv`);
+                                            document.body.appendChild(a);
+                                            a.click();
+                                            document.body.removeChild(a);
+                                        }}
+                                        className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] hover:bg-blue-600 transition-all flex items-center justify-center gap-3 uppercase tracking-widest shadow-xl shadow-slate-900/10 flex-1 lg:flex-none group"
+                                    >
+                                        <Download className="w-4 h-4 group-hover:animate-bounce" /> Export Segment
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Analytic Cards Area */}
@@ -1654,8 +1815,17 @@ const AdminDashboard = () => {
                                                 <td className="px-8 py-6 font-mono font-bold text-slate-600 text-xs">{student.rollNumber}</td>
                                                 <td className="px-8 py-6">
                                                     <div className="space-y-1">
-                                                        <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{student.department}</p>
-                                                        <p className="text-[9px] font-bold text-slate-400 uppercase">{student.yearOfStudy} Year | Sec {student.section}</p>
+                                                        {(() => {
+                                                            const { year, batch, dept } = getStudentExtendedData(student);
+                                                            return (
+                                                                <>
+                                                                    <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{dept}</p>
+                                                                    <p className="text-[9px] font-bold text-slate-400 uppercase">
+                                                                        {year} Year | Batch {batch} | Sec {student.section || 'N/A'}
+                                                                    </p>
+                                                                </>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </td>
                                                 <td className="px-8 py-6 text-center">

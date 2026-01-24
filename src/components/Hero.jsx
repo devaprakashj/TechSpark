@@ -1,13 +1,32 @@
+import { useState, useEffect } from 'react';
 import { Sparkles, ArrowRight } from 'lucide-react';
 import TypewriterText from './TypewriterText';
 import CountUp from './CountUp';
 import RotatingText from './RotatingText';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-
+import { collection, getCountFromServer } from 'firebase/firestore';
+import { db } from '../firebase';
+import ritLogo from '../assets/rit-logo.png';
+import tsLogo from '../assets/techspark-logo.png';
 const Hero = () => {
     const { isAuthenticated, openAuthModal } = useAuth();
     const navigate = useNavigate();
+    const [memberCount, setMemberCount] = useState(500); // Default fallback
+
+    useEffect(() => {
+        const fetchCounts = async () => {
+            try {
+                const coll = collection(db, "users");
+                const snapshot = await getCountFromServer(coll);
+                const count = snapshot.data().count;
+                if (count > 0) setMemberCount(count);
+            } catch (err) {
+                console.error("Error fetching member count:", err);
+            }
+        };
+        fetchCounts();
+    }, []);
 
     const scrollToSection = (id) => {
         const element = document.getElementById(id);
@@ -26,7 +45,7 @@ const Hero = () => {
 
     const stats = [
         {
-            value: 500,
+            value: memberCount,
             suffix: '+',
             label: 'Active Members',
             section: 'team',
@@ -57,10 +76,12 @@ const Hero = () => {
             <div className="container-custom relative z-10">
                 <div className="max-w-4xl mx-auto text-center animate-fade-in">
                     {/* Badge */}
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-full mb-8">
-                        <Sparkles className="w-4 h-4 text-blue-600" />
-                        <span className="text-sm font-medium text-blue-700">
-                            TechSpark - Official Technical Club of RIT Chennai
+                    <div className="inline-flex items-center gap-3 px-5 py-2.5 bg-white border border-blue-100 rounded-full mb-8 shadow-sm hover:shadow-md transition-shadow">
+                        <img src={ritLogo} alt="RIT Logo" className="h-5 w-auto object-contain" />
+                        <div className="w-px h-4 bg-gray-200" />
+                        <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                        <span className="text-xs font-bold text-blue-700 uppercase tracking-widest">
+                            Official Technical Club of RIT Chennai
                         </span>
                     </div>
 

@@ -430,11 +430,18 @@ const AuthModal = () => {
                                             min="2020"
                                             max="2030"
                                             defaultValue={pendingUser.admissionYear}
+                                            disabled={!!pendingUser.admissionYear}
                                             placeholder="2024"
                                             required
-                                            className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                                            className={`w-full pl-10 pr-4 py-3 rounded-xl text-sm transition-all focus:ring-2 focus:ring-blue-500 outline-none ${pendingUser.admissionYear
+                                                    ? 'bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed'
+                                                    : 'bg-white border-gray-200 text-gray-900'
+                                                }`}
                                         />
                                     </div>
+                                    {pendingUser.admissionYear && (
+                                        <p className="text-[10px] text-gray-400 ml-1 italic">Verified via your institutional credentials</p>
+                                    )}
                                 </div>
 
                                 <button
