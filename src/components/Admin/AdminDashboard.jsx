@@ -2198,16 +2198,16 @@ const AdminDashboard = () => {
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
-                            <table className="w-full">
+                        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-x-auto">
+                            <table className="w-full min-w-[900px]">
                                 <thead className="bg-slate-50 border-b border-slate-100">
                                     <tr>
-                                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Event Detail</th>
-                                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Organizer</th>
-                                        <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Execution Date</th>
-                                        <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Participation</th>
-                                        <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                                        <th className="px-8 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Actions</th>
+                                        <th className="px-4 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest w-[200px]">Event</th>
+                                        <th className="px-4 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest w-[100px]">Lead</th>
+                                        <th className="px-4 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest w-[100px]">Date</th>
+                                        <th className="px-4 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest w-[100px]">Stats</th>
+                                        <th className="px-4 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest w-[80px]">Status</th>
+                                        <th className="px-4 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
@@ -2218,30 +2218,30 @@ const AdminDashboard = () => {
                                                 setSelectedEventDetails(event);
                                                 setShowEventDetailModal(true);
                                             }}
-                                            className="group hover:bg-slate-50/80 transition-all cursor-pointer border-l-4 border-l-transparent hover:border-l-blue-600 shadow-sm hover:shadow-md"
+                                            className="group hover:bg-slate-50/80 transition-all cursor-pointer border-l-4 border-l-transparent hover:border-l-blue-600"
                                         >
-                                            <td className="px-8 py-6">
-                                                <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{event.title}</p>
-                                                <p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest">{event.type}</p>
+                                            <td className="px-4 py-4">
+                                                <p className="text-xs font-black text-slate-800 uppercase tracking-tight truncate max-w-[180px]" title={event.title}>{event.title}</p>
+                                                <p className="text-[9px] text-blue-600 font-bold uppercase tracking-wider">{event.type}</p>
                                             </td>
-                                            <td className="px-8 py-6">
-                                                <p className="text-xs font-bold text-slate-600 uppercase italic">{event.createdBy}</p>
+                                            <td className="px-4 py-4">
+                                                <p className="text-[10px] font-bold text-slate-600 uppercase truncate max-w-[90px]" title={event.createdBy}>{event.createdBy}</p>
                                             </td>
-                                            <td className="px-8 py-6 text-center">
-                                                <p className="text-xs font-black text-slate-800 uppercase tabular-nums">{event.date}</p>
+                                            <td className="px-4 py-4 text-center">
+                                                <p className="text-[10px] font-black text-slate-800 uppercase tabular-nums whitespace-nowrap">{event.date?.split('|')[0]?.trim()}</p>
                                             </td>
-                                            <td className="px-8 py-6 text-center">
-                                                <div className="flex flex-col items-center gap-1">
-                                                    <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1.5 tabular-nums">
-                                                        <Activity className="w-3 h-3" /> {registrations.filter(r => r.eventId === event.id && (r.isAttended || r.status === 'Present')).length} IN
+                                            <td className="px-4 py-4 text-center">
+                                                <div className="flex flex-col items-center gap-0.5">
+                                                    <span className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full text-[9px] font-black flex items-center gap-1 tabular-nums">
+                                                        <Activity className="w-2.5 h-2.5" /> {registrations.filter(r => r.eventId === event.id && (r.isAttended || r.status === 'Present')).length}
                                                     </span>
-                                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                                                        OF {event.attendeesCount || 0} REGS
+                                                    <span className="text-[8px] font-bold text-slate-400 uppercase">
+                                                        /{event.attendeesCount || 0}
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-6 text-center">
-                                                <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${event.status === 'LIVE' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                            <td className="px-4 py-4 text-center">
+                                                <span className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase border ${event.status === 'LIVE' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
                                                     event.status === 'COMPLETED' ? 'bg-blue-50 text-blue-600 border-blue-100' :
                                                         event.status === 'REJECTED' ? 'bg-red-50 text-red-600 border-red-100' :
                                                             'bg-slate-50 text-slate-400 border-slate-100'
@@ -2249,36 +2249,33 @@ const AdminDashboard = () => {
                                                     {event.status}
                                                 </span>
                                             </td>
-                                            <td className="px-8 py-6 text-right">
-                                                <div className="flex items-center gap-2 justify-end">
+                                            <td className="px-4 py-4 text-right">
+                                                <div className="flex items-center gap-1.5 justify-end flex-nowrap">
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); handleOpenEditOrganizer(event); }}
-                                                        className="px-3 py-2 bg-blue-100 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                                                        className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all"
                                                         title="Change Organizer"
                                                     >
                                                         <UserCog className="w-4 h-4" />
-                                                        <span className="text-[10px] font-black uppercase">Change Lead</span>
                                                     </button>
                                                     {/* Revert to LIVE button for COMPLETED events */}
                                                     {event.status === 'COMPLETED' && (
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleRevertToLive(event.id, event.title); }}
-                                                            className="px-3 py-2 bg-amber-100 text-amber-600 rounded-xl hover:bg-amber-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                                                            className="p-2 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-600 hover:text-white transition-all"
                                                             title="Revert to LIVE"
                                                         >
                                                             <RotateCcw className="w-4 h-4" />
-                                                            <span className="text-[10px] font-black uppercase">Back to LIVE</span>
                                                         </button>
                                                     )}
                                                     {/* Quiz Settings button */}
                                                     {event.type === 'Quiz' && (
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleOpenQuizSettings(event); }}
-                                                            className="px-3 py-2 bg-purple-100 text-purple-600 rounded-xl hover:bg-purple-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                                                            className="p-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-600 hover:text-white transition-all"
                                                             title="Quiz Settings"
                                                         >
                                                             <FileText className="w-4 h-4" />
-                                                            <span className="text-[10px] font-black uppercase">Settings</span>
                                                         </button>
                                                     )}
                                                 </div>
