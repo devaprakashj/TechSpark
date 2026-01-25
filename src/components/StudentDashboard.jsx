@@ -129,7 +129,7 @@ const StudentDashboard = () => {
     useEffect(() => {
         const navbar = document.querySelector('nav');
         const header = document.querySelector('header');
-        const isModalOpen = showQuizModal || showQuizRulesModal;
+        const isModalOpen = showQuizModal || showQuizRulesModal || showFeedbackModal;
 
         if (isModalOpen) {
             document.body.style.overflow = 'hidden';
@@ -154,7 +154,7 @@ const StudentDashboard = () => {
             if (navbar) navbar.style.display = '';
             if (header) header.style.display = '';
         };
-    }, [showQuizModal, showQuizRulesModal]);
+    }, [showQuizModal, showQuizRulesModal, showFeedbackModal]);
 
     // --- PROCTORING: Tab Switch Detection ---
     useEffect(() => {
@@ -365,6 +365,10 @@ const StudentDashboard = () => {
         isQuizFinishing.current = true;
 
         try {
+            // Get event data before clearing states (needed for feedback modal)
+            const completedReg = registrations.find(r => r.id === activeQuizRegId);
+            const completedEvent = allEvents.find(e => e.id === completedReg?.eventId);
+
             const regRef = doc(db, 'registrations', activeQuizRegId);
             await updateDoc(regRef, {
                 status: 'Completed',
@@ -392,7 +396,18 @@ const StudentDashboard = () => {
                 else if (document.msExitFullscreen) document.msExitFullscreen().catch(() => { });
             }
 
-            alert("✨ BRAVO! Quiz Submission Verified. Your participation has been recorded and your dashboard is now updated to COMPLETED! 🚀");
+            // For Quiz events - Open feedback modal after completion
+            if (completedEvent && completedEvent.type === 'Quiz') {
+                alert("✨ BRAVO! Quiz Submission Verified. Your participation has been recorded! 🚀\n\nPlease share your feedback to complete the process.");
+
+                // Open feedback modal for the quiz event
+                setTimeout(() => {
+                    setActiveFeedbackEvent(completedEvent);
+                    setShowFeedbackModal(true);
+                }, 500);
+            } else {
+                alert("✨ BRAVO! Quiz Submission Verified. Your participation has been recorded and your dashboard is now updated to COMPLETED! 🚀");
+            }
         } catch (error) {
             console.error("Error updating quiz status:", error);
         }
@@ -1200,8 +1215,21 @@ const StudentDashboard = () => {
                                                             )
                                                         ) : (
                                                             <div className="flex items-center gap-2">
+                                                                {/* Quiz: Submit Feedback Button - Shows when quiz completed but feedback not submitted */}
+                                                                {eventActualData?.type?.toLowerCase() === 'quiz' && isCheckedIn && !reg.feedbackSubmitted && (
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setActiveFeedbackEvent({ id: reg.eventId, title: reg.eventTitle });
+                                                                            setShowFeedbackModal(true);
+                                                                        }}
+                                                                        className="px-3 py-1.5 bg-blue-600 text-white rounded-xl text-[10px] font-bold uppercase hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
+                                                                    >
+                                                                        SUBMIT FEEDBACK
+                                                                    </button>
+                                                                )}
                                                                 {/* Quiz: Start Quiz Button - Shows Rules First (Only for non-flagged, upcoming, and quizEnabled) */}
-                                                                {eventActualData?.type?.toLowerCase() === 'quiz' && currentStatus === 'Upcoming' && !isFlagged && generateQuizUrl(reg) && (
+                                                                {eventActualData?.type?.toLowerCase() === 'quiz' && currentStatus === 'Upcoming' && !isFlagged && !isCheckedIn && generateQuizUrl(reg) && (
                                                                     eventActualData?.quizEnabled ? (
                                                                         <button
                                                                             onClick={(e) => {
