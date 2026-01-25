@@ -9,6 +9,8 @@ import { collection, getCountFromServer } from 'firebase/firestore';
 import { db } from '../firebase';
 import ritLogo from '../assets/rit-logo.png';
 import tsLogo from '../assets/techspark-logo.png';
+import { getSpecialDayTheme } from '../utils/specialDays';
+
 const Hero = () => {
     const { isAuthenticated, openAuthModal } = useAuth();
     const navigate = useNavigate();
@@ -64,13 +66,29 @@ const Hero = () => {
         },
     ];
 
+    // Special Day Theme
+    const specialDay = getSpecialDayTheme();
+
     return (
-        <section id="home" className="pt-24 pb-20 lg:pt-32 lg:pb-32 relative overflow-hidden">
-            {/* Animated Background Elements */}
+        <section id="home" className={`${specialDay.isSpecialDay ? 'pt-32' : 'pt-24'} pb-20 lg:pt-32 lg:pb-32 relative overflow-hidden`}>
+            {/* Animated Background Elements - Tricolor for Republic Day */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-20 left-10 w-72 h-72 bg-blue-400/20 rounded-full blur-3xl animate-pulse-slow"></div>
-                <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-400/20 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }}></div>
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-cyan-400/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
+                {specialDay.isSpecialDay ? (
+                    <>
+                        {/* Saffron Orb */}
+                        <div className="absolute top-20 left-10 w-72 h-72 bg-[#FF9933]/30 rounded-full blur-3xl animate-pulse-slow"></div>
+                        {/* Green Orb */}
+                        <div className="absolute bottom-20 right-10 w-96 h-96 bg-[#138808]/25 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }}></div>
+                        {/* White Orb */}
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-white/40 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
+                    </>
+                ) : (
+                    <>
+                        <div className="absolute top-20 left-10 w-72 h-72 bg-blue-400/20 rounded-full blur-3xl animate-pulse-slow"></div>
+                        <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-400/20 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }}></div>
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-cyan-400/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
+                    </>
+                )}
             </div>
 
             <div className="container-custom relative z-10">

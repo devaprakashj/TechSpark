@@ -31,6 +31,48 @@
     @apply bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent;
   }
 
+  /* Republic Day Tricolor Theme */
+  .gradient-text-tricolor {
+    background: linear-gradient(90deg, #FF9933 0%, #FF9933 33%, #FFFFFF 33%, #FFFFFF 66%, #138808 66%, #138808 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gradient-bg-tricolor {
+    background: linear-gradient(135deg, #FF9933 0%, #FFFFFF 50%, #138808 100%);
+  }
+
+  .border-tricolor {
+    border-image: linear-gradient(90deg, #FF9933 0%, #FF9933 33%, #FFFFFF 33%, #FFFFFF 66%, #138808 66%, #138808 100%) 1;
+  }
+
+  .tricolor-bar {
+    background: linear-gradient(90deg, #FF9933 0%, #FF9933 33.33%, #FFFFFF 33.33%, #FFFFFF 66.66%, #138808 66.66%, #138808 100%);
+  }
+
+  .tricolor-glow {
+    box-shadow: 0 0 20px rgba(255, 153, 51, 0.4), 0 0 40px rgba(19, 136, 8, 0.3);
+  }
+
+  @keyframes tricolor-wave {
+
+    0%,
+    100% {
+      background-position: 0% 50%;
+    }
+
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  .animate-tricolor {
+    background: linear-gradient(90deg, #FF9933, #FFFFFF, #138808, #FFFFFF, #FF9933);
+    background-size: 200% 100%;
+    animation: tricolor-wave 3s ease infinite;
+  }
+
   /* Gradient Backgrounds */
   .gradient-bg {
     @apply bg-gradient-to-r from-blue-600 to-cyan-600;
