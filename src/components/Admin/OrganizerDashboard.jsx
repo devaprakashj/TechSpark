@@ -48,6 +48,7 @@ import { db } from '../../firebase';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import ritLogo from '../../assets/rit-logo.png';
 import techsparkLogo from '../../assets/techspark-logo.png';
 
@@ -1098,7 +1099,115 @@ const OrganizerDashboard = () => {
         }
     };
 
+    // Excel Export Function for Event Registrations
+    const handleDownloadExcel = (event, type = 'REGISTRATION') => {
+        if (!event) return;
 
+        const eventRegs = registrations.filter(r => r.eventId === event.id);
+
+        if (!eventRegs.length) {
+            alert("No registration data found for this event.");
+            return;
+        }
+
+        let worksheetData = [];
+        let filename = '';
+
+        if (type === 'REGISTRATION') {
+            // Full registration report
+            filename = `${event.title.replace(/\s+/g, '_')}_Registrations.xlsx`;
+
+            // Header row
+            worksheetData.push([
+                'S.No',
+                'Student Name',
+                'Roll Number',
+                'Department',
+                'Year',
+                'Section',
+                'Email',
+                'Team Name',
+                'Team Code',
+                'Registration Date',
+                'Check-In Status',
+                'Flagged'
+            ]);
+
+            // Data rows
+            eventRegs.forEach((reg, index) => {
+                worksheetData.push([
+                    index + 1,
+                    reg.studentName || 'N/A',
+                    reg.studentRoll || reg.rollNumber || 'N/A',
+                    reg.studentDept || reg.department || 'N/A',
+                    reg.studentYear || reg.yearOfStudy || 'N/A',
+                    reg.studentSection || reg.section || 'N/A',
+                    reg.studentEmail || reg.email || 'N/A',
+                    reg.teamName || '-',
+                    reg.teamCode || '-',
+                    reg.registeredAt?.toDate?.()?.toLocaleDateString() || reg.registeredAt || 'N/A',
+                    reg.isAttended || reg.status === 'Present' ? '✅ Present' : '❌ Absent',
+                    reg.flagged ? '🚩 Flagged' : '-'
+                ]);
+            });
+
+        } else if (type === 'ATTENDANCE') {
+            // Attendance only report
+            filename = `${event.title.replace(/\s+/g, '_')}_Attendance.xlsx`;
+
+            const attended = eventRegs.filter(r => r.isAttended || r.status === 'Present');
+            const absent = eventRegs.filter(r => !r.isAttended && r.status !== 'Present');
+
+            // Summary sheet data
+            worksheetData.push(['ATTENDANCE SUMMARY']);
+            worksheetData.push(['Event', event.title]);
+            worksheetData.push(['Date', event.date]);
+            worksheetData.push(['Total Registered', eventRegs.length]);
+            worksheetData.push(['Present', attended.length]);
+            worksheetData.push(['Absent', absent.length]);
+            worksheetData.push(['Attendance %', `${((attended.length / eventRegs.length) * 100).toFixed(1)}%`]);
+            worksheetData.push([]);
+            worksheetData.push(['S.No', 'Student Name', 'Roll Number', 'Department', 'Year', 'Status']);
+
+            eventRegs.forEach((reg, index) => {
+                worksheetData.push([
+                    index + 1,
+                    reg.studentName || 'N/A',
+                    reg.studentRoll || reg.rollNumber || 'N/A',
+                    reg.studentDept || 'N/A',
+                    reg.studentYear || 'N/A',
+                    reg.isAttended || reg.status === 'Present' ? 'PRESENT' : 'ABSENT'
+                ]);
+            });
+        }
+
+        // Create workbook and worksheet
+        const workbook = XLSX.utils.book_new();
+        const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+
+        // Set column widths
+        worksheet['!cols'] = [
+            { wch: 5 },   // S.No
+            { wch: 25 },  // Name
+            { wch: 15 },  // Roll
+            { wch: 12 },  // Dept
+            { wch: 8 },   // Year
+            { wch: 10 },  // Section
+            { wch: 30 },  // Email
+            { wch: 20 },  // Team Name
+            { wch: 12 },  // Team Code
+            { wch: 15 },  // Date
+            { wch: 12 },  // Status
+            { wch: 10 }   // Flagged
+        ];
+
+        // Add worksheet to workbook
+        XLSX.utils.book_append_sheet(workbook, worksheet, type === 'ATTENDANCE' ? 'Attendance' : 'Registrations');
+
+        // Generate and download
+        XLSX.writeFile(workbook, filename);
+        console.log(`Excel exported: ${filename}`);
+    };
 
     if (!organizer) {
         return (
@@ -1365,7 +1474,14 @@ const OrganizerDashboard = () => {
                                                     disabled={registrations.length === 0}
                                                     className="flex-1 md:flex-none px-4 md:px-6 py-3 md:py-3.5 bg-slate-900 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs shadow-xl shadow-slate-900/10 hover:bg-black transition-all flex items-center justify-center gap-2 uppercase tracking-widest disabled:opacity-30"
                                                 >
-                                                    <FileText className="w-4 h-4 md:w-5 md:h-5" /> <span className="hidden sm:inline">Register</span> Report
+                                                    <FileText className="w-4 h-4 md:w-5 md:h-5" /> <span className="hidden sm:inline">Register</span> PDF
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDownloadExcel(selectedEvent, 'REGISTRATION')}
+                                                    disabled={registrations.length === 0}
+                                                    className="flex-1 md:flex-none px-4 md:px-6 py-3 md:py-3.5 bg-green-600 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs shadow-xl shadow-green-500/10 hover:bg-green-700 transition-all flex items-center justify-center gap-2 uppercase tracking-widest disabled:opacity-30"
+                                                >
+                                                    <Download className="w-4 h-4 md:w-5 md:h-5" /> <span className="hidden sm:inline">Excel</span> 📊
                                                 </button>
                                                 <button
                                                     onClick={() => {
@@ -1375,7 +1491,7 @@ const OrganizerDashboard = () => {
                                                     disabled={registrations.length === 0}
                                                     className="flex-1 md:flex-none px-4 md:px-6 py-3 md:py-3.5 bg-emerald-600 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs shadow-xl shadow-emerald-500/10 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 uppercase tracking-widest disabled:opacity-30"
                                                 >
-                                                    <ShieldCheck className="w-4 h-4 md:w-5 md:h-5" /> <span className="hidden sm:inline">Attendee</span> Report
+                                                    <ShieldCheck className="w-4 h-4 md:w-5 md:h-5" /> <span className="hidden sm:inline">Attend</span> PDF
                                                 </button>
                                             </div>
                                         </header>
