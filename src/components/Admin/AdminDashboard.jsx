@@ -43,7 +43,7 @@ import {
     FileText,
     Bell
 } from 'lucide-react';
-import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, where, updateDoc, doc, increment, deleteDoc, getDoc, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, where, updateDoc, doc, increment, deleteDoc, getDoc, onSnapshot, limit } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import jsPDF from 'jspdf';
@@ -472,66 +472,61 @@ const AdminDashboard = () => {
         }
     };
 
-    const initDashboardSync = () => {
+    const initDashboardSync = async () => {
         setLoadingData(true);
-        console.log("Initializing Admin Synchronizer...");
+        console.log("Initializing Admin Synchronizer with Caching...");
 
-        // 1. Listen to Students
-        const studentsQuery = query(collection(db, 'users'), orderBy('fullName', 'asc'));
-        const unsubscribeStudents = onSnapshot(studentsQuery, (snapshot) => {
-            const studentList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        try {
+            // Fetch all data with getDocs instead of onSnapshot to reduce reads
+            // 1. Fetch Students
+            const studentsQuery = query(collection(db, 'users'), orderBy('fullName', 'asc'));
+            const studentsSnap = await getDocs(studentsQuery);
+            const studentList = studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setAllStudents(studentList);
-            setLoadingData(false);
-        }, (err) => {
-            console.error("Student Sync Error:", err);
-            setLoadingData(false);
-        });
 
-        // 2. Listen to Events
-        const unsubscribeEvents = onSnapshot(collection(db, 'events'), (snapshot) => {
-            const eventList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // 2. Fetch Events
+            const eventsSnap = await getDocs(collection(db, 'events'));
+            const eventList = eventsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setEvents(eventList);
-        });
 
-        // 3. Listen to Organizers
-        const unsubscribeOrganizers = onSnapshot(collection(db, 'organizers'), (snapshot) => {
-            const organizersList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // 3. Fetch Organizers
+            const organizersSnap = await getDocs(collection(db, 'organizers'));
+            const organizersList = organizersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setOrganizers(organizersList);
-        });
 
-        // 4. Listen to Registrations
-        const unsubscribeRegs = onSnapshot(collection(db, 'registrations'), (snapshot) => {
-            const regsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // 4. Fetch Registrations
+            const regsSnap = await getDocs(collection(db, 'registrations'));
+            const regsList = regsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setRegistrations(regsList);
-        });
 
-        // 5. Listen to Feedback
-        const unsubscribeFeedback = onSnapshot(collection(db, 'feedback'), (snapshot) => {
-            const feedbackList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // 5. Fetch Feedback
+            const feedbackSnap = await getDocs(collection(db, 'feedback'));
+            const feedbackList = feedbackSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setFeedbackBase(feedbackList);
-        });
 
-        // 6. Listen to Security Logs
-        const unsubscribeSecurity = onSnapshot(query(collection(db, 'security_logs'), orderBy('timestamp', 'desc')), (snapshot) => {
-            const logsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // 6. Fetch Security Logs (limit to last 50 for efficiency)
+            const securityQuery = query(collection(db, 'security_logs'), orderBy('timestamp', 'desc'), limit(50));
+            const securitySnap = await getDocs(securityQuery);
+            const logsList = securitySnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setSecurityLogs(logsList);
-        });
 
-        // 7. Listen to Quiz Submissions
-        const unsubscribeSubmissions = onSnapshot(query(collection(db, 'quizSubmissions'), orderBy('timestamp', 'desc')), (snapshot) => {
-            const subsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // 7. Fetch Quiz Submissions (limit to last 100)
+            const submissionsQuery = query(collection(db, 'quizSubmissions'), orderBy('timestamp', 'desc'), limit(100));
+            const submissionsSnap = await getDocs(submissionsQuery);
+            const subsList = submissionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setSubmissions(subsList);
-        });
 
-        return () => {
-            unsubscribeStudents();
-            unsubscribeEvents();
-            unsubscribeOrganizers();
-            unsubscribeRegs();
-            unsubscribeFeedback();
-            unsubscribeSecurity();
-            unsubscribeSubmissions();
-        };
+            console.log("Admin Dashboard Data Loaded Successfully!");
+            setLoadingData(false);
+        } catch (error) {
+            console.error("Data Sync Error:", error);
+            setLoadingData(false);
+        }
+    };
+
+    // Manual refresh function for admin
+    const refreshDashboardData = () => {
+        initDashboardSync();
     };
 
     // Success beep sound

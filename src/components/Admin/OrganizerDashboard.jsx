@@ -168,7 +168,7 @@ const OrganizerDashboard = () => {
         department: ''
     });
 
-    const fetchInitialData = (username) => {
+    const fetchInitialData = async (username) => {
         if (!username) {
             console.error("Operational Error: Missing Lead Identity");
             setLoadingData(false);
@@ -178,86 +178,68 @@ const OrganizerDashboard = () => {
         setLoadingData(true);
         console.log("Initializing Dashboard for Lead:", username);
 
-        // 1. Listen to Organizer Events (Real-time)
-        const eventsQuery = query(
-            collection(db, 'events'),
-            where('createdBy', '==', username)
-        );
-
-        let unsubscribeRegs = null;
-        let unsubscribeUsers = null;
-
-        const unsubscribeEvents = onSnapshot(eventsQuery, (snapshot) => {
-            const eventList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        // Optimized: Use getDocs instead of onSnapshot to reduce Firebase reads
+        try {
+            // 1. Fetch Organizer Events
+            const eventsQuery = query(
+                collection(db, 'events'),
+                where('createdBy', '==', username)
+            );
+            const eventsSnap = await getDocs(eventsQuery);
+            const eventList = eventsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
                 .sort((a, b) => {
                     const timeA = a.createdAt?.seconds || 0;
                     const timeB = b.createdAt?.seconds || 0;
                     return timeB - timeA;
                 });
-
             setEvents(eventList);
-            setLoadingData(false);
 
-            // 2. Clear old reg listener if any
-            if (unsubscribeRegs) unsubscribeRegs();
-
-            // 3. Setup Registration Listener for these events
+            // 2. Fetch Registrations for these events
             const eventIds = eventList.map(e => e.id);
-            const allRegsQuery = query(collection(db, 'registrations'));
+            const allRegsSnap = await getDocs(collection(db, 'registrations'));
+            const allSystemRegs = allRegsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const filteredRegs = allSystemRegs.filter(reg => eventIds.includes(reg.eventId));
+            setAllRegs(filteredRegs);
+            console.log(`Synced ${filteredRegs.length} total registrations across ${eventList.length} missions.`);
 
-            unsubscribeRegs = onSnapshot(allRegsQuery, (regSnapshot) => {
-                const allSystemRegs = regSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                const filteredRegs = allSystemRegs.filter(reg => eventIds.includes(reg.eventId));
-                setAllRegs(filteredRegs);
-                console.log(`Synced ${filteredRegs.length} total registrations across ${eventList.length} missions.`);
+            // 3. Fetch ALL Students (Users) for dynamic Eligibility Scope
+            const usersSnap = await getDocs(collection(db, 'users'));
+            const allUsers = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            const depts = new Set();
+            const yearsNumeric = new Set();
+            const sections = new Set();
+
+            // Year Mapper for professional display
+            const yearMap = { '1': 'I', '2': 'II', '3': 'III', '4': 'IV', 'Alumni': 'Alumni' };
+
+            allUsers.forEach(u => {
+                if (u.department) depts.add(u.department.toUpperCase());
+                if (u.yearOfStudy) yearsNumeric.add(u.yearOfStudy.toString());
+                if (u.section) sections.add(u.section.toUpperCase());
             });
 
-            // 4. Listen to ALL Students (Users) for dynamic Eligibility Scope
-            const usersQuery = query(collection(db, 'users'));
-            unsubscribeUsers = onSnapshot(usersQuery, (userSnapshot) => {
-                const allUsers = userSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // Helper to safely sort and map years
+            const sortedYears = Array.from(yearsNumeric)
+                .sort((a, b) => {
+                    if (a === 'Alumni') return 1;
+                    if (b === 'Alumni') return -1;
+                    return parseInt(a) - parseInt(b);
+                })
+                .map(y => yearMap[y] || y);
 
-                const depts = new Set();
-                const yearsNumeric = new Set();
-                const sections = new Set();
-
-                // Year Mapper for professional display
-                const yearMap = { '1': 'I', '2': 'II', '3': 'III', '4': 'IV', 'Alumni': 'Alumni' };
-
-
-                allUsers.forEach(u => {
-                    if (u.department) depts.add(u.department.toUpperCase());
-                    if (u.yearOfStudy) yearsNumeric.add(u.yearOfStudy.toString());
-                    if (u.section) sections.add(u.section.toUpperCase());
-                });
-
-                // Helper to safely sort and map years
-                const sortedYears = Array.from(yearsNumeric)
-                    .sort((a, b) => {
-                        if (a === 'Alumni') return 1;
-                        if (b === 'Alumni') return -1;
-                        return parseInt(a) - parseInt(b);
-                    })
-                    .map(y => yearMap[y] || y);
-
-                setGlobalDemographics({
-                    departments: Array.from(depts).sort(),
-                    years: sortedYears,
-                    sections: Array.from(sections).sort()
-                });
-
-                console.log(`Synced Demographics from ${allUsers.length} registered students.`);
+            setGlobalDemographics({
+                departments: Array.from(depts).sort(),
+                years: sortedYears,
+                sections: Array.from(sections).sort()
             });
-        }, (error) => {
+
+            console.log(`Synced Demographics from ${allUsers.length} registered students.`);
+            setLoadingData(false);
+        } catch (error) {
             console.error("Operational Data Sync Error:", error);
             setLoadingData(false);
-        });
-
-        return () => {
-            unsubscribeEvents();
-            if (unsubscribeRegs) unsubscribeRegs();
-            if (unsubscribeUsers) unsubscribeUsers();
-        };
+        }
     };
 
     useEffect(() => {
