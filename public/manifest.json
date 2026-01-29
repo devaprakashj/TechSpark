@@ -1,0 +1,33 @@
+{
+    "name": "TechSpark Club - RIT Chennai",
+    "short_name": "TechSpark",
+    "description": "Official TechSpark Club of Rajalakshmi Institute of Technology, Chennai",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0F172A",
+    "theme_color": "#0F172A",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "/favicon.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/techspark-logo.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "categories": [
+        "education",
+        "technology",
+        "community"
+    ],
+    "lang": "en-IN",
+    "dir": "ltr",
+    "scope": "/",
+    "prefer_related_applications": false
+}

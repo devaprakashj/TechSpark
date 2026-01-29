@@ -1,13 +1,23 @@
 User-agent: *
 Allow: /
+Disallow: /admin/
+Disallow: /organizer/
 
 # Sitemap location
 Sitemap: https://techspark-rit.vercel.app/sitemap.xml
 
-# Crawl-delay to be respectful
+# Crawl delay (polite crawling)
 Crawl-delay: 1
 
-# Block admin and private sections from indexing
-Disallow: /admin
-Disallow: /organizer
-Disallow: /checkin
+# Specific rules for Google
+User-agent: Googlebot
+Allow: /
+Disallow: /admin/
+Disallow: /organizer/
+
+# Block specific bots if needed
+User-agent: AhrefsBot
+Crawl-delay: 10
+
+User-agent: SemrushBot
+Crawl-delay: 10
