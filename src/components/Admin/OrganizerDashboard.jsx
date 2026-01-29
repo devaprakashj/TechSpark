@@ -41,7 +41,14 @@ import {
     Activity,
     RotateCcw,
     Zap,
-    Menu
+    Menu,
+    Award,
+    Trophy,
+    Star,
+    Copy,
+    Trash2,
+    Brain,
+    Loader2
 } from 'lucide-react';
 import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, deleteDoc, doc, where, updateDoc, increment, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -95,6 +102,22 @@ const OrganizerDashboard = () => {
         'name', 'roll', 'dept', 'year', 'section', 'phone', 'squad', 'role', 'problem', 'date', 'status'
     ]);
 
+    // Hackathon Judging Panel States
+    const [showJudgingPanel, setShowJudgingPanel] = useState(false);
+    const [judges, setJudges] = useState([]);
+    const [teamScores, setTeamScores] = useState([]);
+    const [loadingScores, setLoadingScores] = useState(false);
+    const [newJudge, setNewJudge] = useState({ name: '', email: '' });
+    const [isAddingJudge, setIsAddingJudge] = useState(false);
+    const [showLeaderboard, setShowLeaderboard] = useState(false);
+    const [expandedTeam, setExpandedTeam] = useState(null);
+
+    // Quick PS Update States
+    const [showPSManager, setShowPSManager] = useState(false);
+    const [psManagerEvent, setPsManagerEvent] = useState(null);
+    const [tempPSList, setTempPSList] = useState([]);
+    const [isSavingPS, setIsSavingPS] = useState(false);
+
     const availableFields = [
         { id: 'name', label: 'FULL NAME', category: 'Identity' },
         { id: 'roll', label: 'ROLL NO', category: 'Identity' },
@@ -139,6 +162,17 @@ const OrganizerDashboard = () => {
         maxTeamSize: 4,
         problemStatements: [],
         allowOpenStatement: false,
+        isOnSpotPS: false,
+        // Hackathon Judging specific fields
+        judgingCriteria: [
+            { name: 'Innovation', maxScore: 10, description: 'Creativity and uniqueness of the solution' },
+            { name: 'Technical Implementation', maxScore: 10, description: 'Code quality, complexity, and functionality' },
+            { name: 'Presentation', maxScore: 10, description: 'Demo clarity, communication, and professionalism' },
+            { name: 'Business Viability', maxScore: 10, description: 'Market potential and real-world applicability' },
+            { name: 'UI/UX Design', maxScore: 10, description: 'User experience and visual appeal' }
+        ],
+        judges: [], // Array of { id, name, email, accessCode }
+        judgingEnabled: false,
         // Quiz specific fields
         quizFormUrl: '',
         quizEntryName: '',
@@ -411,7 +445,7 @@ const OrganizerDashboard = () => {
             startDate: '', startTime: '', endDate: '', endTime: '', venueType: 'Offline', venueName: '', googleMapLink: '',
             audienceType: 'Whole College', departments: [], years: [], sections: [],
             registrationRequired: true, regStartDateTime: '', regEndDateTime: '', maxParticipants: '', waitingList: false,
-            isTeamEvent: false, minTeamSize: 1, maxTeamSize: 4, problemStatements: [], allowOpenStatement: false,
+            isTeamEvent: false, minTeamSize: 1, maxTeamSize: 4, problemStatements: [], allowOpenStatement: false, isOnSpotPS: false,
             quizFormUrl: '', quizEntryName: '', quizEntryRoll: '', quizEntryDept: '',
             quizEntryYear: '', quizEntrySection: '', quizEntryMobile: '',
             coordinatorName: '', coordinatorPhone: '', coordinatorEmail: '', displayCoordinator: true,
@@ -452,6 +486,9 @@ const OrganizerDashboard = () => {
             isTeamEvent: event.isTeamEvent || false,
             minTeamSize: event.minTeamSize || 1,
             maxTeamSize: event.maxTeamSize || 4,
+            problemStatements: event.problemStatements || [],
+            allowOpenStatement: event.allowOpenStatement || false,
+            isOnSpotPS: event.isOnSpotPS || false,
             coordinatorName: event.coordinatorName || '',
             coordinatorPhone: event.coordinatorPhone || '',
             coordinatorEmail: event.coordinatorEmail || '',
@@ -862,6 +899,380 @@ const OrganizerDashboard = () => {
         return Array.from(values).sort();
     };
 
+    // ============== HACKATHON JUDGING PANEL FUNCTIONS ==============
+
+    // Generate unique access code for judges
+    const generateJudgeAccessCode = () => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let code = 'JDG-';
+        for (let i = 0; i < 6; i++) {
+            code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return code;
+    };
+
+    // Add a new judge to the event
+    const handleAddJudge = async () => {
+        if (!selectedEvent || !newJudge.name.trim() || !newJudge.email.trim()) {
+            alert("Please enter judge name and email.");
+            return;
+        }
+
+        setIsAddingJudge(true);
+        try {
+            const accessCode = generateJudgeAccessCode();
+            const judgeData = {
+                id: `judge_${Date.now()}`,
+                name: newJudge.name.trim(),
+                email: newJudge.email.trim().toLowerCase(),
+                accessCode: accessCode,
+                addedAt: new Date().toISOString(),
+                addedBy: organizer?.username || 'Organizer'
+            };
+
+            // Update event with new judge
+            const eventRef = doc(db, 'events', selectedEvent.id);
+            const currentJudges = selectedEvent.judges || [];
+            await updateDoc(eventRef, {
+                judges: [...currentJudges, judgeData]
+            });
+
+            // Update local state
+            setJudges([...currentJudges, judgeData]);
+            setSelectedEvent(prev => ({
+                ...prev,
+                judges: [...currentJudges, judgeData]
+            }));
+            setNewJudge({ name: '', email: '' });
+
+            alert(`✅ Judge "${judgeData.name}" added successfully!\n\n🔑 Access Code: ${accessCode}\n\nShare this code with the judge for login.`);
+        } catch (error) {
+            console.error("Error adding judge:", error);
+            alert("Failed to add judge.");
+        } finally {
+            setIsAddingJudge(false);
+        }
+    };
+
+    // Remove a judge from the event
+    const handleRemoveJudge = async (judgeId) => {
+        if (!selectedEvent) return;
+        if (!confirm("Are you sure you want to remove this judge?")) return;
+
+        try {
+            const eventRef = doc(db, 'events', selectedEvent.id);
+            const updatedJudges = (selectedEvent.judges || []).filter(j => j.id !== judgeId);
+            await updateDoc(eventRef, { judges: updatedJudges });
+
+            setJudges(updatedJudges);
+            setSelectedEvent(prev => ({ ...prev, judges: updatedJudges }));
+            alert("Judge removed successfully.");
+        } catch (error) {
+            console.error("Error removing judge:", error);
+            alert("Failed to remove judge.");
+        }
+    };
+
+    // Toggle judging mode for event
+    const handleToggleJudging = async (enable) => {
+        if (!selectedEvent) return;
+
+        try {
+            const eventRef = doc(db, 'events', selectedEvent.id);
+            await updateDoc(eventRef, { judgingEnabled: enable });
+
+            setSelectedEvent(prev => ({ ...prev, judgingEnabled: enable }));
+            alert(enable ? "✅ Judging is now ENABLED. Judges can start scoring." : "❌ Judging is now DISABLED.");
+        } catch (error) {
+            console.error("Error toggling judging:", error);
+            alert("Failed to update judging status.");
+        }
+    };
+
+    // Fetch team scores for leaderboard
+    const fetchTeamScores = async () => {
+        if (!selectedEvent) return;
+
+        setLoadingScores(true);
+        try {
+            const scoresQuery = query(
+                collection(db, 'hackathonScores'),
+                where('eventId', '==', selectedEvent.id)
+            );
+            const scoresSnap = await getDocs(scoresQuery);
+            const scores = scoresSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            // Aggregate scores by team
+            const teamMap = new Map();
+            const eventRegs = registrations.filter(r => r.eventId === selectedEvent.id);
+
+            // Group registrations by team
+            eventRegs.forEach(r => {
+                if (r.teamCode && !teamMap.has(r.teamCode)) {
+                    teamMap.set(r.teamCode, {
+                        teamCode: r.teamCode,
+                        teamName: r.teamName || 'Unknown Team',
+                        problemStatement: r.problemStatement || 'N/A',
+                        leaderName: r.teamRole === 'LEADER' ? r.studentName : null,
+                        memberCount: 0,
+                        scores: [],
+                        averageScore: 0,
+                        totalScore: 0
+                    });
+                }
+                if (r.teamCode) {
+                    const team = teamMap.get(r.teamCode);
+                    team.memberCount++;
+                    if (r.teamRole === 'LEADER') team.leaderName = r.studentName;
+                }
+            });
+
+            // Add scores to teams
+            scores.forEach(score => {
+                if (teamMap.has(score.teamCode)) {
+                    const team = teamMap.get(score.teamCode);
+                    team.scores.push(score);
+                }
+            });
+
+            // Calculate average scores
+            const teamsWithScores = Array.from(teamMap.values()).map(team => {
+                if (team.scores.length > 0) {
+                    const totalPoints = team.scores.reduce((sum, s) => sum + (s.totalScore || 0), 0);
+                    team.averageScore = totalPoints / team.scores.length;
+                    team.totalScore = totalPoints;
+                }
+                return team;
+            });
+
+            // Sort by average score descending
+            teamsWithScores.sort((a, b) => b.averageScore - a.averageScore);
+
+            setTeamScores(teamsWithScores);
+        } catch (error) {
+            console.error("Error fetching scores:", error);
+            alert("Failed to fetch team scores.");
+        } finally {
+            setLoadingScores(false);
+        }
+    };
+
+    // Quick Update PS Handlers
+    const handleOpenPSManager = (event) => {
+        setPsManagerEvent(event);
+        setTempPSList(event.problemStatements || []);
+        setShowPSManager(true);
+    };
+
+    const handleSaveQuickPS = async () => {
+        if (!psManagerEvent) return;
+        setIsSavingPS(true);
+        try {
+            const eventRef = doc(db, 'events', psManagerEvent.id);
+            await updateDoc(eventRef, {
+                problemStatements: tempPSList.filter(ps => ps.trim() !== '')
+            });
+            alert('✅ Problem Statements updated successfully!');
+            // Update local state to reflect changes without reload
+            setEvents(prev => prev.map(e => e.id === psManagerEvent.id ? { ...e, problemStatements: tempPSList } : e));
+            setShowPSManager(false);
+        } catch (error) {
+            console.error('Error updating PS:', error);
+            alert('Failed to update problem statements.');
+        } finally {
+            setIsSavingPS(false);
+        }
+    };
+
+    // Open Judging Panel for an event
+    const handleOpenJudgingPanel = (event) => {
+        setSelectedEvent(event);
+        setJudges(event.judges || []);
+        setShowJudgingPanel(true);
+        setShowLeaderboard(false);
+
+        // Fetch scores if judging is enabled
+        if (event.judgingEnabled) {
+            fetchTeamScores();
+        }
+    };
+
+    // Close Judging Panel
+    const handleCloseJudgingPanel = () => {
+        setShowJudgingPanel(false);
+        setSelectedEvent(null);
+        setTeamScores([]);
+        setJudges([]);
+        setExpandedTeam(null);
+    };
+
+    // Delete a specific score
+    const handleDeleteScore = async (scoreId, teamCode) => {
+        if (!window.confirm('Are you sure you want to delete this score? The judge will be able to score this team again.')) return;
+
+        try {
+            await deleteDoc(doc(db, 'hackathonScores', scoreId));
+            alert('✅ Score deleted successfully.');
+            // Refresh scores
+            fetchTeamScores();
+        } catch (error) {
+            console.error('Error deleting score:', error);
+            alert('Failed to delete score.');
+        }
+    };
+
+    // Export a professional PDF judging report
+    const handleExportJudgingReport = async () => {
+        if (!selectedEvent || teamScores.length === 0) {
+            alert("No scores available to export.");
+            return;
+        }
+
+        try {
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.width;
+
+            // Load Logos
+            const loadImg = (path) => new Promise(res => {
+                const img = new Image();
+                img.onload = () => res(img);
+                img.onerror = () => res(null);
+                img.src = path;
+            });
+            const [rit, ts] = await Promise.all([loadImg(ritLogo), loadImg(techsparkLogo)]);
+
+            // --- HEADER SECTION ---
+            // Background Header
+            doc.setFillColor(15, 23, 42); // slate-900
+            doc.rect(0, 0, pageWidth, 45, 'F');
+
+            // Add Logos
+            if (rit) doc.addImage(rit, 'PNG', 14, 8, 40, 12);
+            if (ts) doc.addImage(ts, 'PNG', pageWidth - 54, 8, 40, 12);
+
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(18);
+            doc.setFont('helvetica', 'bold');
+            doc.text('TECHSPARK CLUB', 14, 32);
+
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(148, 163, 184); // slate-400
+            doc.text('OFFICIAL JUDGING REPORT', 14, 39);
+
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(11);
+            doc.text(selectedEvent.title.toUpperCase(), pageWidth - 14, 32, { align: 'right' });
+
+            // --- SUMMARY SECTION ---
+            doc.setTextColor(15, 23, 42);
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Final Rankings Summary', 14, 60);
+
+            const summaryHeaders = [['Rank', 'Team Code', 'Team Name', 'Total Score', 'Avg. Score', 'Judges']];
+            const summaryData = teamScores.map((t, i) => [
+                i + 1,
+                t.teamCode,
+                t.teamName,
+                t.totalScore,
+                t.averageScore.toFixed(2),
+                t.scores.length
+            ]);
+
+            autoTable(doc, {
+                startY: 67,
+                head: summaryHeaders,
+                body: summaryData,
+                theme: 'striped',
+                headStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: 'bold' }, // indigo-500
+                alternateRowStyles: { fillColor: [248, 250, 252] },
+                margin: { left: 14, right: 14 }
+            });
+
+            let currentY = doc.lastAutoTable.finalY + 20;
+
+            // --- DETAILED JUDGE BREAKDOWN ---
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Detailed Judge Evaluations', 14, currentY);
+            currentY += 10;
+
+            teamScores.forEach((team) => {
+                // Check if we need a new page
+                if (currentY > 250) {
+                    doc.addPage();
+                    currentY = 20;
+                }
+
+                doc.setFontSize(12);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(79, 70, 229); // indigo-600
+                doc.text(`Team: ${team.teamName} (${team.teamCode})`, 14, currentY);
+                currentY += 6;
+
+                const criteriaList = selectedEvent.judgingCriteria || [
+                    { name: 'Innovation' },
+                    { name: 'Technical' },
+                    { name: 'Presentation' },
+                    { name: 'Business Viability' },
+                    { name: 'UI/UX Design' }
+                ];
+
+                const critNames = criteriaList.map(c => c.name);
+                const detailHeaders = [['Judge Name', ...critNames, 'Total', 'Feedback']];
+
+                const detailData = team.scores.map(s => [
+                    s.judgeName,
+                    ...critNames.map(name => s.scores?.[name] || 0),
+                    s.totalScore,
+                    s.feedback || 'No feedback provided'
+                ]);
+
+                autoTable(doc, {
+                    startY: currentY,
+                    head: detailHeaders,
+                    body: detailData,
+                    theme: 'grid',
+                    headStyles: { fillColor: [71, 85, 105], textColor: 255, fontSize: 8 }, // slate-600
+                    bodyStyles: { fontSize: 8 },
+                    columnStyles: {
+                        0: { cellWidth: 30 }, // Judge Name
+                        [detailHeaders[0].length - 2]: { cellWidth: 15, halign: 'center', fontStyle: 'bold' }, // Total
+                        [detailHeaders[0].length - 1]: { cellWidth: 'auto' } // Feedback
+                    },
+                    margin: { left: 14, right: 14 }
+                });
+
+                currentY = doc.lastAutoTable.finalY + 12;
+            });
+
+            // Footer
+            const pageCount = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setFontSize(8);
+                doc.setTextColor(148, 163, 184);
+                doc.text(`Generated on ${new Date().toLocaleString()} | TechSpark Club Official Document | Page ${i} of ${pageCount}`, pageWidth / 2, 285, { align: 'center' });
+            }
+
+            // Save the PDF
+            doc.save(`${selectedEvent.title.replace(/\s+/g, '_')}_Final_Report.pdf`);
+
+        } catch (error) {
+            console.error("PDF Export error:", error);
+            alert("Failed to export PDF report. Please check if jspdf is correctly installed.");
+        }
+    };
+
+    // Copy judge access code to clipboard
+    const copyAccessCode = (code) => {
+        navigator.clipboard.writeText(code);
+        alert(`📋 Access code "${code}" copied to clipboard!`);
+    };
+
+    // ============== END HACKATHON JUDGING PANEL FUNCTIONS ==============
+
     const handleDownloadSubReport = async (event, type) => {
         if (!event) return;
         console.log(`SUB-EXTRACTION: ${type} FOR MISSION: ${event.title}`);
@@ -877,6 +1288,8 @@ const OrganizerDashboard = () => {
         let tableData = [];
         let filenameSuffix = '';
         let summaryMetrics = [];
+        let isHackathonTeamWise = event.type === 'Hackathon' && event.isTeamEvent;
+        let teamGroups = [];
 
         // Helper for breakdowns
         const getBreakdown = (data) => {
@@ -889,8 +1302,40 @@ const OrganizerDashboard = () => {
             return { depts, years, sections };
         };
 
+        // Group by teams for Hackathon
+        if (isHackathonTeamWise) {
+            const teamMap = new Map();
+            eventRegs.forEach(r => {
+                const code = r.teamCode || 'INDIVIDUAL';
+                if (!teamMap.has(code)) {
+                    teamMap.set(code, {
+                        teamCode: code,
+                        teamName: r.teamName || 'Individual',
+                        problemStatement: r.problemStatement || 'Not Specified',
+                        members: [],
+                        leader: null
+                    });
+                }
+                const team = teamMap.get(code);
+                team.members.push(r);
+                if (r.teamRole === 'LEADER') {
+                    team.leader = r;
+                    // Update problem statement from leader (most authoritative)
+                    if (r.problemStatement) {
+                        team.problemStatement = r.problemStatement;
+                    }
+                }
+            });
+            teamGroups = Array.from(teamMap.values()).sort((a, b) => {
+                // Sort: Teams first (by name), then individuals
+                if (a.teamCode === 'INDIVIDUAL') return 1;
+                if (b.teamCode === 'INDIVIDUAL') return -1;
+                return (a.teamName || '').localeCompare(b.teamName || '');
+            });
+        }
+
         if (type === 'REGISTRATION') {
-            title = 'EVENT REGISTRATION DIRECTORY';
+            title = isHackathonTeamWise ? 'HACKATHON TEAM-WISE REGISTRATION DIRECTORY' : 'EVENT REGISTRATION DIRECTORY';
             const b = getBreakdown(eventRegs);
             const squadCount = new Set(eventRegs.filter(r => r.isTeamRegistration).map(r => r.teamCode)).size;
 
@@ -899,18 +1344,40 @@ const OrganizerDashboard = () => {
             const topYear = Object.entries(b.years).sort((a, b) => b[1] - a[1])[0];
             const teamMembers = eventRegs.filter(r => r.isTeamRegistration).length;
 
-            summaryMetrics = [
-                ['TOTAL REGISTERED', eventRegs.length.toString()],
-                ['DIVERSITY INDEX', `${Object.keys(b.depts).length} DEPTS | ${Object.keys(b.years).length} YEARS`],
-                ['SQUAD INFRASTRUCTURE', `${squadCount} SQUADS | ${teamMembers} MEMBERS`],
-                ['INDIVIDUAL AGENTS', (eventRegs.length - teamMembers).toString()],
-                ['STRATEGIC HOTSPOT (DEPT)', `${topDept?.[0] || 'N/A'} (${topDept?.[1] || 0} REGS)`],
-                ['STRATEGIC HOTSPOT (YEAR)', `${topYear?.[0] || 'N/A'} YEAR (${topYear?.[1] || 0} REGS)`],
-                ['CAPACITY LOAD', `${((eventRegs.length / (event.maxParticipants || 1)) * 100).toFixed(1)}%`]
-            ];
-            filenameSuffix = 'Registration_Log';
+            // Problem Statement breakdown for Hackathon
+            if (isHackathonTeamWise) {
+                const psCount = {};
+                teamGroups.forEach(t => {
+                    if (t.teamCode !== 'INDIVIDUAL') {
+                        psCount[t.problemStatement] = (psCount[t.problemStatement] || 0) + 1;
+                    }
+                });
+                const topPS = Object.entries(psCount).sort((a, b) => b[1] - a[1])[0];
+
+                summaryMetrics = [
+                    ['TOTAL REGISTERED', eventRegs.length.toString()],
+                    ['[*] TOTAL TEAMS', `${squadCount} SQUADS`],
+                    ['[+] TEAM MEMBERS', teamMembers.toString()],
+                    ['[-] INDIVIDUAL PARTICIPANTS', (eventRegs.length - teamMembers).toString()],
+                    ['[#] PROBLEM STATEMENTS CHOSEN', Object.keys(psCount).length.toString()],
+                    ['[!] MOST POPULAR PS', `"${(topPS?.[0] || 'N/A').substring(0, 40)}..." (${topPS?.[1] || 0} TEAMS)`],
+                    ['DIVERSITY INDEX', `${Object.keys(b.depts).length} DEPTS | ${Object.keys(b.years).length} YEARS`],
+                    ['STRATEGIC HOTSPOT (DEPT)', `${topDept?.[0] || 'N/A'} (${topDept?.[1] || 0} REGS)`],
+                ];
+            } else {
+                summaryMetrics = [
+                    ['TOTAL REGISTERED', eventRegs.length.toString()],
+                    ['DIVERSITY INDEX', `${Object.keys(b.depts).length} DEPTS | ${Object.keys(b.years).length} YEARS`],
+                    ['SQUAD INFRASTRUCTURE', `${squadCount} SQUADS | ${teamMembers} MEMBERS`],
+                    ['INDIVIDUAL AGENTS', (eventRegs.length - teamMembers).toString()],
+                    ['STRATEGIC HOTSPOT (DEPT)', `${topDept?.[0] || 'N/A'} (${topDept?.[1] || 0} REGS)`],
+                    ['STRATEGIC HOTSPOT (YEAR)', `${topYear?.[0] || 'N/A'} YEAR (${topYear?.[1] || 0} REGS)`],
+                    ['CAPACITY LOAD', `${((eventRegs.length / (event.maxParticipants || 1)) * 100).toFixed(1)}%`]
+                ];
+            }
+            filenameSuffix = isHackathonTeamWise ? 'Teams_Registration' : 'Registration_Log';
         } else if (type === 'ATTENDANCE') {
-            title = 'VERIFIED ATTENDANCE AUDIT';
+            title = isHackathonTeamWise ? 'HACKATHON TEAM-WISE ATTENDANCE AUDIT' : 'VERIFIED ATTENDANCE AUDIT';
             const attended = eventRegs.filter(r => r.isAttended || r.status === 'Present');
             const b = getBreakdown(attended);
 
@@ -929,73 +1396,145 @@ const OrganizerDashboard = () => {
             const onSpotCount = eventRegs.filter(r => r.isOnSpot).length;
             const preRegisteredCount = eventRegs.length - onSpotCount;
 
-            summaryMetrics = [
-                ['CONFIRMED ATTENDEES', attended.length.toString()],
-                ['ATTENDANCE EFFICIENCY', `${attendanceRate}% OF REGISTRATIONS`],
-                ['ENGAGEMENT MIX', `${teamAttendance} TEAM | ${individualAttendance} INDIVIDUAL`],
-                ['📋 PRE-REGISTERED', preRegisteredCount.toString()],
-                ['🚶 ON-SPOT REGISTRATIONS', onSpotCount > 0 ? `${onSpotCount} WALK-INS` : '0'],
-                ['ABSENTEE COUNT', (eventRegs.length - attended.length - malpracticeCount).toString()],
-                ...(event.type === 'Quiz' ? [
-                    ['🚩 MALPRACTICE (3+ FLAGS)', malpracticeCount > 0 ? `${malpracticeCount} TERMINATED` : '0 - ALL CLEAR'],
-                    ['⚠️ MINOR VIOLATIONS (1-2)', minorViolationsCount > 0 ? `${minorViolationsCount} WARNED` : '0']
-                ] : []),
-                ['PEAK ENGAGEMENT (DEPT)', `${topAttendedDept?.[0] || 'N/A'} (${topAttendedDept?.[1] || 0} PRESENT)`],
-                ['PEAK ENGAGEMENT (YEAR)', `${topAttendedYear?.[0] || 'N/A'} YEAR (${topAttendedYear?.[1] || 0} PRESENT)`],
-                ['TACTICAL SPREAD', `${Object.keys(b.depts).length} DEPTS REPRESENTED`]
-            ];
-            filenameSuffix = 'Attendance_Checkin';
+            if (isHackathonTeamWise) {
+                // Team attendance stats
+                const teamsWithFullAttendance = teamGroups.filter(t =>
+                    t.teamCode !== 'INDIVIDUAL' &&
+                    t.members.every(m => m.isAttended || m.status === 'Present')
+                ).length;
+                const teamsWithPartialAttendance = teamGroups.filter(t =>
+                    t.teamCode !== 'INDIVIDUAL' &&
+                    t.members.some(m => m.isAttended || m.status === 'Present') &&
+                    !t.members.every(m => m.isAttended || m.status === 'Present')
+                ).length;
+
+                summaryMetrics = [
+                    ['CONFIRMED ATTENDEES', attended.length.toString()],
+                    ['ATTENDANCE EFFICIENCY', `${attendanceRate}% OF REGISTRATIONS`],
+                    ['[*] TEAMS WITH FULL ATTENDANCE', teamsWithFullAttendance.toString()],
+                    ['[!] TEAMS WITH PARTIAL ATTENDANCE', teamsWithPartialAttendance.toString()],
+                    ['ENGAGEMENT MIX', `${teamAttendance} TEAM | ${individualAttendance} INDIVIDUAL`],
+                    ['[#] PRE-REGISTERED', preRegisteredCount.toString()],
+                    ['[+] ON-SPOT REGISTRATIONS', onSpotCount > 0 ? `${onSpotCount} WALK-INS` : '0'],
+                    ['PEAK ENGAGEMENT (DEPT)', `${topAttendedDept?.[0] || 'N/A'} (${topAttendedDept?.[1] || 0} PRESENT)`],
+                ];
+            } else {
+                summaryMetrics = [
+                    ['CONFIRMED ATTENDEES', attended.length.toString()],
+                    ['ATTENDANCE EFFICIENCY', `${attendanceRate}% OF REGISTRATIONS`],
+                    ['ENGAGEMENT MIX', `${teamAttendance} TEAM | ${individualAttendance} INDIVIDUAL`],
+                    ['[#] PRE-REGISTERED', preRegisteredCount.toString()],
+                    ['[+] ON-SPOT REGISTRATIONS', onSpotCount > 0 ? `${onSpotCount} WALK-INS` : '0'],
+                    ['ABSENTEE COUNT', (eventRegs.length - attended.length - malpracticeCount).toString()],
+                    ...(event.type === 'Quiz' ? [
+                        ['[!] MALPRACTICE (3+ FLAGS)', malpracticeCount > 0 ? `${malpracticeCount} TERMINATED` : '0 - ALL CLEAR'],
+                        ['[?] MINOR VIOLATIONS (1-2)', minorViolationsCount > 0 ? `${minorViolationsCount} WARNED` : '0']
+                    ] : []),
+                    ['PEAK ENGAGEMENT (DEPT)', `${topAttendedDept?.[0] || 'N/A'} (${topAttendedDept?.[1] || 0} PRESENT)`],
+                    ['PEAK ENGAGEMENT (YEAR)', `${topAttendedYear?.[0] || 'N/A'} YEAR (${topAttendedYear?.[1] || 0} PRESENT)`],
+                    ['TACTICAL SPREAD', `${Object.keys(b.depts).length} DEPTS REPRESENTED`]
+                ];
+            }
+            filenameSuffix = isHackathonTeamWise ? 'Teams_Attendance' : 'Attendance_Checkin';
         }
 
-        // Dynamic Header Generation
-        const activeHeaders = ['#'];
-        if (selectedFields.includes('name')) activeHeaders.push('NAME');
-        if (selectedFields.includes('roll')) activeHeaders.push('ROLL');
-        if (selectedFields.includes('dept')) activeHeaders.push('DEPT');
-        if (selectedFields.includes('year')) activeHeaders.push('YR');
-        if (selectedFields.includes('section')) activeHeaders.push('SEC');
-        if (selectedFields.includes('phone')) activeHeaders.push('PHONE');
-        if (selectedFields.includes('squad') && event.isTeamEvent) activeHeaders.push('SQUAD');
-        if (selectedFields.includes('role') && event.isTeamEvent) activeHeaders.push('ROLE');
-        if (selectedFields.includes('problem') && event.type === 'Hackathon') activeHeaders.push('PROBLEM');
-        if (selectedFields.includes('date')) activeHeaders.push('DATE');
-        if (selectedFields.includes('status')) activeHeaders.push('STATUS');
+        // Dynamic Header Generation for Team-wise Hackathon
+        if (isHackathonTeamWise) {
+            tableHead = [['#', 'TEAM / MEMBER', 'ROLE', 'ROLL', 'DEPT', 'YR', 'STATUS']];
 
-        tableHead = [activeHeaders];
+            let rowIndex = 0;
+            teamGroups.forEach((team, teamIdx) => {
+                // Team Header Row
+                const teamAttendees = team.members.filter(m => m.isAttended || m.status === 'Present').length;
+                const teamStatus = teamAttendees === team.members.length ? '[OK] FULL' :
+                    teamAttendees === 0 ? '[X] ABSENT' :
+                        `[!] ${teamAttendees}/${team.members.length}`;
 
-        // Dynamic Data Generation
-        tableData = eventRegs.map((r, i) => {
-            const row = [i + 1];
-            if (selectedFields.includes('name')) row.push((r.studentName || 'N/A').toUpperCase());
-            if (selectedFields.includes('roll')) row.push(r.studentRoll || 'N/A');
-            if (selectedFields.includes('dept')) row.push(r.studentDept || 'N/A');
-            if (selectedFields.includes('year')) row.push(r.studentYear || 'N/A');
-            if (selectedFields.includes('section')) row.push(r.studentSection || 'N/A');
-            if (selectedFields.includes('phone')) row.push(r.studentPhone || 'N/A');
-            if (selectedFields.includes('squad') && event.isTeamEvent) row.push(r.isTeamRegistration ? (r.teamName || 'N/A') : 'INDIVIDUAL');
-            if (selectedFields.includes('role') && event.isTeamEvent) row.push(r.isTeamRegistration ? (r.teamRole || 'MEMBER') : 'N/A');
-            if (selectedFields.includes('problem') && event.type === 'Hackathon') row.push(r.problemStatement || 'N/A');
-            if (selectedFields.includes('date')) row.push(r.registeredAt?.toDate?.() ? new Date(r.registeredAt.toDate()).toLocaleDateString() : 'N/A');
-            if (selectedFields.includes('status')) {
-                // Check for MALPRACTICE (only for 3+ violations / FLAGGED status)
-                if (r.status === 'FLAGGED' || r.proctorViolations >= 3) {
-                    row.push('MALPRACTICE');
-                } else if (r.isAttended || r.status === 'Present') {
-                    // Present with minor violations (1-2)
-                    if (r.proctorViolations && r.proctorViolations > 0) {
-                        row.push(`PRESENT (${r.proctorViolations} FLAG${r.proctorViolations > 1 ? 'S' : ''})`);
-                    } else if (r.isOnSpot) {
-                        // On-Spot Registration marking
-                        row.push('PRESENT (ON-SPOT)');
-                    } else {
-                        row.push('PRESENT');
-                    }
-                } else {
-                    row.push('ABSENT');
+                tableData.push([
+                    `T${teamIdx + 1}`,
+                    `[TEAM] ${team.teamName.toUpperCase()} [${team.teamCode}]`,
+                    'TEAM',
+                    `(${team.members.length})`,
+                    `PS: ${(team.problemStatement || 'N/A').substring(0, 35)}...`,
+                    '',
+                    teamStatus
+                ]);
+
+                // Team Members
+                team.members
+                    .sort((a, b) => (a.teamRole === 'LEADER' ? -1 : 1)) // Leader first
+                    .forEach((m, mIdx) => {
+                        rowIndex++;
+                        const memberStatus = (m.isAttended || m.status === 'Present')
+                            ? (m.isOnSpot ? 'PRESENT (ON-SPOT)' : 'PRESENT')
+                            : 'ABSENT';
+                        tableData.push([
+                            `  ${mIdx + 1}`,
+                            `   - ${(m.studentName || 'N/A').toUpperCase()}`,
+                            m.teamRole === 'LEADER' ? '[L] LEADER' : 'MEMBER',
+                            m.studentRoll || 'N/A',
+                            m.studentDept || 'N/A',
+                            m.studentYear || 'N/A',
+                            memberStatus
+                        ]);
+                    });
+
+                // Spacer row between teams
+                if (teamIdx < teamGroups.length - 1) {
+                    tableData.push(['', '', '', '', '', '', '']);
                 }
-            }
-            return row;
-        });
+            });
+        } else {
+            // Standard report generation (non-hackathon)
+            const activeHeaders = ['#'];
+            if (selectedFields.includes('name')) activeHeaders.push('NAME');
+            if (selectedFields.includes('roll')) activeHeaders.push('ROLL');
+            if (selectedFields.includes('dept')) activeHeaders.push('DEPT');
+            if (selectedFields.includes('year')) activeHeaders.push('YR');
+            if (selectedFields.includes('section')) activeHeaders.push('SEC');
+            if (selectedFields.includes('phone')) activeHeaders.push('PHONE');
+            if (selectedFields.includes('squad') && event.isTeamEvent) activeHeaders.push('SQUAD');
+            if (selectedFields.includes('role') && event.isTeamEvent) activeHeaders.push('ROLE');
+            if (selectedFields.includes('problem') && event.type === 'Hackathon') activeHeaders.push('PROBLEM');
+            if (selectedFields.includes('date')) activeHeaders.push('DATE');
+            if (selectedFields.includes('status')) activeHeaders.push('STATUS');
+
+            tableHead = [activeHeaders];
+
+            // Dynamic Data Generation
+            tableData = eventRegs.map((r, i) => {
+                const row = [i + 1];
+                if (selectedFields.includes('name')) row.push((r.studentName || 'N/A').toUpperCase());
+                if (selectedFields.includes('roll')) row.push(r.studentRoll || 'N/A');
+                if (selectedFields.includes('dept')) row.push(r.studentDept || 'N/A');
+                if (selectedFields.includes('year')) row.push(r.studentYear || 'N/A');
+                if (selectedFields.includes('section')) row.push(r.studentSection || 'N/A');
+                if (selectedFields.includes('phone')) row.push(r.studentPhone || 'N/A');
+                if (selectedFields.includes('squad') && event.isTeamEvent) row.push(r.isTeamRegistration ? (r.teamName || 'N/A') : 'INDIVIDUAL');
+                if (selectedFields.includes('role') && event.isTeamEvent) row.push(r.isTeamRegistration ? (r.teamRole || 'MEMBER') : 'N/A');
+                if (selectedFields.includes('problem') && event.type === 'Hackathon') row.push(r.problemStatement || 'N/A');
+                if (selectedFields.includes('date')) row.push(r.registeredAt?.toDate?.() ? new Date(r.registeredAt.toDate()).toLocaleDateString() : 'N/A');
+                if (selectedFields.includes('status')) {
+                    // Check for MALPRACTICE (only for 3+ violations / FLAGGED status)
+                    if (r.status === 'FLAGGED' || r.proctorViolations >= 3) {
+                        row.push('MALPRACTICE');
+                    } else if (r.isAttended || r.status === 'Present') {
+                        // Present with minor violations (1-2)
+                        if (r.proctorViolations && r.proctorViolations > 0) {
+                            row.push(`PRESENT (${r.proctorViolations} FLAG${r.proctorViolations > 1 ? 'S' : ''})`);
+                        } else if (r.isOnSpot) {
+                            // On-Spot Registration marking
+                            row.push('PRESENT (ON-SPOT)');
+                        } else {
+                            row.push('PRESENT');
+                        }
+                    } else {
+                        row.push('ABSENT');
+                    }
+                }
+                return row;
+            });
+        }
 
         try {
             const doc = new jsPDF('l', 'mm', 'a4');
@@ -1066,6 +1605,17 @@ const OrganizerDashboard = () => {
                 alternateRowStyles: { fillColor: [248, 250, 252] },
                 margin: { left: 10, right: 10 },
                 didParseCell: (data) => {
+                    // Team header row styling
+                    if (isHackathonTeamWise && data.section === 'body' && data.row.raw[1]?.includes('[TEAM]')) {
+                        data.cell.styles.fillColor = [219, 234, 254]; // Light blue bg
+                        data.cell.styles.fontStyle = 'bold';
+                        data.cell.styles.fontSize = 7;
+                    }
+                    // Leader styling
+                    if (data.section === 'body' && data.cell.text[0]?.includes('[L] LEADER')) {
+                        data.cell.styles.textColor = [234, 88, 12]; // Orange for leader
+                        data.cell.styles.fontStyle = 'bold';
+                    }
                     if (data.section === 'body' && data.cell.text[0] === 'ABSENT') {
                         data.cell.styles.textColor = [220, 38, 38]; // Red
                         data.cell.styles.fontStyle = 'bold';
@@ -1078,6 +1628,14 @@ const OrganizerDashboard = () => {
                     if (data.section === 'body' && data.cell.text[0]?.includes('ON-SPOT')) {
                         data.cell.styles.textColor = [37, 99, 235]; // Blue
                         data.cell.styles.fillColor = [219, 234, 254]; // Light blue bg
+                        data.cell.styles.fontStyle = 'bold';
+                    }
+                    if (data.section === 'body' && data.cell.text[0]?.includes('[OK]')) {
+                        data.cell.styles.textColor = [16, 185, 129]; // Green for full attendance
+                        data.cell.styles.fontStyle = 'bold';
+                    }
+                    if (data.section === 'body' && data.cell.text[0]?.includes('[X]')) {
+                        data.cell.styles.textColor = [220, 38, 38]; // Red for absent team
                         data.cell.styles.fontStyle = 'bold';
                     }
                 }
@@ -1112,73 +1670,196 @@ const OrganizerDashboard = () => {
 
         let worksheetData = [];
         let filename = '';
+        const isHackathonTeamWise = event.type === 'Hackathon' && event.isTeamEvent;
+
+        // Group by teams for Hackathon
+        let teamGroups = [];
+        if (isHackathonTeamWise) {
+            const teamMap = new Map();
+            eventRegs.forEach(r => {
+                const code = r.teamCode || 'INDIVIDUAL';
+                if (!teamMap.has(code)) {
+                    teamMap.set(code, {
+                        teamCode: code,
+                        teamName: r.teamName || 'Individual',
+                        problemStatement: r.problemStatement || 'Not Specified',
+                        members: [],
+                        leader: null
+                    });
+                }
+                const team = teamMap.get(code);
+                team.members.push(r);
+                if (r.teamRole === 'LEADER') {
+                    team.leader = r;
+                    if (r.problemStatement) {
+                        team.problemStatement = r.problemStatement;
+                    }
+                }
+            });
+            teamGroups = Array.from(teamMap.values()).sort((a, b) => {
+                if (a.teamCode === 'INDIVIDUAL') return 1;
+                if (b.teamCode === 'INDIVIDUAL') return -1;
+                return (a.teamName || '').localeCompare(b.teamName || '');
+            });
+        }
 
         if (type === 'REGISTRATION') {
-            // Full registration report
-            filename = `${event.title.replace(/\s+/g, '_')}_Registrations.xlsx`;
+            filename = isHackathonTeamWise
+                ? `${event.title.replace(/\s+/g, '_')}_Teams_Registrations.xlsx`
+                : `${event.title.replace(/\s+/g, '_')}_Registrations.xlsx`;
 
-            // Header row
-            worksheetData.push([
-                'S.No',
-                'Student Name',
-                'Roll Number',
-                'Department',
-                'Year',
-                'Section',
-                'Email',
-                'Team Name',
-                'Team Code',
-                'Registration Date',
-                'Check-In Status',
-                'Flagged'
-            ]);
+            if (isHackathonTeamWise) {
+                // Hackathon Team-Wise Registration
+                worksheetData.push(['HACKATHON TEAM-WISE REGISTRATION DIRECTORY']);
+                worksheetData.push(['Event', event.title]);
+                worksheetData.push(['Date', event.date]);
+                worksheetData.push(['Total Teams', teamGroups.filter(t => t.teamCode !== 'INDIVIDUAL').length]);
+                worksheetData.push(['Total Participants', eventRegs.length]);
+                worksheetData.push([]);
 
-            // Data rows
-            eventRegs.forEach((reg, index) => {
+                // Team-wise data
+                teamGroups.forEach((team, idx) => {
+                    worksheetData.push([`TEAM ${idx + 1}: ${team.teamName.toUpperCase()}`]);
+                    worksheetData.push(['Team Code', team.teamCode]);
+                    worksheetData.push(['Problem Statement', team.problemStatement]);
+                    worksheetData.push(['Team Size', team.members.length]);
+                    worksheetData.push([]);
+                    worksheetData.push(['S.No', 'Name', 'Roll Number', 'Department', 'Year', 'Section', 'Role', 'Status']);
+
+                    team.members
+                        .sort((a, b) => (a.teamRole === 'LEADER' ? -1 : 1))
+                        .forEach((m, mIdx) => {
+                            worksheetData.push([
+                                mIdx + 1,
+                                m.studentName || 'N/A',
+                                m.studentRoll || 'N/A',
+                                m.studentDept || 'N/A',
+                                m.studentYear || 'N/A',
+                                m.studentSection || 'N/A',
+                                m.teamRole === 'LEADER' ? '👑 LEADER' : 'MEMBER',
+                                m.isAttended || m.status === 'Present' ? 'PRESENT' : 'NOT CHECKED-IN'
+                            ]);
+                        });
+
+                    worksheetData.push([]);
+                    worksheetData.push([]);
+                });
+            } else {
+                // Standard Registration Report
                 worksheetData.push([
-                    index + 1,
-                    reg.studentName || 'N/A',
-                    reg.studentRoll || reg.rollNumber || 'N/A',
-                    reg.studentDept || reg.department || 'N/A',
-                    reg.studentYear || reg.yearOfStudy || 'N/A',
-                    reg.studentSection || reg.section || 'N/A',
-                    reg.studentEmail || reg.email || 'N/A',
-                    reg.teamName || '-',
-                    reg.teamCode || '-',
-                    reg.registeredAt?.toDate?.()?.toLocaleDateString() || reg.registeredAt || 'N/A',
-                    reg.isAttended || reg.status === 'Present' ? '✅ Present' : '❌ Absent',
-                    reg.flagged ? '🚩 Flagged' : '-'
+                    'S.No',
+                    'Student Name',
+                    'Roll Number',
+                    'Department',
+                    'Year',
+                    'Section',
+                    'Email',
+                    'Team Name',
+                    'Team Code',
+                    'Registration Date',
+                    'Check-In Status',
+                    'Flagged'
                 ]);
-            });
+
+                eventRegs.forEach((reg, index) => {
+                    worksheetData.push([
+                        index + 1,
+                        reg.studentName || 'N/A',
+                        reg.studentRoll || reg.rollNumber || 'N/A',
+                        reg.studentDept || reg.department || 'N/A',
+                        reg.studentYear || reg.yearOfStudy || 'N/A',
+                        reg.studentSection || reg.section || 'N/A',
+                        reg.studentEmail || reg.email || 'N/A',
+                        reg.teamName || '-',
+                        reg.teamCode || '-',
+                        reg.registeredAt?.toDate?.()?.toLocaleDateString() || reg.registeredAt || 'N/A',
+                        reg.isAttended || reg.status === 'Present' ? '✅ Present' : '❌ Absent',
+                        reg.flagged ? '🚩 Flagged' : '-'
+                    ]);
+                });
+            }
 
         } else if (type === 'ATTENDANCE') {
-            // Attendance only report
-            filename = `${event.title.replace(/\s+/g, '_')}_Attendance.xlsx`;
+            filename = isHackathonTeamWise
+                ? `${event.title.replace(/\s+/g, '_')}_Teams_Attendance.xlsx`
+                : `${event.title.replace(/\s+/g, '_')}_Attendance.xlsx`;
 
             const attended = eventRegs.filter(r => r.isAttended || r.status === 'Present');
             const absent = eventRegs.filter(r => !r.isAttended && r.status !== 'Present');
 
-            // Summary sheet data
-            worksheetData.push(['ATTENDANCE SUMMARY']);
-            worksheetData.push(['Event', event.title]);
-            worksheetData.push(['Date', event.date]);
-            worksheetData.push(['Total Registered', eventRegs.length]);
-            worksheetData.push(['Present', attended.length]);
-            worksheetData.push(['Absent', absent.length]);
-            worksheetData.push(['Attendance %', `${((attended.length / eventRegs.length) * 100).toFixed(1)}%`]);
-            worksheetData.push([]);
-            worksheetData.push(['S.No', 'Student Name', 'Roll Number', 'Department', 'Year', 'Status']);
+            if (isHackathonTeamWise) {
+                // Hackathon Team-Wise Attendance
+                worksheetData.push(['HACKATHON TEAM-WISE ATTENDANCE AUDIT']);
+                worksheetData.push(['Event', event.title]);
+                worksheetData.push(['Date', event.date]);
+                worksheetData.push(['Total Registered', eventRegs.length]);
+                worksheetData.push(['Present', attended.length]);
+                worksheetData.push(['Absent', absent.length]);
+                worksheetData.push(['Attendance %', `${((attended.length / eventRegs.length) * 100).toFixed(1)}%`]);
+                worksheetData.push([]);
 
-            eventRegs.forEach((reg, index) => {
-                worksheetData.push([
-                    index + 1,
-                    reg.studentName || 'N/A',
-                    reg.studentRoll || reg.rollNumber || 'N/A',
-                    reg.studentDept || 'N/A',
-                    reg.studentYear || 'N/A',
-                    reg.isAttended || reg.status === 'Present' ? 'PRESENT' : 'ABSENT'
-                ]);
-            });
+                const teamsWithFullAttendance = teamGroups.filter(t =>
+                    t.teamCode !== 'INDIVIDUAL' &&
+                    t.members.every(m => m.isAttended || m.status === 'Present')
+                ).length;
+
+                worksheetData.push(['Teams with Full Attendance', teamsWithFullAttendance]);
+                worksheetData.push([]);
+
+                // Team-wise attendance data
+                teamGroups.forEach((team, idx) => {
+                    const teamAttended = team.members.filter(m => m.isAttended || m.status === 'Present').length;
+                    const teamStatus = teamAttended === team.members.length ? '✅ FULL ATTENDANCE' :
+                        teamAttended === 0 ? '❌ ALL ABSENT' :
+                            `⚠️ PARTIAL (${teamAttended}/${team.members.length})`;
+
+                    worksheetData.push([`TEAM ${idx + 1}: ${team.teamName.toUpperCase()}`]);
+                    worksheetData.push(['Team Code', team.teamCode]);
+                    worksheetData.push(['Problem Statement', team.problemStatement]);
+                    worksheetData.push(['Team Status', teamStatus]);
+                    worksheetData.push([]);
+                    worksheetData.push(['S.No', 'Name', 'Roll Number', 'Department', 'Year', 'Role', 'Status']);
+
+                    team.members
+                        .sort((a, b) => (a.teamRole === 'LEADER' ? -1 : 1))
+                        .forEach((m, mIdx) => {
+                            worksheetData.push([
+                                mIdx + 1,
+                                m.studentName || 'N/A',
+                                m.studentRoll || 'N/A',
+                                m.studentDept || 'N/A',
+                                m.studentYear || 'N/A',
+                                m.teamRole === 'LEADER' ? '👑 LEADER' : 'MEMBER',
+                                m.isAttended || m.status === 'Present' ? '✅ PRESENT' : '❌ ABSENT'
+                            ]);
+                        });
+
+                    worksheetData.push([]);
+                    worksheetData.push([]);
+                });
+            } else {
+                // Standard Attendance Report
+                worksheetData.push(['ATTENDANCE SUMMARY']);
+                worksheetData.push(['Event', event.title]);
+                worksheetData.push(['Date', event.date]);
+                worksheetData.push(['Total Registered', eventRegs.length]);
+                worksheetData.push(['Present', attended.length]);
+                worksheetData.push(['Absent', absent.length]);
+                worksheetData.push(['Attendance %', `${((attended.length / eventRegs.length) * 100).toFixed(1)}%`]);
+                worksheetData.push([]);
+                worksheetData.push(['S.No', 'Student Name', 'Roll Number', 'Department', 'Year', 'Status']);
+
+                eventRegs.forEach((reg, index) => {
+                    worksheetData.push([
+                        index + 1,
+                        reg.studentName || 'N/A',
+                        reg.studentRoll || reg.rollNumber || 'N/A',
+                        reg.studentDept || 'N/A',
+                        reg.studentYear || 'N/A',
+                        reg.isAttended || reg.status === 'Present' ? 'PRESENT' : 'ABSENT'
+                    ]);
+                });
+            }
         }
 
         // Create workbook and worksheet
@@ -1187,22 +1868,25 @@ const OrganizerDashboard = () => {
 
         // Set column widths
         worksheet['!cols'] = [
-            { wch: 5 },   // S.No
+            { wch: 8 },   // S.No
             { wch: 25 },  // Name
             { wch: 15 },  // Roll
             { wch: 12 },  // Dept
             { wch: 8 },   // Year
             { wch: 10 },  // Section
-            { wch: 30 },  // Email
-            { wch: 20 },  // Team Name
-            { wch: 12 },  // Team Code
+            { wch: 30 },  // Email/Role
+            { wch: 25 },  // Team Name
+            { wch: 15 },  // Team Code
             { wch: 15 },  // Date
-            { wch: 12 },  // Status
-            { wch: 10 }   // Flagged
+            { wch: 15 },  // Status
+            { wch: 12 }   // Flagged
         ];
 
         // Add worksheet to workbook
-        XLSX.utils.book_append_sheet(workbook, worksheet, type === 'ATTENDANCE' ? 'Attendance' : 'Registrations');
+        const sheetName = isHackathonTeamWise
+            ? (type === 'ATTENDANCE' ? 'Team Attendance' : 'Team Registrations')
+            : (type === 'ATTENDANCE' ? 'Attendance' : 'Registrations');
+        XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
         // Generate and download
         XLSX.writeFile(workbook, filename);
@@ -1463,6 +2147,16 @@ const OrganizerDashboard = () => {
                                                                     ✅ Enable Quiz
                                                                 </button>
                                                             )
+                                                        )}
+
+                                                        {/* Hackathon Judging Panel Button */}
+                                                        {selectedEvent.type?.toLowerCase() === 'hackathon' && selectedEvent.isTeamEvent && (
+                                                            <button
+                                                                onClick={() => handleOpenJudgingPanel(selectedEvent)}
+                                                                className="px-4 md:px-6 py-3 md:py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs shadow-xl shadow-purple-500/20 hover:from-purple-700 hover:to-indigo-700 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
+                                                            >
+                                                                <Award className="w-4 h-4 md:w-5 md:h-5" /> Judging Panel
+                                                            </button>
                                                         )}
                                                     </div>
                                                 )}
@@ -1806,6 +2500,15 @@ const OrganizerDashboard = () => {
                                                                     >
                                                                         <CheckCircle className="w-3 h-3" /> Complete
                                                                     </button>
+
+                                                                    {event.type === 'Hackathon' && (
+                                                                        <button
+                                                                            onClick={() => handleOpenPSManager(event)}
+                                                                            className="text-[10px] font-black text-emerald-600 uppercase tracking-widest hover:underline flex items-center gap-1"
+                                                                        >
+                                                                            <Brain className="w-3 h-3" /> Update PS
+                                                                        </button>
+                                                                    )}
                                                                 </>
                                                             )}
                                                         </div>
@@ -2223,15 +2926,28 @@ const OrganizerDashboard = () => {
                                                                 <h4 className="text-sm font-black text-slate-900 uppercase italic">Problem Statement Repository</h4>
                                                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Define challenges or enable open innovation</p>
                                                             </div>
-                                                            <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-xl border border-slate-200">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    id="allowOpenStatement"
-                                                                    checked={formData.allowOpenStatement}
-                                                                    onChange={(e) => setFormData({ ...formData, allowOpenStatement: e.target.checked })}
-                                                                    className="w-4 h-4 rounded accent-blue-600"
-                                                                />
-                                                                <label htmlFor="allowOpenStatement" className="text-[10px] font-black text-slate-600 uppercase tracking-tight cursor-pointer">Allow Open Innovation (Custom Statements)</label>
+                                                            <div className="flex items-center gap-6">
+                                                                <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-xl border border-slate-200">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        id="allowOpenStatement"
+                                                                        checked={formData.allowOpenStatement}
+                                                                        onChange={(e) => setFormData({ ...formData, allowOpenStatement: e.target.checked })}
+                                                                        className="w-4 h-4 rounded accent-blue-600"
+                                                                    />
+                                                                    <label htmlFor="allowOpenStatement" className="text-[10px] font-black text-slate-600 uppercase tracking-tight cursor-pointer">Allow Open Innovation</label>
+                                                                </div>
+
+                                                                <div className="flex items-center gap-3 bg-amber-50 px-4 py-2 rounded-xl border border-amber-200">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        id="isOnSpotPS"
+                                                                        checked={formData.isOnSpotPS}
+                                                                        onChange={(e) => setFormData({ ...formData, isOnSpotPS: e.target.checked })}
+                                                                        className="w-4 h-4 rounded accent-amber-600"
+                                                                    />
+                                                                    <label htmlFor="isOnSpotPS" className="text-[10px] font-black text-amber-700 uppercase tracking-tight cursor-pointer">On-Spot PS Allocation</label>
+                                                                </div>
                                                             </div>
                                                         </div>
 
@@ -3203,6 +3919,519 @@ const OrganizerDashboard = () => {
                             </div>
                         </motion.div>
                     </div>
+                )}
+
+                {/* Hackathon Judging Panel Modal */}
+                {showJudgingPanel && selectedEvent && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                        onClick={handleCloseJudgingPanel}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
+                        >
+                            {/* Header */}
+                            <div className="p-6 md:p-8 bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center">
+                                            <Trophy className="w-7 h-7" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight">Judging Panel</h2>
+                                            <p className="text-purple-200 text-xs font-bold uppercase tracking-widest">{selectedEvent.title}</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={handleCloseJudgingPanel}
+                                        className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center transition-all"
+                                    >
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Content */}
+                            <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8">
+                                {/* Judging Status Toggle */}
+                                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h3 className="text-sm font-black text-slate-800 uppercase tracking-wide">Judging Mode</h3>
+                                            <p className="text-xs text-slate-500 font-medium mt-1">
+                                                {selectedEvent.judgingEnabled
+                                                    ? 'Judges can now score teams'
+                                                    : 'Enable judging to allow judges to score'}
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={() => handleToggleJudging(!selectedEvent.judgingEnabled)}
+                                            className={`px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${selectedEvent.judgingEnabled
+                                                ? 'bg-red-500 text-white shadow-lg shadow-red-500/20 hover:bg-red-600'
+                                                : 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-600'
+                                                }`}
+                                        >
+                                            {selectedEvent.judgingEnabled ? 'Disable Judging' : 'Enable Judging'}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Quick Links */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <a
+                                        href="/judge"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="p-4 bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-2xl flex items-center gap-4 hover:border-purple-400 transition-all group"
+                                    >
+                                        <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center text-white">
+                                            <Award className="w-6 h-6" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Judge Portal</h4>
+                                            <p className="text-xs text-slate-500 font-medium">/judge</p>
+                                        </div>
+                                        <ChevronRight className="w-5 h-5 text-purple-400 group-hover:translate-x-1 transition-transform" />
+                                    </a>
+                                    <a
+                                        href={`/leaderboard?event=${selectedEvent.id}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="p-4 bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-200 rounded-2xl flex items-center gap-4 hover:border-emerald-400 transition-all group"
+                                    >
+                                        <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center text-white">
+                                            <Trophy className="w-6 h-6" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Live Leaderboard</h4>
+                                            <p className="text-xs text-slate-500 font-medium">/leaderboard?event={selectedEvent.id.substring(0, 8)}...</p>
+                                        </div>
+                                        <ChevronRight className="w-5 h-5 text-emerald-400 group-hover:translate-x-1 transition-transform" />
+                                    </a>
+                                </div>
+
+                                {/* Tab Navigation */}
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setShowLeaderboard(false)}
+                                        className={`flex-1 px-4 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${!showLeaderboard
+                                            ? 'bg-slate-900 text-white'
+                                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                            }`}
+                                    >
+                                        <Users className="w-4 h-4 inline mr-2" /> Manage Judges
+                                    </button>
+                                    <button
+                                        onClick={() => { setShowLeaderboard(true); fetchTeamScores(); }}
+                                        className={`flex-1 px-4 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${showLeaderboard
+                                            ? 'bg-slate-900 text-white'
+                                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                            }`}
+                                    >
+                                        <Trophy className="w-4 h-4 inline mr-2" /> Leaderboard
+                                    </button>
+                                </div>
+
+                                {!showLeaderboard ? (
+                                    <>
+                                        {/* Add New Judge */}
+                                        <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 text-white">
+                                            <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Add New Judge</h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Judge Name"
+                                                    value={newJudge.name}
+                                                    onChange={(e) => setNewJudge({ ...newJudge, name: e.target.value })}
+                                                    className="px-4 py-3 bg-white/10 border border-white/10 rounded-xl text-white placeholder-slate-400 text-sm font-bold outline-none focus:ring-2 focus:ring-purple-500/50"
+                                                />
+                                                <input
+                                                    type="email"
+                                                    placeholder="Judge Email"
+                                                    value={newJudge.email}
+                                                    onChange={(e) => setNewJudge({ ...newJudge, email: e.target.value })}
+                                                    className="px-4 py-3 bg-white/10 border border-white/10 rounded-xl text-white placeholder-slate-400 text-sm font-bold outline-none focus:ring-2 focus:ring-purple-500/50"
+                                                />
+                                            </div>
+                                            <button
+                                                onClick={handleAddJudge}
+                                                disabled={isAddingJudge || !newJudge.name || !newJudge.email}
+                                                className="w-full px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-xl font-black text-xs uppercase tracking-widest hover:from-purple-600 hover:to-indigo-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                            >
+                                                {isAddingJudge ? (
+                                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                ) : (
+                                                    <>
+                                                        <Plus className="w-4 h-4" /> Add Judge
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+
+                                        {/* Judges List */}
+                                        <div>
+                                            <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">
+                                                Registered Judges ({judges.length})
+                                            </h3>
+                                            {judges.length === 0 ? (
+                                                <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center">
+                                                    <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                                                    <p className="text-sm font-bold text-slate-400">No judges added yet</p>
+                                                    <p className="text-xs text-slate-400 mt-1">Add judges above to enable scoring</p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    {judges.map((judge) => (
+                                                        <div
+                                                            key={judge.id}
+                                                            className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center justify-between hover:border-purple-200 transition-all"
+                                                        >
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-xl flex items-center justify-center text-lg font-black text-purple-600">
+                                                                    {judge.name.charAt(0)}
+                                                                </div>
+                                                                <div>
+                                                                    <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">{judge.name}</h4>
+                                                                    <p className="text-xs text-slate-400 font-medium">{judge.email}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="flex flex-col items-end gap-1">
+                                                                    <div className="px-4 py-2 bg-purple-50 border border-purple-100 rounded-xl flex items-center gap-2">
+                                                                        <span className="text-xs font-black text-purple-600 tracking-widest">{judge.accessCode}</span>
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                navigator.clipboard.writeText(judge.accessCode);
+                                                                                alert('📋 Access Code Copied!');
+                                                                            }}
+                                                                            className="p-1 hover:bg-purple-100 rounded transition-all"
+                                                                            title="Copy Access Code"
+                                                                        >
+                                                                            <Copy className="w-3.5 h-3.5 text-purple-500" />
+                                                                        </button>
+                                                                    </div>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const loginUrl = `${window.location.origin}/judge?code=${judge.accessCode}`;
+                                                                            navigator.clipboard.writeText(loginUrl);
+                                                                            alert('🚀 Magic Login Link Copied!');
+                                                                        }}
+                                                                        className="text-[10px] font-black text-blue-600 hover:text-blue-700 uppercase tracking-tighter flex items-center gap-1 bg-blue-50/50 px-2 py-0.5 rounded border border-blue-100/50 hover:bg-blue-100/50 transition-all"
+                                                                        title="Copy Magic Login Link"
+                                                                    >
+                                                                        <Zap className="w-2.5 h-2.5" /> Copy Magic Link
+                                                                    </button>
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => handleRemoveJudge(judge.id)}
+                                                                    className="p-2 hover:bg-red-50 rounded-xl text-slate-400 hover:text-red-500 transition-all"
+                                                                    title="Remove Judge"
+                                                                >
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Scoring Criteria */}
+                                        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6">
+                                            <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Scoring Criteria</h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                {(selectedEvent.judgingCriteria || [
+                                                    { name: 'Innovation', maxScore: 10 },
+                                                    { name: 'Technical', maxScore: 10 },
+                                                    { name: 'Presentation', maxScore: 10 },
+                                                    { name: 'Business Viability', maxScore: 10 },
+                                                    { name: 'UI/UX Design', maxScore: 10 }
+                                                ]).map((criteria, idx) => (
+                                                    <div key={idx} className="flex items-center justify-between bg-white border border-slate-100 rounded-xl p-3">
+                                                        <span className="text-xs font-bold text-slate-700">{criteria.name}</span>
+                                                        <span className="px-2 py-1 bg-blue-50 text-blue-600 text-[10px] font-black rounded">
+                                                            0-{criteria.maxScore}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 font-medium mt-4 text-center">
+                                                Max Total Score: {(selectedEvent.judgingCriteria || []).reduce((sum, c) => sum + (c.maxScore || 10), 0) || 50} points
+                                            </p>
+                                        </div>
+                                    </>
+                                ) : (
+                                    /* Leaderboard View */
+                                    <div>
+                                        <div className="flex items-center justify-between mb-6">
+                                            <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest">
+                                                Team Rankings ({teamScores.length} Teams)
+                                            </h3>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={handleExportJudgingReport}
+                                                    disabled={loadingScores || teamScores.length === 0}
+                                                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-xl text-xs font-black text-white uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                                                >
+                                                    <Download className="w-3.5 h-3.5" /> Export Report
+                                                </button>
+                                                <button
+                                                    onClick={fetchTeamScores}
+                                                    disabled={loadingScores}
+                                                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-black text-slate-600 uppercase tracking-widest transition-all flex items-center gap-2"
+                                                >
+                                                    <RotateCcw className={`w-3.5 h-3.5 ${loadingScores ? 'animate-spin' : ''}`} /> Refresh
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {loadingScores ? (
+                                            <div className="h-64 flex flex-col items-center justify-center gap-4">
+                                                <div className="w-10 h-10 border-4 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Loading Scores...</p>
+                                            </div>
+                                        ) : teamScores.length === 0 ? (
+                                            <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center">
+                                                <Trophy className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                                                <p className="text-sm font-bold text-slate-400">No scores yet</p>
+                                                <p className="text-xs text-slate-400 mt-1">Scores will appear here when judges start scoring</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {teamScores.map((team, idx) => (
+                                                    <div key={team.teamCode} className="space-y-2">
+                                                        <div
+                                                            onClick={() => setExpandedTeam(expandedTeam === team.teamCode ? null : team.teamCode)}
+                                                            className={`rounded-2xl p-4 flex items-center justify-between transition-all cursor-pointer hover:shadow-lg ${idx === 0
+                                                                ? 'bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-200 shadow-yellow-200/20'
+                                                                : idx === 1
+                                                                    ? 'bg-gradient-to-r from-slate-50 to-gray-50 border-2 border-slate-200 shadow-slate-200/20'
+                                                                    : idx === 2
+                                                                        ? 'bg-gradient-to-r from-orange-50 to-amber-50 border-2 border-orange-200 shadow-orange-200/20'
+                                                                        : 'bg-white border border-slate-200 hover:border-purple-200'
+                                                                }`}
+                                                        >
+                                                            <div className="flex items-center gap-4">
+                                                                <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-lg font-black ${idx === 0 ? 'bg-yellow-400 text-white' :
+                                                                    idx === 1 ? 'bg-slate-400 text-white' :
+                                                                        idx === 2 ? 'bg-orange-400 text-white' :
+                                                                            'bg-slate-100 text-slate-400'
+                                                                    }`}>
+                                                                    {idx < 3 ? <Trophy className="w-5 h-5 md:w-6 md:h-6" /> : `#${idx + 1}`}
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight truncate">{team.teamName}</h4>
+                                                                        {expandedTeam === team.teamCode ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                                                                    </div>
+                                                                    <p className="text-[10px] text-slate-400 font-bold">{team.teamCode} • {team.memberCount} members</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right flex items-center gap-6">
+                                                                <div className="hidden sm:block">
+                                                                    <div className="flex items-center gap-0.5 justify-end">
+                                                                        {[...Array(5)].map((_, i) => (
+                                                                            <Star
+                                                                                key={i}
+                                                                                className={`w-3 h-3 ${i < Math.round((team.averageScore / 50) * 5)
+                                                                                    ? 'text-yellow-400 fill-yellow-400'
+                                                                                    : 'text-slate-200'
+                                                                                    }`}
+                                                                            />
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-xl md:text-2xl font-black text-slate-800 leading-none">
+                                                                        {team.averageScore.toFixed(1)}
+                                                                    </p>
+                                                                    <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase mt-1">
+                                                                        {team.scores.length} judge{team.scores.length !== 1 ? 's' : ''}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Expanded Breakdown */}
+                                                        <AnimatePresence>
+                                                            {expandedTeam === team.teamCode && (
+                                                                <motion.div
+                                                                    initial={{ opacity: 0, height: 0 }}
+                                                                    animate={{ opacity: 1, height: 'auto' }}
+                                                                    exit={{ opacity: 0, height: 0 }}
+                                                                    className="overflow-hidden"
+                                                                >
+                                                                    <div className="bg-slate-50 border-x border-b border-slate-200 rounded-b-2xl p-4 pt-1 space-y-2">
+                                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-200 pb-2">Judge Breakdown</p>
+                                                                        {team.scores.map((score) => (
+                                                                            <div key={score.id} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-100 group">
+                                                                                <div className="flex items-center gap-3">
+                                                                                    <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+                                                                                        <Star className="w-4 h-4 text-blue-500 fill-blue-500" />
+                                                                                    </div>
+                                                                                    <div>
+                                                                                        <p className="text-xs font-black text-slate-700 uppercase">{score.judgeName}</p>
+                                                                                        <p className="text-[10px] text-slate-400 font-bold italic">{score.feedback || 'No feedback provided'}</p>
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div className="flex items-center gap-4">
+                                                                                    <div className="text-right">
+                                                                                        <p className="text-sm font-black text-slate-800">{score.totalScore}</p>
+                                                                                        <p className="text-[9px] text-slate-400 font-bold uppercase">Points</p>
+                                                                                    </div>
+                                                                                    <button
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            handleDeleteScore(score.id, team.teamCode);
+                                                                                        }}
+                                                                                        className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                                                                        title="Remove Score"
+                                                                                    >
+                                                                                        <Trash2 className="w-4 h-4" />
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </motion.div>
+                                                            )}
+                                                        </AnimatePresence>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Problem Statement Quick Manager Modal */}
+            <AnimatePresence>
+                {showPSManager && psManagerEvent && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[55] flex items-center justify-center p-4 md:p-6"
+                        onClick={() => setShowPSManager(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6 md:p-8">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                                            <Brain className="w-6 h-6 text-white" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xl font-black text-white uppercase tracking-tight">Mission Briefing</h3>
+                                            <p className="text-emerald-100 text-[10px] font-bold uppercase tracking-widest opacity-80 mt-1">{psManagerEvent.title}</p>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => setShowPSManager(false)} className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl text-white transition-all">
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="p-6 md:p-8 space-y-6">
+                                <div className="bg-slate-50 border border-slate-100 p-5 rounded-2xl">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-2 h-5 bg-blue-600 rounded-full" />
+                                        <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest italic">Problem Statements Deployment</h4>
+                                    </div>
+
+                                    <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                        {tempPSList.map((ps, idx) => (
+                                            <div key={idx} className="flex gap-2">
+                                                <div className="flex-1 flex items-center gap-4 bg-white border border-slate-100 px-5 py-3 rounded-xl shadow-sm">
+                                                    <span className="text-[10px] font-black text-blue-600 font-mono">#{String(idx + 1).padStart(2, '0')}</span>
+                                                    <input
+                                                        type="text"
+                                                        value={ps}
+                                                        onChange={(e) => {
+                                                            const newList = [...tempPSList];
+                                                            newList[idx] = e.target.value;
+                                                            setTempPSList(newList);
+                                                        }}
+                                                        placeholder="Define tactical objective..."
+                                                        className="flex-1 bg-transparent border-none outline-none font-bold text-slate-700 text-xs"
+                                                    />
+                                                </div>
+                                                <button
+                                                    onClick={() => setTempPSList(tempPSList.filter((_, i) => i !== idx))}
+                                                    className="p-3 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+
+                                        {tempPSList.length === 0 && (
+                                            <div className="py-8 text-center border-2 border-dashed border-slate-200 rounded-2xl opacity-40">
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No Statements Active</p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <button
+                                        onClick={() => setTempPSList([...tempPSList, ''])}
+                                        className="w-full mt-4 py-3 border-2 border-dashed border-slate-200 rounded-xl text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50/50 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Plus className="w-3.5 h-3.5" /> Initialize New PS
+                                    </button>
+                                </div>
+
+                                <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl flex gap-4 items-start">
+                                    <div className="p-2 bg-blue-100 rounded-lg shrink-0">
+                                        <Zap className="w-4 h-4 text-blue-600" />
+                                    </div>
+                                    <p className="text-[10px] text-blue-700 font-bold leading-relaxed uppercase">
+                                        Students will be able to select from these statements in their dashboard. If multiple teams choose the same PS, it will be reflected in the judging directory.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="p-6 md:p-8 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+                                <button
+                                    onClick={() => setShowPSManager(false)}
+                                    className="px-6 py-3 text-slate-500 font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 rounded-xl transition-all"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSaveQuickPS}
+                                    disabled={isSavingPS}
+                                    className="px-8 py-3 bg-slate-900 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-xl shadow-xl shadow-slate-200 hover:bg-black transition-all flex items-center gap-2"
+                                >
+                                    {isSavingPS ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin text-blue-400" /> SYNCING...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <ShieldCheck className="w-4 h-4" /> COMMISSION PS
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
                 )}
             </AnimatePresence>
 

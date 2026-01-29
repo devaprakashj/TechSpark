@@ -18,6 +18,8 @@ import OrganizerDashboard from './components/Admin/OrganizerDashboard';
 import SecretaryDashboard from './components/Admin/SecretaryDashboard';
 import CheckinConsole from './components/Admin/CheckinConsole';
 import CertificateVerification from './components/CertificateVerification';
+import JudgePortal from './components/JudgePortal';
+import HackathonLeaderboard from './components/HackathonLeaderboard';
 import ScrollToTop from './components/ScrollToTop';
 import Chatbot from './components/Chatbot';
 import './index.css';
@@ -132,6 +134,12 @@ function App() {
             />
 
             <Route path="/checkin" element={<CheckinConsole />} />
+
+            {/* Judge Portal - Hackathon Scoring */}
+            <Route path="/judge" element={<JudgePortal />} />
+
+            {/* Hackathon Leaderboard - Live Scores */}
+            <Route path="/leaderboard" element={<HackathonLeaderboard />} />
 
             {/* Certificate Verification - Standalone Page */}
             <Route path="/certificateverify" element={<CertificateVerification />} />

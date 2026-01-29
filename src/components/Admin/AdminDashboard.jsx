@@ -150,58 +150,53 @@ const AdminDashboard = () => {
         let admissionYear = s.admissionYear || 'Unknown';
         let dept = s.department || 'Unknown';
 
-        // Auto-extract from email if data is missing or "Unknown"
         if ((year === 'Unknown' || admissionYear === 'Unknown' || dept === 'Unknown') && s.email) {
             try {
                 const email = s.email.toLowerCase();
-                const [local, domain] = email.split('@');
-                const domainSegments = domain.split('.');
+                if (email && email.includes('@')) {
+                    const [local, domain] = email.split('@');
+                    if (domain) {
+                        const domainSegments = domain.split('.');
 
-                // 1. Aggressive Admission Year Detection
-                if (admissionYear === 'Unknown') {
-                    // Try to find a 4-digit year (e.g. 2023)
-                    const yearMatch4 = local.match(/(20[1-2][0-9])/);
-                    if (yearMatch4) {
-                        admissionYear = parseInt(yearMatch4[0]);
-                    } else {
-                        // Try to find a 2-digit roll number prefix (e.g. 21, 22, 23, 24)
-                        // Looking for a sequence of 6+ digits
-                        const digitMatch = local.match(/(\d{6,12})/);
-                        const roll = digitMatch ? digitMatch[0] : (s.rollNumber || '');
-                        if (roll && roll.length >= 6) {
-                            const prefix = roll.substring(0, 2);
-                            if (parseInt(prefix) >= 15 && parseInt(prefix) <= 30) {
-                                admissionYear = 2000 + parseInt(prefix);
+                        if (admissionYear === 'Unknown') {
+                            const yearMatch4 = local.match(/(20[1-2][0-9])/);
+                            if (yearMatch4) {
+                                admissionYear = parseInt(yearMatch4[0]);
+                            } else {
+                                const digitMatch = local.match(/(\d{6,12})/);
+                                const roll = digitMatch ? digitMatch[0] : (s.rollNumber || '');
+                                if (roll && roll.length >= 6) {
+                                    const prefix = roll.substring(0, 2);
+                                    if (parseInt(prefix) >= 15 && parseInt(prefix) <= 30) {
+                                        admissionYear = 2000 + parseInt(prefix);
+                                    }
+                                }
                             }
                         }
-                    }
-                }
 
-                // 2. Aggressive Department Detection
-                if (dept === 'Unknown') {
-                    // Check subdomain first
-                    if (domainSegments.length === 4 && domainSegments[1] === 'ritchennai') {
-                        dept = domainSegments[0].toUpperCase();
-                    } else {
-                        // Check for common department codes in local part
-                        const deptCodes = ['CSE', 'ECE', 'EEE', 'MECH', 'CIVIL', 'IT', 'AIDS', 'AIML', 'CSBS', 'BME', 'RA', 'FT'];
-                        for (const code of deptCodes) {
-                            if (local.toUpperCase().includes(code)) {
-                                dept = code;
-                                break;
+                        if (dept === 'Unknown') {
+                            if (domainSegments.length === 4 && domainSegments[1] === 'ritchennai') {
+                                dept = domainSegments[0].toUpperCase();
+                            } else {
+                                const deptCodes = ['CSE', 'ECE', 'EEE', 'MECH', 'CIVIL', 'IT', 'AIDS', 'AIML', 'CSBS', 'BME', 'RA', 'FT'];
+                                for (const code of deptCodes) {
+                                    if (local.toUpperCase().includes(code)) {
+                                        dept = code;
+                                        break;
+                                    }
+                                }
                             }
                         }
-                    }
-                }
 
-                // 3. Recalculate Year of Study if admission year was found
-                if (admissionYear !== 'Unknown' && (year === 'Unknown' || !year)) {
-                    const now = new Date();
-                    const academicYearRef = (now.getMonth() + 1) < 6 ? now.getFullYear() - 1 : now.getFullYear();
-                    const calc = academicYearRef - parseInt(admissionYear) + 1;
-                    if (calc > 0 && calc <= 4) year = calc.toString();
-                    else if (calc > 4) year = 'Alumni';
-                    else if (calc <= 0) year = '1'; // Default for future/incoming
+                        if (admissionYear !== 'Unknown' && (year === 'Unknown' || !year)) {
+                            const now = new Date();
+                            const academicYearRef = (now.getMonth() + 1) < 6 ? now.getFullYear() - 1 : now.getFullYear();
+                            const calc = academicYearRef - parseInt(admissionYear) + 1;
+                            if (calc > 0 && calc <= 4) year = calc.toString();
+                            else if (calc > 4) year = 'Alumni';
+                            else if (calc <= 0) year = '1';
+                        }
+                    }
                 }
             } catch (e) {
                 console.error("Meta extraction failed for", s.email, e);
@@ -218,18 +213,22 @@ const AdminDashboard = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        const adminToken = localStorage.getItem('adminToken');
-        if (!adminToken) {
+        try {
+            const adminToken = localStorage.getItem('adminToken');
+            if (!adminToken) {
+                navigate('/admin/login');
+                return;
+            }
+            setAdmin(JSON.parse(adminToken));
+        } catch (e) {
+            console.error("Auth Token Error:", e);
+            localStorage.removeItem('adminToken');
             navigate('/admin/login');
             return;
         }
-        setAdmin(JSON.parse(adminToken));
 
-        // Initialize Real-time Sync
-        const cleanup = initDashboardSync();
-        return () => {
-            if (cleanup) cleanup();
-        };
+        initDashboardSync();
+        return () => { };
     }, []);
 
     // Reactive Analytics & Stats Calculation

@@ -101,6 +101,13 @@ const StudentDashboard = () => {
     const [showQuizRulesModal, setShowQuizRulesModal] = useState(false);
     const [pendingQuizData, setPendingQuizData] = useState(null);
 
+    // --- PROBLEM STATEMENT SELECTION STATE ---
+    const [showPSModal, setShowPSModal] = useState(false);
+    const [psModalReg, setPsModalReg] = useState(null);
+    const [psModalEvent, setPsModalEvent] = useState(null);
+    const [newSelectedPS, setNewSelectedPS] = useState('');
+    const [isUpdatingPS, setIsUpdatingPS] = useState(false);
+
     // --- RELOAD DETECTION: Check if quiz was active before page reload ---
     useEffect(() => {
         const savedQuizState = sessionStorage.getItem('techspark_quiz_active');
@@ -841,7 +848,24 @@ const StudentDashboard = () => {
                     setTeamName('');
                 } else {
                     setTeamName(teamData.teamName);
-                    alert(`Team Found: ${teamData.teamName}. Current members: ${currentSize}/${maxSize}. Proceed to join!`);
+
+                    // 🔥 Auto-fetch leader's problem statement for Hackathon events
+                    if (eventToRegister.type === 'Hackathon' && teamData.problemStatement) {
+                        // Check if it's a predefined or custom problem statement
+                        const predefinedStatements = eventToRegister.problemStatements || [];
+                        if (predefinedStatements.includes(teamData.problemStatement)) {
+                            setSelectedProblemStatement(teamData.problemStatement);
+                            setIsCustomProblem(false);
+                        } else {
+                            // It's a custom problem statement
+                            setCustomProblemStatement(teamData.problemStatement);
+                            setIsCustomProblem(true);
+                            setSelectedProblemStatement('');
+                        }
+                        alert(`Team Found: ${teamData.teamName}. Current members: ${currentSize}/${maxSize}.\n\n📋 Problem Statement: "${teamData.problemStatement}"\n\nProceed to join!`);
+                    } else {
+                        alert(`Team Found: ${teamData.teamName}. Current members: ${currentSize}/${maxSize}. Proceed to join!`);
+                    }
                 }
             }
         } catch (error) {
@@ -934,6 +958,63 @@ const StudentDashboard = () => {
         } finally {
             setIsRegLoading(false);
         }
+    };
+
+    // Handle Problem Statement Update for Hackathon Teams
+    const handleUpdateProblemStatement = async () => {
+        if (!psModalReg || !newSelectedPS) {
+            alert('Please select a problem statement.');
+            return;
+        }
+
+        setIsUpdatingPS(true);
+        try {
+            // If team registration, update all team members
+            if (psModalReg.isTeamRegistration && psModalReg.teamCode) {
+                const teamRegsQuery = query(
+                    collection(db, 'registrations'),
+                    where('eventId', '==', psModalReg.eventId),
+                    where('teamCode', '==', psModalReg.teamCode)
+                );
+                const teamRegsSnap = await getDocs(teamRegsQuery);
+
+                const updatePromises = teamRegsSnap.docs.map(docSnap =>
+                    updateDoc(doc(db, 'registrations', docSnap.id), {
+                        problemStatement: newSelectedPS
+                    })
+                );
+                await Promise.all(updatePromises);
+            } else {
+                // Individual registration
+                await updateDoc(doc(db, 'registrations', psModalReg.id), {
+                    problemStatement: newSelectedPS
+                });
+            }
+
+            alert('✅ Problem Statement updated successfully!');
+            setShowPSModal(false);
+            setPsModalReg(null);
+            setPsModalEvent(null);
+            setNewSelectedPS('');
+        } catch (error) {
+            console.error('Error updating problem statement:', error);
+            alert('Failed to update. Please try again.');
+        } finally {
+            setIsUpdatingPS(false);
+        }
+    };
+
+    // Open Problem Statement Selection Modal
+    const openPSSelectionModal = (reg) => {
+        const event = allEvents.find(e => e.id === reg.eventId);
+        if (!event || !event.problemStatements || event.problemStatements.length === 0) {
+            alert('No problem statements available for this event yet. Please wait for the organizer to add them.');
+            return;
+        }
+        setPsModalReg(reg);
+        setPsModalEvent(event);
+        setNewSelectedPS(reg.problemStatement || '');
+        setShowPSModal(true);
     };
 
     if (!user) return null;
@@ -1389,75 +1470,105 @@ const StudentDashboard = () => {
                                             <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-1.5 h-6 bg-blue-600 rounded-full" />
-                                                    <p className="text-[11px] text-slate-900 font-black uppercase tracking-widest italic">Technical Directive: Problem Statement</p>
+                                                    <p className="text-[11px] text-slate-900 font-black uppercase tracking-widest italic">
+                                                        {regMode === 'TEAM_JOIN' && teamName ? 'Team Problem Statement (Inherited)' : 'Technical Directive: Problem Statement'}
+                                                    </p>
                                                 </div>
 
-                                                <div className="grid grid-cols-1 gap-3">
-                                                    {(eventToRegister.problemStatements || []).map((ps, idx) => (
-                                                        <button
-                                                            key={idx}
-                                                            onClick={() => {
-                                                                setSelectedProblemStatement(ps);
-                                                                setIsCustomProblem(false);
-                                                            }}
-                                                            className={`p-5 rounded-2xl border text-left transition-all relative overflow-hidden group ${selectedProblemStatement === ps && !isCustomProblem
-                                                                ? 'bg-blue-600 border-blue-600 text-white shadow-xl shadow-blue-500/20'
-                                                                : 'bg-white border-slate-100 text-slate-600 hover:border-blue-200 hover:bg-slate-50'}`}
-                                                        >
-                                                            <div className="flex items-start gap-4 h-full">
-                                                                <span className={`text-[10px] font-black px-2 py-0.5 rounded ${selectedProblemStatement === ps && !isCustomProblem ? 'bg-white/20' : 'bg-slate-100'}`}>PS #{idx + 1}</span>
-                                                                <p className="text-xs font-bold leading-relaxed pr-6">{ps}</p>
-                                                            </div>
-                                                            {selectedProblemStatement === ps && !isCustomProblem && (
-                                                                <div className="absolute top-1/2 -translate-y-1/2 right-4">
-                                                                    <CheckCircle className="w-5 h-5" />
-                                                                </div>
-                                                            )}
-                                                        </button>
-                                                    ))}
+                                                {/* Show inherited problem statement for joining members */}
+                                                {regMode === 'TEAM_JOIN' && teamName && (selectedProblemStatement || customProblemStatement) && (
+                                                    <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-50 to-green-50 border-2 border-emerald-200 relative overflow-hidden">
+                                                        <div className="absolute top-2 right-2 bg-emerald-600 text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase">
+                                                            🔗 From Team Leader
+                                                        </div>
+                                                        <p className="text-xs font-bold text-slate-700 pr-24 leading-relaxed">
+                                                            "{isCustomProblem ? customProblemStatement : selectedProblemStatement}"
+                                                        </p>
+                                                        <p className="text-[9px] text-emerald-600 mt-2 font-medium">
+                                                            ✓ This problem statement was set by your Team Leader. All team members will work on the same objective.
+                                                        </p>
+                                                    </div>
+                                                )}
 
-                                                    {eventToRegister.allowOpenStatement && (
-                                                        <div className="space-y-3">
+                                                {/* On-Spot PS Info */}
+                                                {eventToRegister.isOnSpotPS ? (
+                                                    <div className="p-6 bg-amber-50 border border-amber-200 rounded-3xl space-y-3">
+                                                        <div className="flex items-center gap-3 text-amber-600">
+                                                            <Clock className="w-5 h-5" />
+                                                            <h5 className="text-xs font-black uppercase tracking-widest">On-Spot PS Allocation</h5>
+                                                        </div>
+                                                        <p className="text-[11px] text-amber-700 font-bold leading-relaxed">
+                                                            This hackathon follows the "On-Spot PS Allocation" protocol. Problem statements will be revealed at the venue. You will be able to select your objective in this dashboard AFTER you check-in at the event.
+                                                        </p>
+                                                    </div>
+                                                ) : !(regMode === 'TEAM_JOIN' && teamName && (selectedProblemStatement || customProblemStatement)) && (
+                                                    <div className="grid grid-cols-1 gap-3">
+                                                        {(eventToRegister.problemStatements || []).map((ps, idx) => (
                                                             <button
+                                                                key={idx}
                                                                 onClick={() => {
-                                                                    setIsCustomProblem(true);
-                                                                    setSelectedProblemStatement('');
+                                                                    setSelectedProblemStatement(ps);
+                                                                    setIsCustomProblem(false);
                                                                 }}
-                                                                className={`w-full p-5 rounded-2xl border text-left transition-all relative overflow-hidden group ${isCustomProblem
-                                                                    ? 'bg-slate-900 border-slate-900 text-white shadow-xl shadow-slate-900/20'
-                                                                    : 'bg-white border-slate-100 text-slate-600 hover:border-slate-800 hover:bg-slate-900 hover:text-white'}`}
+                                                                className={`p-5 rounded-2xl border text-left transition-all relative overflow-hidden group ${selectedProblemStatement === ps && !isCustomProblem
+                                                                    ? 'bg-blue-600 border-blue-600 text-white shadow-xl shadow-blue-500/20'
+                                                                    : 'bg-white border-slate-100 text-slate-600 hover:border-blue-200 hover:bg-slate-50'}`}
                                                             >
-                                                                <div className="flex items-center gap-4">
-                                                                    <div className={`p-2 rounded-xl ${isCustomProblem ? 'bg-white/10' : 'bg-slate-100 group-hover:bg-white/10'}`}>
-                                                                        <Zap className="w-4 h-4" />
-                                                                    </div>
-                                                                    <div>
-                                                                        <p className="text-[10px] font-black uppercase tracking-widest">Open Statement</p>
-                                                                        <p className="text-xs font-bold">Declare a custom innovation objective</p>
-                                                                    </div>
+                                                                <div className="flex items-start gap-4 h-full">
+                                                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded ${selectedProblemStatement === ps && !isCustomProblem ? 'bg-white/20' : 'bg-slate-100'}`}>PS #{idx + 1}</span>
+                                                                    <p className="text-xs font-bold leading-relaxed pr-6">{ps}</p>
                                                                 </div>
-                                                                {isCustomProblem && (
+                                                                {selectedProblemStatement === ps && !isCustomProblem && (
                                                                     <div className="absolute top-1/2 -translate-y-1/2 right-4">
                                                                         <CheckCircle className="w-5 h-5" />
                                                                     </div>
                                                                 )}
                                                             </button>
+                                                        ))}
 
-                                                            {isCustomProblem && (
-                                                                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-1">
-                                                                    <textarea
-                                                                        placeholder="Describe your custom problem statement / innovation goal..."
-                                                                        value={customProblemStatement}
-                                                                        onChange={(e) => setCustomProblemStatement(e.target.value)}
-                                                                        className="w-full h-32 px-5 py-4 bg-white border-2 border-slate-900 rounded-2xl outline-none font-bold text-slate-800 text-sm focus:ring-4 focus:ring-blue-500/5 transition-all resize-none italic"
-                                                                    />
-                                                                </motion.div>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                {/* Validation Hint */}
-                                                {!selectedProblemStatement && !customProblemStatement && (
+                                                        {eventToRegister.allowOpenStatement && (
+                                                            <div className="space-y-3">
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setIsCustomProblem(true);
+                                                                        setSelectedProblemStatement('');
+                                                                    }}
+                                                                    className={`w-full p-5 rounded-2xl border text-left transition-all relative overflow-hidden group ${isCustomProblem
+                                                                        ? 'bg-slate-900 border-slate-900 text-white shadow-xl shadow-slate-900/20'
+                                                                        : 'bg-white border-slate-100 text-slate-600 hover:border-slate-800 hover:bg-slate-900 hover:text-white'}`}
+                                                                >
+                                                                    <div className="flex items-center gap-4">
+                                                                        <div className={`p-2 rounded-xl ${isCustomProblem ? 'bg-white/10' : 'bg-slate-100 group-hover:bg-white/10'}`}>
+                                                                            <Zap className="w-4 h-4" />
+                                                                        </div>
+                                                                        <div>
+                                                                            <p className="text-[10px] font-black uppercase tracking-widest">Open Statement</p>
+                                                                            <p className="text-xs font-bold">Declare a custom innovation objective</p>
+                                                                        </div>
+                                                                    </div>
+                                                                    {isCustomProblem && (
+                                                                        <div className="absolute top-1/2 -translate-y-1/2 right-4">
+                                                                            <CheckCircle className="w-5 h-5" />
+                                                                        </div>
+                                                                    )}
+                                                                </button>
+
+                                                                {isCustomProblem && (
+                                                                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-1">
+                                                                        <textarea
+                                                                            placeholder="Describe your custom problem statement / innovation goal..."
+                                                                            value={customProblemStatement}
+                                                                            onChange={(e) => setCustomProblemStatement(e.target.value)}
+                                                                            className="w-full h-32 px-5 py-4 bg-white border-2 border-slate-900 rounded-2xl outline-none font-bold text-slate-800 text-sm focus:ring-4 focus:ring-blue-500/5 transition-all resize-none italic"
+                                                                        />
+                                                                    </motion.div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                {/* Validation Hint - Only show if problem statement is required and not inherited */}
+                                                {!selectedProblemStatement && !customProblemStatement && !(regMode === 'TEAM_JOIN' && teamName) && (
                                                     <p className="text-[9px] text-blue-600 font-bold uppercase italic animate-pulse ml-1">Selection of technical directive required for deployment.</p>
                                                 )}
                                             </div>
@@ -1530,7 +1641,7 @@ const StudentDashboard = () => {
                                             </div>
                                             <button
                                                 onClick={confirmRegistration}
-                                                disabled={isRegLoading || (eventToRegister.type === 'Hackathon' && !selectedProblemStatement && !customProblemStatement.trim())}
+                                                disabled={isRegLoading || (eventToRegister.type === 'Hackathon' && !eventToRegister.isOnSpotPS && !selectedProblemStatement && !customProblemStatement.trim())}
                                                 className="w-full lg:w-auto px-10 py-5 bg-blue-600 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-white hover:text-blue-600 transition-all flex items-center justify-center gap-3 disabled:opacity-50 min-w-[240px] shadow-lg shadow-blue-500/20"
                                             >
                                                 {isRegLoading ? (
@@ -2223,19 +2334,95 @@ const StudentDashboard = () => {
                                     )}
 
                                     {/* Directive Info (Problem Statement) */}
-                                    {selectedRegDetails.problemStatement && (
+                                    {(() => {
+                                        const event = allEvents.find(e => e.id === selectedRegDetails.eventId);
+                                        const isHackathon = event?.type === 'Hackathon';
+                                        const hasAvailablePS = event?.problemStatements?.length > 0;
+                                        const currentPS = selectedRegDetails.problemStatement;
+                                        const isCheckedIn = selectedRegDetails.status === 'Present' || selectedRegDetails.isAttended;
+                                        const canSelectPS = hasAvailablePS && (!event?.isOnSpotPS || isCheckedIn);
+
+                                        if (!isHackathon) return null;
+
+                                        return (
+                                            <div className="space-y-4">
+                                                <div className="flex items-center justify-between ml-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-2 h-5 bg-emerald-600 rounded-full" />
+                                                        <h5 className="text-[11px] font-black text-slate-900 uppercase tracking-widest italic">Mission Objective (Problem Statement)</h5>
+                                                    </div>
+                                                    {canSelectPS && (
+                                                        <button
+                                                            onClick={() => openPSSelectionModal(selectedRegDetails)}
+                                                            className="px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all flex items-center gap-1.5"
+                                                        >
+                                                            <Zap className="w-3 h-3" />
+                                                            {currentPS ? 'Change' : 'Select'}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                {currentPS ? (
+                                                    <div className="bg-emerald-50 border border-emerald-100 p-8 rounded-[2.5rem] relative group cursor-help">
+                                                        <div className="absolute top-4 right-4 text-emerald-600 opacity-20 group-hover:opacity-40 transition-opacity">
+                                                            <Brain className="w-12 h-12" />
+                                                        </div>
+                                                        <p className="text-xs font-bold text-emerald-900 leading-relaxed italic uppercase">
+                                                            "{currentPS}"
+                                                        </p>
+                                                    </div>
+                                                ) : (
+                                                    <div className="bg-amber-50 border-2 border-dashed border-amber-200 p-6 rounded-[2rem] text-center">
+                                                        <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto mb-3" />
+                                                        <p className="text-xs font-bold text-amber-700 uppercase leading-relaxed">
+                                                            {event?.isOnSpotPS && !isCheckedIn
+                                                                ? 'On-Spot PS Allocation: You must Check-In at the venue to unlock Problem Statement selection.'
+                                                                : hasAvailablePS
+                                                                    ? 'Problem Statement not selected yet. Click "Select" above to choose one.'
+                                                                    : 'Problem Statements will be announced by the organizer. Check back later!'}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* Team QR Code for Hackathon Judging */}
+                                    {selectedRegDetails.isTeamRegistration && (selectedRegDetails.isAttended || selectedRegDetails.status === 'Present') && (
                                         <div className="space-y-4">
                                             <div className="flex items-center gap-2 ml-1">
-                                                <div className="w-2 h-5 bg-emerald-600 rounded-full" />
-                                                <h5 className="text-[11px] font-black text-slate-900 uppercase tracking-widest italic">Mission Objective (Problem Statement)</h5>
+                                                <div className="w-2 h-5 bg-purple-600 rounded-full" />
+                                                <h5 className="text-[11px] font-black text-slate-900 uppercase tracking-widest italic">Judging QR Code</h5>
                                             </div>
-                                            <div className="bg-emerald-50 border border-emerald-100 p-8 rounded-[2.5rem] relative group cursor-help">
-                                                <div className="absolute top-4 right-4 text-emerald-600 opacity-20 group-hover:opacity-40 transition-opacity">
-                                                    <Brain className="w-12 h-12" />
+                                            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 p-6 md:p-8 rounded-[2.5rem] relative overflow-hidden">
+                                                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 blur-[50px]" />
+                                                <div className="flex flex-col md:flex-row items-center gap-6 relative z-10">
+                                                    <div className="p-3 bg-white rounded-2xl shadow-lg border border-purple-100">
+                                                        <QRCodeSVG
+                                                            value={`TEAM|${selectedRegDetails.eventId}|${selectedRegDetails.teamCode}|${selectedRegDetails.teamName}`}
+                                                            size={120}
+                                                            level="H"
+                                                            bgColor="#ffffff"
+                                                            fgColor="#7c3aed"
+                                                            includeMargin={true}
+                                                        />
+                                                    </div>
+                                                    <div className="flex-1 text-center md:text-left">
+                                                        <h4 className="text-lg font-black text-purple-900 uppercase tracking-tight mb-2 flex items-center gap-2 justify-center md:justify-start">
+                                                            <Award className="w-5 h-5" /> Show to Judge
+                                                        </h4>
+                                                        <p className="text-xs text-purple-700 font-medium mb-3">
+                                                            A judge will scan this QR code to score your team during the evaluation round.
+                                                        </p>
+                                                        <div className="flex flex-wrap items-center gap-2 justify-center md:justify-start">
+                                                            <span className="px-3 py-1.5 bg-purple-600 text-white text-[10px] font-black rounded-lg uppercase tracking-widest">
+                                                                {selectedRegDetails.teamCode}
+                                                            </span>
+                                                            <span className="px-3 py-1.5 bg-white text-purple-600 text-[10px] font-black rounded-lg uppercase tracking-widest border border-purple-200">
+                                                                {selectedRegDetails.teamName}
+                                                            </span>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <p className="text-xs font-bold text-emerald-900 leading-relaxed italic uppercase">
-                                                    "{selectedRegDetails.problemStatement}"
-                                                </p>
                                             </div>
                                         </div>
                                     )}
@@ -2261,6 +2448,103 @@ const StudentDashboard = () => {
                                         className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.2em] shadow-xl shadow-slate-200 hover:bg-black transition-all flex items-center justify-center gap-3"
                                     >
                                         DISMISS DOSSIER <ShieldCheck className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
+
+                {/* Problem Statement Selection Modal */}
+                <AnimatePresence>
+                    {showPSModal && psModalEvent && (
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60000] flex items-center justify-center p-4">
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                                className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden"
+                            >
+                                {/* Header */}
+                                <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h3 className="text-lg font-black text-white uppercase tracking-tight">Select Problem Statement</h3>
+                                            <p className="text-emerald-100 text-xs font-medium mt-1">{psModalEvent.title}</p>
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                setShowPSModal(false);
+                                                setPsModalReg(null);
+                                                setPsModalEvent(null);
+                                            }}
+                                            className="p-2 hover:bg-white/20 rounded-xl transition-all"
+                                        >
+                                            <X className="w-5 h-5 text-white" />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Options */}
+                                <div className="p-6 max-h-[50vh] overflow-y-auto space-y-3">
+                                    {psModalEvent.problemStatements.map((ps, idx) => (
+                                        <label
+                                            key={idx}
+                                            className={`block p-4 rounded-xl border-2 cursor-pointer transition-all ${newSelectedPS === ps
+                                                ? 'border-emerald-500 bg-emerald-50 shadow-lg shadow-emerald-100'
+                                                : 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50'
+                                                }`}
+                                        >
+                                            <div className="flex items-start gap-3">
+                                                <input
+                                                    type="radio"
+                                                    name="problemStatement"
+                                                    value={ps}
+                                                    checked={newSelectedPS === ps}
+                                                    onChange={(e) => setNewSelectedPS(e.target.value)}
+                                                    className="mt-1 w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                                                />
+                                                <div className="flex-1">
+                                                    <p className="text-sm font-bold text-slate-800 uppercase leading-relaxed">
+                                                        {ps}
+                                                    </p>
+                                                    <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase">
+                                                        Option {idx + 1}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </label>
+                                    ))}
+                                </div>
+
+                                {/* Footer */}
+                                <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+                                    <button
+                                        onClick={() => {
+                                            setShowPSModal(false);
+                                            setPsModalReg(null);
+                                            setPsModalEvent(null);
+                                        }}
+                                        className="px-5 py-3 text-slate-600 font-black text-xs uppercase tracking-widest hover:bg-slate-200 rounded-xl transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleUpdateProblemStatement}
+                                        disabled={!newSelectedPS || isUpdatingPS}
+                                        className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-emerald-200 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                    >
+                                        {isUpdatingPS ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                Updating...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <CheckCircle className="w-4 h-4" />
+                                                Confirm Selection
+                                            </>
+                                        )}
                                     </button>
                                 </div>
                             </motion.div>
