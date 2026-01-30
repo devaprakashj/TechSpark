@@ -41,7 +41,8 @@ import {
     MapPin,
     UserCheck,
     FileText,
-    Bell
+    Bell,
+    Edit
 } from 'lucide-react';
 import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, where, updateDoc, doc, increment, deleteDoc, getDoc, onSnapshot, limit } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -138,6 +139,17 @@ const AdminDashboard = () => {
     const [eventToEditOrganizer, setEventToEditOrganizer] = useState(null);
     const [selectedNewOrganizer, setSelectedNewOrganizer] = useState('');
     const [isReassigning, setIsReassigning] = useState(false);
+
+    // Live Event Edit State
+    const [isEditLiveEventModalOpen, setIsEditLiveEventModalOpen] = useState(false);
+    const [eventToEdit, setEventToEdit] = useState(null);
+    const [liveEventEditData, setLiveEventEditData] = useState({
+        time: '',
+        venue: '',
+        maxTeamSize: ''
+    });
+    const [isSavingLiveEventEdit, setIsSavingLiveEventEdit] = useState(false);
+
 
     const fetchDashboardData = () => {
         console.log("Strategic Refresh Triggered");
@@ -877,6 +889,79 @@ const AdminDashboard = () => {
             alert('❌ Failed to revert event to LIVE status');
         }
     };
+
+    // Live Event Edit Handlers
+    const handleOpenEditLiveEvent = (event) => {
+        if (event.status !== 'LIVE') {
+            alert('⚠️ Only LIVE events can be edited!');
+            return;
+        }
+
+        setEventToEdit(event);
+        // Parse date string to extract time if it contains '|'
+        const eventTime = event.date && event.date.includes('|')
+            ? event.date.split('|')[1].trim()
+            : (event.time || '');
+
+        setLiveEventEditData({
+            time: eventTime,
+            venue: event.venue || '',
+            maxTeamSize: event.maxTeamSize || ''
+        });
+        setIsEditLiveEventModalOpen(true);
+    };
+
+    const handleSaveLiveEventEdit = async () => {
+        if (!eventToEdit) return;
+
+        setIsSavingLiveEventEdit(true);
+        try {
+            const updateData = {};
+
+            // Update time
+            if (liveEventEditData.time.trim()) {
+                // Update the date field to include new time
+                const datePart = eventToEdit.date && eventToEdit.date.includes('|')
+                    ? eventToEdit.date.split('|')[0].trim()
+                    : eventToEdit.date;
+                updateData.date = `${datePart} | ${liveEventEditData.time.trim()}`;
+                updateData.time = liveEventEditData.time.trim();
+            }
+
+            // Update venue
+            if (liveEventEditData.venue.trim()) {
+                updateData.venue = liveEventEditData.venue.trim();
+            }
+
+            // Update team size (only if it's a team event)
+            if (eventToEdit.isTeamEvent && liveEventEditData.maxTeamSize) {
+                const teamSize = parseInt(liveEventEditData.maxTeamSize);
+                if (teamSize > 0 && teamSize <= 10) {
+                    updateData.maxTeamSize = teamSize;
+                } else {
+                    alert('⚠️ Team size must be between 1 and 10');
+                    setIsSavingLiveEventEdit(false);
+                    return;
+                }
+            }
+
+            // Add edit metadata
+            updateData.lastEditedAt = serverTimestamp();
+            updateData.lastEditedBy = admin?.username || 'Admin';
+
+            await updateDoc(doc(db, 'events', eventToEdit.id), updateData);
+
+            alert(`✅ Event "${eventToEdit.title}" updated successfully!`);
+            setIsEditLiveEventModalOpen(false);
+            setEventToEdit(null);
+        } catch (error) {
+            console.error('Error updating live event:', error);
+            alert('❌ Failed to update event details');
+        } finally {
+            setIsSavingLiveEventEdit(false);
+        }
+    };
+
 
     const handleEditStudent = (student) => {
         setEditingStudent({ ...student });
@@ -1672,6 +1757,17 @@ const AdminDashboard = () => {
                                                 </td>
                                                 <td className="px-4 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-2">
+                                                        {event.status === 'LIVE' && (
+                                                            <motion.button
+                                                                whileHover={{ scale: 1.1 }}
+                                                                whileTap={{ scale: 0.9 }}
+                                                                onClick={(e) => { e.stopPropagation(); handleOpenEditLiveEvent(event); }}
+                                                                className="p-2.5 bg-gradient-to-br from-purple-50 to-pink-50 text-purple-600 rounded-xl hover:from-purple-500 hover:to-pink-600 hover:text-white transition-all duration-300 shadow-lg shadow-transparent hover:shadow-purple-500/30"
+                                                                title="Edit Event Details"
+                                                            >
+                                                                <Edit className="w-4 h-4" />
+                                                            </motion.button>
+                                                        )}
                                                         <motion.button
                                                             whileHover={{ scale: 1.1 }}
                                                             whileTap={{ scale: 0.9 }}
@@ -4033,6 +4129,151 @@ const AdminDashboard = () => {
                 )}
             </AnimatePresence>
 
+            {/* Edit Live Event Modal */}
+            <AnimatePresence>
+                {isEditLiveEventModalOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                        onClick={() => setIsEditLiveEventModalOpen(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.9, y: 20 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+                        >
+                            {/* Header */}
+                            <div className="sticky top-0 bg-gradient-to-r from-purple-600 to-pink-500 p-6 rounded-t-3xl z-10">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                                            <Edit className="w-6 h-6 text-white" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-2xl font-black text-white uppercase tracking-tight">
+                                                Edit Live Event
+                                            </h2>
+                                            <p className="text-sm text-white/80 font-bold mt-0.5">
+                                                {eventToEdit?.title}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => setIsEditLiveEventModalOpen(false)}
+                                        className="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-xl flex items-center justify-center transition-all"
+                                    >
+                                        <X className="w-5 h-5 text-white" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Content */}
+                            <div className="p-8 space-y-6">
+                                {/* Event Time */}
+                                <div className="space-y-3">
+                                    <label className="flex items-center gap-2 text-sm font-black text-slate-700 uppercase tracking-wider">
+                                        <Clock className="w-4 h-4 text-purple-600" />
+                                        Event Time
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={liveEventEditData.time}
+                                        onChange={(e) => setLiveEventEditData({ ...liveEventEditData, time: e.target.value })}
+                                        placeholder="e.g., 10:00 AM - 12:00 PM"
+                                        className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none focus:border-purple-500 focus:bg-white transition-all font-bold text-slate-800"
+                                    />
+                                    <p className="text-xs text-slate-500 font-medium ml-1">
+                                        Format: HH:MM AM/PM - HH:MM AM/PM
+                                    </p>
+                                </div>
+
+                                {/* Event Venue */}
+                                <div className="space-y-3">
+                                    <label className="flex items-center gap-2 text-sm font-black text-slate-700 uppercase tracking-wider">
+                                        <MapPin className="w-4 h-4 text-pink-600" />
+                                        Event Venue
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={liveEventEditData.venue}
+                                        onChange={(e) => setLiveEventEditData({...liveEventEditData, venue: e.target.value })}
+                                    placeholder="e.g., Main Auditorium, Block A"
+                                    className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none focus:border-pink-500 focus:bg-white transition-all font-bold text-slate-800"
+                                    />
+                                </div>
+
+                                {/* Team Size (only for team events) */}
+                                {eventToEdit?.isTeamEvent && (
+                                    <div className="space-y-3">
+                                        <label className="flex items-center gap-2 text-sm font-black text-slate-700 uppercase tracking-wider">
+                                            <Users className="w-4 h-4 text-blue-600" />
+                                            Max Team Size
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="10"
+                                            value={liveEventEditData.maxTeamSize}
+                                            onChange={(e) => setLiveEventEditData({ ...liveEventEditData, maxTeamSize: e.target.value })}
+                                            placeholder="e.g., 4"
+                                            className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none focus:border-blue-500 focus:bg-white transition-all font-bold text-slate-800"
+                                        />
+                                        <p className="text-xs text-slate-500 font-medium ml-1">
+                                            Team size must be between 1 and 10 members
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Info Note */}
+                                <div className="bg-blue-50 border-2 border-blue-100 rounded-2xl p-4">
+                                    <div className="flex items-start gap-3">
+                                        <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-xs font-black text-blue-700 uppercase mb-1">Important Note</p>
+                                            <p className="text-xs text-blue-600 font-medium leading-relaxed">
+                                                Only LIVE events can be edited. Once saved, students will see the updated information immediately on their dashboards.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Footer Actions */}
+                            <div className="sticky bottom-0 bg-slate-50 border-t border-slate-200 p-6 rounded-b-3xl flex gap-4">
+                                <button
+                                    onClick={() => setIsEditLiveEventModalOpen(false)}
+                                    disabled={isSavingLiveEventEdit}
+                                    className="flex-1 px-6 py-4 bg-white border-2 border-slate-200 text-slate-600 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-slate-100 transition-all disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSaveLiveEventEdit}
+                                    disabled={isSavingLiveEventEdit}
+                                    className="flex-1 px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg hover:shadow-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {isSavingLiveEventEdit ? (
+                                        <>
+                                            <RefreshCw className="w-4 h-4 animate-spin" />
+                                            Saving...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CheckCircle className="w-4 h-4" />
+                                            Save Changes
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             <style jsx="true">{`
                 .custom-scrollbar::-webkit-scrollbar {
                     width: 6px;
@@ -4061,3 +4302,4 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+
