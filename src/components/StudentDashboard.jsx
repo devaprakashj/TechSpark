@@ -1083,119 +1083,129 @@ const StudentDashboard = () => {
         <div className="min-h-screen bg-slate-50 pt-24 pb-12 px-4 md:px-8">
             <div className="max-w-7xl mx-auto space-y-8">
 
-                {/* 🎉 SPECIAL: RIT CLUB CARNIVAL DAY BANNER */}
-                <motion.div
-                    initial={{ opacity: 0, y: -30, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ duration: 0.6, type: "spring", bounce: 0.4 }}
-                    className="relative overflow-hidden bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 rounded-3xl p-1"
-                >
-                    {/* Animated Background Gradients */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 animate-gradient-x opacity-90" />
-                    <div className="absolute inset-0">
-                        {/* Floating Confetti */}
-                        {[...Array(20)].map((_, i) => (
-                            <motion.div
-                                key={i}
-                                initial={{ y: -20, x: Math.random() * 100 + '%', opacity: 0 }}
-                                animate={{
-                                    y: ['-20px', '120%'],
-                                    x: `${Math.random() * 100}%`,
-                                    opacity: [0, 1, 0],
-                                    rotate: [0, 360 * (Math.random() > 0.5 ? 1 : -1)]
-                                }}
-                                transition={{
-                                    duration: 3 + Math.random() * 2,
-                                    repeat: Infinity,
-                                    delay: Math.random() * 2,
-                                    ease: "linear"
-                                }}
-                                className="absolute text-2xl"
-                                style={{ left: `${Math.random() * 100}%` }}
-                            >
-                                {['🎊', '🎉', '🎈', '⭐', '✨', '🎪'][Math.floor(Math.random() * 6)]}
-                            </motion.div>
-                        ))}
-                    </div>
+                {/* 🎉 SPECIAL: RIT CLUB CARNIVAL DAY BANNER - Only shows on Jan 31st */}
+                {(() => {
+                    const today = new Date();
+                    const carnivalDate = new Date('2026-01-31');
+                    const isCarnivalDay = today.getFullYear() === carnivalDate.getFullYear() &&
+                        today.getMonth() === carnivalDate.getMonth() &&
+                        today.getDate() === carnivalDate.getDate();
 
-                    {/* Main Content */}
-                    <div className="relative bg-white rounded-[1.4rem] p-6 md:p-8">
-                        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                            {/* Left Content */}
-                            <div className="flex items-center gap-6">
-                                {/* Animated Icon */}
-                                <motion.div
-                                    animate={{
-                                        rotate: [0, 10, -10, 10, 0],
-                                        scale: [1, 1.1, 1, 1.1, 1]
-                                    }}
-                                    transition={{
-                                        duration: 2,
-                                        repeat: Infinity,
-                                        repeatDelay: 0.5
-                                    }}
-                                    className="shrink-0 w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-purple-600 to-pink-500 rounded-2xl flex items-center justify-center text-4xl shadow-2xl"
-                                >
-                                    🎪
-                                </motion.div>
-
-                                {/* Text Content */}
-                                <div>
-                                    <motion.h2
-                                        animate={{ backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] }}
-                                        transition={{ duration: 3, repeat: Infinity }}
-                                        className="text-2xl md:text-4xl font-black uppercase tracking-tight bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 bg-[length:200%_auto] bg-clip-text text-transparent"
+                    return isCarnivalDay && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -30, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            transition={{ duration: 0.6, type: "spring", bounce: 0.4 }}
+                            className="relative overflow-hidden bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 rounded-3xl p-1"
+                        >
+                            {/* Animated Background Gradients */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 animate-gradient-x opacity-90" />
+                            <div className="absolute inset-0">
+                                {/* Floating Confetti */}
+                                {[...Array(20)].map((_, i) => (
+                                    <motion.div
+                                        key={i}
+                                        initial={{ y: -20, x: Math.random() * 100 + '%', opacity: 0 }}
+                                        animate={{
+                                            y: ['-20px', '120%'],
+                                            x: `${Math.random() * 100}%`,
+                                            opacity: [0, 1, 0],
+                                            rotate: [0, 360 * (Math.random() > 0.5 ? 1 : -1)]
+                                        }}
+                                        transition={{
+                                            duration: 3 + Math.random() * 2,
+                                            repeat: Infinity,
+                                            delay: Math.random() * 2,
+                                            ease: "linear"
+                                        }}
+                                        className="absolute text-2xl"
+                                        style={{ left: `${Math.random() * 100}%` }}
                                     >
-                                        RIT Club Carnival Day! 🎉
-                                    </motion.h2>
-                                    <p className="text-sm md:text-base font-bold text-slate-600 mt-1 flex items-center gap-2">
-                                        <Calendar className="w-4 h-4" />
-                                        <span className="font-black text-purple-600">January 31, 2026</span>
-                                        <span className="hidden md:inline">• All Clubs Unite!</span>
+                                        {['🎊', '🎉', '🎈', '⭐', '✨', '🎪'][Math.floor(Math.random() * 6)]}
+                                    </motion.div>
+                                ))}
+                            </div>
+
+                            {/* Main Content */}
+                            <div className="relative bg-white rounded-[1.4rem] p-6 md:p-8">
+                                <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                                    {/* Left Content */}
+                                    <div className="flex items-center gap-6">
+                                        {/* Animated Icon */}
+                                        <motion.div
+                                            animate={{
+                                                rotate: [0, 10, -10, 10, 0],
+                                                scale: [1, 1.1, 1, 1.1, 1]
+                                            }}
+                                            transition={{
+                                                duration: 2,
+                                                repeat: Infinity,
+                                                repeatDelay: 0.5
+                                            }}
+                                            className="shrink-0 w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-purple-600 to-pink-500 rounded-2xl flex items-center justify-center text-4xl shadow-2xl"
+                                        >
+                                            🎪
+                                        </motion.div>
+
+                                        {/* Text Content */}
+                                        <div>
+                                            <motion.h2
+                                                animate={{ backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] }}
+                                                transition={{ duration: 3, repeat: Infinity }}
+                                                className="text-2xl md:text-4xl font-black uppercase tracking-tight bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 bg-[length:200%_auto] bg-clip-text text-transparent"
+                                            >
+                                                RIT Club Carnival Day! 🎉
+                                            </motion.h2>
+                                            <p className="text-sm md:text-base font-bold text-slate-600 mt-1 flex items-center gap-2">
+                                                <Calendar className="w-4 h-4" />
+                                                <span className="font-black text-purple-600">January 31, 2026</span>
+                                                <span className="hidden md:inline">• All Clubs Unite!</span>
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Right Content - Call to Action */}
+                                    <div className="flex flex-col md:flex-row items-center gap-3">
+                                        <div className="text-center md:text-right">
+                                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Today's Event</p>
+                                            <p className="text-lg md:text-xl font-black text-transparent bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text">
+                                                Join the Celebration!
+                                            </p>
+                                        </div>
+                                        <motion.button
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-xl font-black uppercase text-sm shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                                        >
+                                            <Sparkles className="w-4 h-4" />
+                                            Explore Events
+                                            <Rocket className="w-4 h-4" />
+                                        </motion.button>
+                                    </div>
+                                </div>
+
+                                {/* Bottom Info Bar */}
+                                <div className="mt-6 pt-4 border-t border-slate-200 flex flex-wrap items-center justify-center md:justify-between gap-4">
+                                    <div className="flex items-center gap-4 text-xs font-bold text-slate-500">
+                                        <span className="flex items-center gap-2 bg-purple-50 px-3 py-1.5 rounded-lg">
+                                            <span className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" />
+                                            Live Activities
+                                        </span>
+                                        <span className="flex items-center gap-2 bg-pink-50 px-3 py-1.5 rounded-lg">
+                                            🎮 Interactive Games
+                                        </span>
+                                        <span className="hidden md:flex items-center gap-2 bg-orange-50 px-3 py-1.5 rounded-lg">
+                                            🏆 Prizes & Giveaways
+                                        </span>
+                                    </div>
+                                    <p className="text-xs font-black text-transparent bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text uppercase tracking-wider">
+                                        ⚡ Don't Miss Out! Register Now
                                     </p>
                                 </div>
                             </div>
-
-                            {/* Right Content - Call to Action */}
-                            <div className="flex flex-col md:flex-row items-center gap-3">
-                                <div className="text-center md:text-right">
-                                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Today's Event</p>
-                                    <p className="text-lg md:text-xl font-black text-transparent bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text">
-                                        Join the Celebration!
-                                    </p>
-                                </div>
-                                <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-xl font-black uppercase text-sm shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-                                >
-                                    <Sparkles className="w-4 h-4" />
-                                    Explore Events
-                                    <Rocket className="w-4 h-4" />
-                                </motion.button>
-                            </div>
-                        </div>
-
-                        {/* Bottom Info Bar */}
-                        <div className="mt-6 pt-4 border-t border-slate-200 flex flex-wrap items-center justify-center md:justify-between gap-4">
-                            <div className="flex items-center gap-4 text-xs font-bold text-slate-500">
-                                <span className="flex items-center gap-2 bg-purple-50 px-3 py-1.5 rounded-lg">
-                                    <span className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" />
-                                    Live Activities
-                                </span>
-                                <span className="flex items-center gap-2 bg-pink-50 px-3 py-1.5 rounded-lg">
-                                    🎮 Interactive Games
-                                </span>
-                                <span className="hidden md:flex items-center gap-2 bg-orange-50 px-3 py-1.5 rounded-lg">
-                                    🏆 Prizes & Giveaways
-                                </span>
-                            </div>
-                            <p className="text-xs font-black text-transparent bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text uppercase tracking-wider">
-                                ⚡ Don't Miss Out! Register Now
-                            </p>
-                        </div>
-                    </div>
-                </motion.div>
+                        </motion.div>
+                    );
+                })()}
 
 
                 {/* Header Section */}
