@@ -3332,6 +3332,17 @@ const AdminDashboard = () => {
                                     <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-1 italic">Tactical deployment data & participation audit</p>
                                 </div>
                                 <div className="flex items-center gap-4">
+                                    {selectedEventDetails.status === 'LIVE' && (
+                                        <button
+                                            onClick={() => {
+                                                setShowEventDetailModal(false);
+                                                handleOpenEditLiveEvent(selectedEventDetails);
+                                            }}
+                                            className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl flex items-center gap-2 transition-all shadow-lg"
+                                        >
+                                            <Edit className="w-4 h-4" /> Edit Details
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => handleOpenEditOrganizer(selectedEventDetails)}
                                         className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase tracking-widest rounded-xl flex items-center gap-2 transition-all border border-white/10"
@@ -4200,9 +4211,9 @@ const AdminDashboard = () => {
                                     <input
                                         type="text"
                                         value={liveEventEditData.venue}
-                                        onChange={(e) => setLiveEventEditData({...liveEventEditData, venue: e.target.value })}
-                                    placeholder="e.g., Main Auditorium, Block A"
-                                    className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none focus:border-pink-500 focus:bg-white transition-all font-bold text-slate-800"
+                                        onChange={(e) => setLiveEventEditData({ ...liveEventEditData, venue: e.target.value })}
+                                        placeholder="e.g., Main Auditorium, Block A"
+                                        className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none focus:border-pink-500 focus:bg-white transition-all font-bold text-slate-800"
                                     />
                                 </div>
 
