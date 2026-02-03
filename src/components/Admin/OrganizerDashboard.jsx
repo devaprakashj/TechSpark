@@ -1305,6 +1305,19 @@ const OrganizerDashboard = () => {
         // Group by teams for Hackathon
         if (isHackathonTeamWise) {
             const teamMap = new Map();
+
+            // Fetch all students data for mobile/email
+            const studentsQuery = collection(db, 'students');
+            const studentsSnap = await getDocs(studentsQuery);
+            const studentsMap = new Map();
+            studentsSnap.docs.forEach(doc => {
+                const data = doc.data();
+                studentsMap.set(data.registerNumber, {
+                    mobile: data.mobile || data.phone || 'N/A',
+                    email: data.email || 'N/A'
+                });
+            });
+
             eventRegs.forEach(r => {
                 const code = r.teamCode || 'INDIVIDUAL';
                 if (!teamMap.has(code)) {
@@ -1317,6 +1330,14 @@ const OrganizerDashboard = () => {
                     });
                 }
                 const team = teamMap.get(code);
+
+                // Add student details to registration
+                const studentDetails = studentsMap.get(r.studentRoll || r.registerNumber);
+                if (studentDetails) {
+                    r.studentMobile = studentDetails.mobile;
+                    r.studentEmail = studentDetails.email;
+                }
+
                 team.members.push(r);
                 if (r.teamRole === 'LEADER') {
                     team.leader = r;
@@ -1440,7 +1461,7 @@ const OrganizerDashboard = () => {
 
         // Dynamic Header Generation for Team-wise Hackathon
         if (isHackathonTeamWise) {
-            tableHead = [['#', 'TEAM / MEMBER', 'ROLE', 'ROLL', 'DEPT', 'YR', 'STATUS']];
+            tableHead = [['#', 'TEAM / MEMBER', 'ROLE', 'ROLL', 'MOBILE', 'EMAIL', 'DEPT', 'YR', 'STATUS']];
 
             let rowIndex = 0;
             teamGroups.forEach((team, teamIdx) => {
@@ -1455,7 +1476,9 @@ const OrganizerDashboard = () => {
                     `[TEAM] ${team.teamName.toUpperCase()} [${team.teamCode}]`,
                     'TEAM',
                     `(${team.members.length})`,
-                    `PS: ${(team.problemStatement || 'N/A').substring(0, 35)}...`,
+                    '',
+                    `PS: ${(team.problemStatement || 'N/A').substring(0, 50)}...`,
+                    '',
                     '',
                     teamStatus
                 ]);
@@ -1473,6 +1496,8 @@ const OrganizerDashboard = () => {
                             `   - ${(m.studentName || 'N/A').toUpperCase()}`,
                             m.teamRole === 'LEADER' ? '[L] LEADER' : 'MEMBER',
                             m.studentRoll || 'N/A',
+                            m.studentMobile || 'N/A',
+                            m.studentEmail || 'N/A',
                             m.studentDept || 'N/A',
                             m.studentYear || 'N/A',
                             memberStatus
@@ -1481,7 +1506,7 @@ const OrganizerDashboard = () => {
 
                 // Spacer row between teams
                 if (teamIdx < teamGroups.length - 1) {
-                    tableData.push(['', '', '', '', '', '', '']);
+                    tableData.push(['', '', '', '', '', '', '', '', '']);
                 }
             });
         } else {
