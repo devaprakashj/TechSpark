@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Users, Star, RefreshCw, Crown, Medal, Award, Zap } from 'lucide-react';
+import { Trophy, Users, Star, RefreshCw, Crown, Medal, Award, Zap, Download } from 'lucide-react';
 import { collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useSearchParams } from 'react-router-dom';
@@ -147,6 +147,79 @@ const HackathonLeaderboard = () => {
         }
     };
 
+    // Download Winners Data with Team Details
+    const handleDownloadWinnersData = async () => {
+        try {
+            // Fetch all registrations for this event
+            const regsQuery = query(
+                collection(db, 'registrations'),
+                where('eventId', '==', eventId)
+            );
+            const regsSnap = await getDocs(regsQuery);
+            const registrations = regsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            // Fetch all students data
+            const studentsQuery = collection(db, 'students');
+            const studentsSnap = await getDocs(studentsQuery);
+            const studentsMap = new Map();
+            studentsSnap.docs.forEach(doc => {
+                const data = doc.data();
+                studentsMap.set(data.registerNumber, {
+                    name: data.name,
+                    registerNumber: data.registerNumber,
+                    mobile: data.mobile || data.phone || 'N/A',
+                    email: data.email || 'N/A',
+                    department: data.department || 'N/A',
+                    year: data.year || 'N/A'
+                });
+            });
+
+            // Build CSV data
+            let csvContent = 'Position,Team Name,Team Code,Problem Statement,Average Score,Total Score,Member Name,Register Number,Mobile Number,Email,Department,Year\n';
+
+            // Only include teams with scores (winners/participants)
+            const scoredTeams = teams.filter(t => t.scores.length > 0);
+
+            scoredTeams.forEach((team, idx) => {
+                const position = idx + 1;
+                const teamRegs = registrations.filter(r => r.teamCode === team.teamCode);
+
+                if (teamRegs.length === 0) {
+                    // No members found, add a row with team info only
+                    csvContent += `${position},"${team.teamName}",${team.teamCode},"${team.problemStatement}",${team.averageScore.toFixed(2)},${team.totalScore.toFixed(2)},No members found,N/A,N/A,N/A,N/A,N/A\n`;
+                } else {
+                    // Add a row for each team member
+                    teamRegs.forEach((reg, memberIdx) => {
+                        const studentData = studentsMap.get(reg.registerNumber) || {
+                            name: reg.studentName || 'N/A',
+                            registerNumber: reg.registerNumber || 'N/A',
+                            mobile: 'N/A',
+                            email: 'N/A',
+                            department: 'N/A',
+                            year: 'N/A'
+                        };
+
+                        csvContent += `${memberIdx === 0 ? position : ''},${memberIdx === 0 ? `"${team.teamName}"` : ''},${memberIdx === 0 ? team.teamCode : ''},${memberIdx === 0 ? `"${team.problemStatement}"` : ''},${memberIdx === 0 ? team.averageScore.toFixed(2) : ''},${memberIdx === 0 ? team.totalScore.toFixed(2) : ''},"${studentData.name}",${studentData.registerNumber},${studentData.mobile},${studentData.email},${studentData.department},${studentData.year}\n`;
+                    });
+                }
+            });
+
+            // Create and download file
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `${eventData?.title || 'Hackathon'}_Winners_Data_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (error) {
+            console.error('Error downloading winners data:', error);
+            alert('Failed to download winners data. Please try again.');
+        }
+    };
+
     if (error) {
         return (
             <div className="min-h-screen bg-slate-900 flex items-center justify-center p-8">
@@ -193,6 +266,20 @@ const HackathonLeaderboard = () => {
                 >
                     {teams.length} Teams Competing • {teams.filter(t => t.scores.length > 0).length} Scored
                 </motion.p>
+
+                {/* Download Button */}
+                {teams.filter(t => t.scores.length > 0).length > 0 && (
+                    <motion.button
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4 }}
+                        onClick={handleDownloadWinnersData}
+                        className="mt-6 px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-2xl shadow-green-500/30 transition-all flex items-center gap-3 mx-auto"
+                    >
+                        <Download className="w-5 h-5" />
+                        Download Winners Data
+                    </motion.button>
+                )}
             </header>
 
             {/* Loading State */}
@@ -284,16 +371,16 @@ const HackathonLeaderboard = () => {
                                         transition={{ delay: idx * 0.05 }}
                                         layout
                                         className={`rounded-2xl p-4 md:p-5 flex items-center justify-between transition-all ${hasScore
-                                                ? idx < 3
-                                                    ? `${style.bg} text-white ${style.shadow}`
-                                                    : 'bg-white/10 backdrop-blur-lg border border-white/20'
-                                                : 'bg-white/5 border border-white/10 opacity-60'
+                                            ? idx < 3
+                                                ? `${style.bg} text-white ${style.shadow}`
+                                                : 'bg-white/10 backdrop-blur-lg border border-white/20'
+                                            : 'bg-white/5 border border-white/10 opacity-60'
                                             }`}
                                     >
                                         <div className="flex items-center gap-4">
                                             <div className={`w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center font-black text-lg ${hasScore && idx < 3
-                                                    ? 'bg-white/20'
-                                                    : 'bg-white/10'
+                                                ? 'bg-white/20'
+                                                : 'bg-white/10'
                                                 }`}>
                                                 {hasScore && style.icon ? style.icon : `#${idx + 1}`}
                                             </div>
@@ -317,8 +404,8 @@ const HackathonLeaderboard = () => {
                                                             <Star
                                                                 key={i}
                                                                 className={`w-3 h-3 ${i < Math.round((team.averageScore / 50) * 5)
-                                                                        ? idx < 3 ? 'text-white fill-white' : 'text-yellow-400 fill-yellow-400'
-                                                                        : 'text-white/30'
+                                                                    ? idx < 3 ? 'text-white fill-white' : 'text-yellow-400 fill-yellow-400'
+                                                                    : 'text-white/30'
                                                                     }`}
                                                             />
                                                         ))}
