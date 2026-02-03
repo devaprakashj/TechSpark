@@ -1247,6 +1247,98 @@ const OrganizerDashboard = () => {
                 currentY = doc.lastAutoTable.finalY + 12;
             });
 
+            // --- TEAM MEMBER DETAILS SECTION ---
+            // Fetch student details
+            const studentsQuery = collection(db, 'students');
+            const studentsSnap = await getDocs(studentsQuery);
+            const studentsMap = new Map();
+            studentsSnap.docs.forEach(docSnap => {
+                const data = docSnap.data();
+                studentsMap.set(data.registerNumber, {
+                    mobile: data.mobile || data.phone || 'N/A',
+                    email: data.email || 'N/A'
+                });
+            });
+
+            // Fetch registrations for this event
+            const regsQuery = query(
+                collection(db, 'registrations'),
+                where('eventId', '==', selectedEvent.id)
+            );
+            const regsSnap = await getDocs(regsQuery);
+            const eventRegs = regsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+            // Add new page for team details
+            doc.addPage();
+            currentY = 20;
+
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(15, 23, 42);
+            doc.text('Team Member Details', 14, currentY);
+            currentY += 10;
+
+            // Group by team
+            teamScores.forEach((team, teamIdx) => {
+                const teamMembers = eventRegs.filter(r => r.teamCode === team.teamCode);
+
+                if (teamMembers.length === 0) return;
+
+                // Check if we need a new page
+                if (currentY > 240) {
+                    doc.addPage();
+                    currentY = 20;
+                }
+
+                // Team header
+                doc.setFontSize(12);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(79, 70, 229); // indigo-600
+                doc.text(`Team: ${team.teamName} (${team.teamCode})`, 14, currentY);
+                currentY += 6;
+
+                // Member table
+                const memberHeaders = [['#', 'Name', 'Roll Number', 'Mobile', 'Email', 'Dept', 'Year', 'Role']];
+                const memberData = teamMembers
+                    .sort((a, b) => (a.teamRole === 'LEADER' ? -1 : 1))
+                    .map((member, idx) => {
+                        const studentDetails = studentsMap.get(member.studentRoll || member.registerNumber);
+                        return [
+                            idx + 1,
+                            (member.studentName || 'N/A').toUpperCase(),
+                            member.studentRoll || member.registerNumber || 'N/A',
+                            studentDetails?.mobile || member.studentPhone || 'N/A',
+                            studentDetails?.email || 'N/A',
+                            member.studentDept || 'N/A',
+                            member.studentYear || 'N/A',
+                            member.teamRole === 'LEADER' ? 'LEADER' : 'MEMBER'
+                        ];
+                    });
+
+                autoTable(doc, {
+                    startY: currentY,
+                    head: memberHeaders,
+                    body: memberData,
+                    theme: 'striped',
+                    headStyles: { fillColor: [71, 85, 105], textColor: 255, fontSize: 8 },
+                    bodyStyles: { fontSize: 8 },
+                    alternateRowStyles: { fillColor: [248, 250, 252] },
+                    columnStyles: {
+                        0: { cellWidth: 8 },    // #
+                        1: { cellWidth: 35 },   // Name
+                        2: { cellWidth: 25 },   // Roll
+                        3: { cellWidth: 28 },   // Mobile
+                        4: { cellWidth: 45 },   // Email
+                        5: { cellWidth: 15 },   // Dept
+                        6: { cellWidth: 12 },   // Year
+                        7: { cellWidth: 20 }    // Role
+                    },
+                    margin: { left: 14, right: 14 }
+                });
+
+                currentY = doc.lastAutoTable.finalY + 10;
+            });
+
             // Footer
             const pageCount = doc.internal.getNumberOfPages();
             for (let i = 1; i <= pageCount; i++) {
