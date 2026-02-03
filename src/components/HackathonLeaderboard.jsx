@@ -168,14 +168,13 @@ const HackathonLeaderboard = () => {
                     name: data.name,
                     registerNumber: data.registerNumber,
                     mobile: data.mobile || data.phone || 'N/A',
-                    email: data.email || 'N/A',
                     department: data.department || 'N/A',
                     year: data.year || 'N/A'
                 });
             });
 
             // Build CSV data
-            let csvContent = 'Position,Team Name,Team Code,Problem Statement,Average Score,Total Score,Member Name,Register Number,Mobile Number,Email,Department,Year\n';
+            let csvContent = 'Position,Team Name,Team Code,Problem Statement,Average Score,Total Score,Member Name,Register Number,Mobile Number,Department,Year\n';
 
             // Only include teams with scores (winners/participants)
             const scoredTeams = teams.filter(t => t.scores.length > 0);
@@ -186,7 +185,7 @@ const HackathonLeaderboard = () => {
 
                 if (teamRegs.length === 0) {
                     // No members found, add a row with team info only
-                    csvContent += `${position},"${team.teamName}",${team.teamCode},"${team.problemStatement}",${team.averageScore.toFixed(2)},${team.totalScore.toFixed(2)},No members found,N/A,N/A,N/A,N/A,N/A\n`;
+                    csvContent += `${position},"${team.teamName}",${team.teamCode},"${team.problemStatement}",${team.averageScore.toFixed(2)},${team.totalScore.toFixed(2)},No members found,N/A,N/A,N/A,N/A\n`;
                 } else {
                     // Add a row for each team member
                     teamRegs.forEach((reg, memberIdx) => {
@@ -194,12 +193,11 @@ const HackathonLeaderboard = () => {
                             name: reg.studentName || 'N/A',
                             registerNumber: reg.registerNumber || 'N/A',
                             mobile: 'N/A',
-                            email: 'N/A',
                             department: 'N/A',
                             year: 'N/A'
                         };
 
-                        csvContent += `${memberIdx === 0 ? position : ''},${memberIdx === 0 ? `"${team.teamName}"` : ''},${memberIdx === 0 ? team.teamCode : ''},${memberIdx === 0 ? `"${team.problemStatement}"` : ''},${memberIdx === 0 ? team.averageScore.toFixed(2) : ''},${memberIdx === 0 ? team.totalScore.toFixed(2) : ''},"${studentData.name}",${studentData.registerNumber},${studentData.mobile},${studentData.email},${studentData.department},${studentData.year}\n`;
+                        csvContent += `${memberIdx === 0 ? position : ''},${memberIdx === 0 ? `"${team.teamName}"` : ''},${memberIdx === 0 ? team.teamCode : ''},${memberIdx === 0 ? `"${team.problemStatement}"` : ''},${memberIdx === 0 ? team.averageScore.toFixed(2) : ''},${memberIdx === 0 ? team.totalScore.toFixed(2) : ''},"${studentData.name}",${studentData.registerNumber},${studentData.mobile},${studentData.department},${studentData.year}\n`;
                     });
                 }
             });

@@ -1255,8 +1255,7 @@ const OrganizerDashboard = () => {
             studentsSnap.docs.forEach(docSnap => {
                 const data = docSnap.data();
                 studentsMap.set(data.registerNumber, {
-                    mobile: data.mobile || data.phone || 'N/A',
-                    email: data.email || 'N/A'
+                    mobile: data.mobile || data.phone || 'N/A'
                 });
             });
 
@@ -1298,7 +1297,7 @@ const OrganizerDashboard = () => {
                 currentY += 6;
 
                 // Member table
-                const memberHeaders = [['#', 'Name', 'Roll Number', 'Mobile', 'Email', 'Dept', 'Year', 'Role']];
+                const memberHeaders = [['#', 'Name', 'Roll Number', 'Mobile', 'Dept', 'Year', 'Role']];
                 const memberData = teamMembers
                     .sort((a, b) => (a.teamRole === 'LEADER' ? -1 : 1))
                     .map((member, idx) => {
@@ -1308,7 +1307,6 @@ const OrganizerDashboard = () => {
                             (member.studentName || 'N/A').toUpperCase(),
                             member.studentRoll || member.registerNumber || 'N/A',
                             studentDetails?.mobile || member.studentPhone || 'N/A',
-                            studentDetails?.email || 'N/A',
                             member.studentDept || 'N/A',
                             member.studentYear || 'N/A',
                             member.teamRole === 'LEADER' ? 'LEADER' : 'MEMBER'
@@ -1325,13 +1323,12 @@ const OrganizerDashboard = () => {
                     alternateRowStyles: { fillColor: [248, 250, 252] },
                     columnStyles: {
                         0: { cellWidth: 8 },    // #
-                        1: { cellWidth: 35 },   // Name
-                        2: { cellWidth: 25 },   // Roll
-                        3: { cellWidth: 28 },   // Mobile
-                        4: { cellWidth: 45 },   // Email
-                        5: { cellWidth: 15 },   // Dept
-                        6: { cellWidth: 12 },   // Year
-                        7: { cellWidth: 20 }    // Role
+                        1: { cellWidth: 40 },   // Name
+                        2: { cellWidth: 30 },   // Roll
+                        3: { cellWidth: 35 },   // Mobile
+                        4: { cellWidth: 20 },   // Dept
+                        5: { cellWidth: 15 },   // Year
+                        6: { cellWidth: 25 }    // Role
                     },
                     margin: { left: 14, right: 14 }
                 });
@@ -1405,8 +1402,7 @@ const OrganizerDashboard = () => {
             studentsSnap.docs.forEach(doc => {
                 const data = doc.data();
                 studentsMap.set(data.registerNumber, {
-                    mobile: data.mobile || data.phone || 'N/A',
-                    email: data.email || 'N/A'
+                    mobile: data.mobile || data.phone || 'N/A'
                 });
             });
 
@@ -1427,7 +1423,6 @@ const OrganizerDashboard = () => {
                 const studentDetails = studentsMap.get(r.studentRoll || r.registerNumber);
                 if (studentDetails) {
                     r.studentMobile = studentDetails.mobile;
-                    r.studentEmail = studentDetails.email;
                 }
 
                 team.members.push(r);
@@ -1553,7 +1548,7 @@ const OrganizerDashboard = () => {
 
         // Dynamic Header Generation for Team-wise Hackathon
         if (isHackathonTeamWise) {
-            tableHead = [['#', 'TEAM / MEMBER', 'ROLE', 'ROLL', 'MOBILE', 'EMAIL', 'DEPT', 'YR', 'STATUS']];
+            tableHead = [['#', 'TEAM / MEMBER', 'ROLE', 'ROLL', 'MOBILE', 'DEPT', 'YR', 'STATUS']];
 
             let rowIndex = 0;
             teamGroups.forEach((team, teamIdx) => {
@@ -1570,7 +1565,6 @@ const OrganizerDashboard = () => {
                     `(${team.members.length})`,
                     '',
                     `PS: ${(team.problemStatement || 'N/A').substring(0, 50)}...`,
-                    '',
                     '',
                     teamStatus
                 ]);
@@ -1589,7 +1583,6 @@ const OrganizerDashboard = () => {
                             m.teamRole === 'LEADER' ? '[L] LEADER' : 'MEMBER',
                             m.studentRoll || 'N/A',
                             m.studentMobile || 'N/A',
-                            m.studentEmail || 'N/A',
                             m.studentDept || 'N/A',
                             m.studentYear || 'N/A',
                             memberStatus
@@ -1598,7 +1591,7 @@ const OrganizerDashboard = () => {
 
                 // Spacer row between teams
                 if (teamIdx < teamGroups.length - 1) {
-                    tableData.push(['', '', '', '', '', '', '', '', '']);
+                    tableData.push(['', '', '', '', '', '', '', '']);
                 }
             });
         } else {
