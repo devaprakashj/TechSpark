@@ -1122,27 +1122,66 @@ const AdminDashboard = () => {
             await addLogos();
             drawBranding();
 
-            // --- PAGE 1: COVER PAGE ---
+            // --- PAGE 1: ENHANCED COVER PAGE ---
+
+            // Main Title
+            doc.setTextColor(30, 41, 59); // Dark slate
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(40);
+            doc.text('TECHSPARK CLUB', pageWidth / 2, 80, { align: 'center' });
+
+            // Subtitle
+            doc.setFontSize(24);
+            doc.setTextColor(59, 130, 246); // Blue-500
+            doc.text('EVENT FINAL REPORT', pageWidth / 2, 100, { align: 'center' });
+
+            // Decorative line
+            doc.setDrawColor(59, 130, 246);
+            doc.setLineWidth(1.5);
+            doc.line(pageWidth / 2 - 60, 108, pageWidth / 2 + 60, 108);
+
+            // Event Title
+            doc.setFontSize(18);
             doc.setTextColor(15, 23, 42);
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(36);
-            doc.text('TECHSPARK CLUB', pageWidth / 2, 85, { align: 'center' });
-            doc.text('EVENT REPORT', pageWidth / 2, 100, { align: 'center' });
+            const eventTitle = event.title.toUpperCase();
+            const titleLines = doc.splitTextToSize(eventTitle, pageWidth - 60);
+            doc.text(titleLines, pageWidth / 2, 130, { align: 'center' });
 
-            doc.setFillColor(37, 99, 235);
-            doc.rect(pageWidth / 2 - 50, 110, 100, 3, 'F');
+            // Info Box
+            const boxY = 155;
+            doc.setFillColor(248, 250, 252); // Gray-50
+            doc.setDrawColor(226, 232, 240); // Gray-200
+            doc.setLineWidth(0.5);
+            doc.roundedRect(30, boxY, pageWidth - 60, 45, 3, 3, 'FD');
 
-            doc.setFontSize(20);
-            doc.setTextColor(51, 65, 85);
-            doc.text(event.title.toUpperCase(), pageWidth / 2, 135, { align: 'center' });
-
-            doc.setFontSize(11);
+            // Info Box Content
+            doc.setFontSize(9);
             doc.setFont('helvetica', 'normal');
-            doc.text(`EVENT DATE: ${event.date} | VENUE: ${event.venue || 'CAMPUS'}`, pageWidth / 2, 145, { align: 'center' });
+            doc.setTextColor(71, 85, 105); // Gray-600
 
+            const infoY = boxY + 12;
+            doc.text(`Event Date: ${event.date}`, 40, infoY);
+            doc.text(`Venue: ${event.venue || 'RIT Campus'}`, 40, infoY + 8);
+            doc.text(`Total Registrations: ${eventRegs.length}`, 40, infoY + 16);
+            doc.text(`Attendance Rate: ${attendanceRate}%`, 40, infoY + 24);
+
+            doc.text(`Event Type: ${event.type || 'General'}`, pageWidth / 2 + 10, infoY);
+            doc.text(`Avg Rating: ${avgRating}/5.0`, pageWidth / 2 + 10, infoY + 8);
+            doc.text(`Report ID: ${reportId}`, pageWidth / 2 + 10, infoY + 16);
+            doc.text(`Generated: ${new Date().toLocaleDateString('en-IN')}`, pageWidth / 2 + 10, infoY + 24);
+
+            // Confidential Notice
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'italic');
+            doc.setTextColor(107, 114, 128); // Gray-500
+            doc.text('CONFIDENTIAL - For Internal Use Only', pageWidth / 2, 220, { align: 'center' });
+
+            // Authorization
+            doc.setFontSize(10);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(37, 99, 235);
-            doc.text('AUTHORIZED BY TECHSPARK CLUB ADMINISTRATION', pageWidth / 2, 170, { align: 'center' });
+            doc.text('Authorized by TechSpark Club Administration', pageWidth / 2, 240, { align: 'center' });
 
             addPageFooter(1);
 
