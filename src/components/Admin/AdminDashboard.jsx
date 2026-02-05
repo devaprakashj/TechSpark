@@ -1305,11 +1305,22 @@ const AdminDashboard = () => {
             doc.setTextColor(15, 23, 42);
             doc.text('EVENT STATUS: COMPLETED SUCCESSFULLY', 15, 95);
 
-            doc.line(15, 130, 70, 130);
-            doc.line(pageWidth - 70, 130, pageWidth - 15, 130);
+            // Three signature lines
+            const lineY = 130;
+            const spacing = (pageWidth - 30) / 3;
+
+            // Signature line 1
+            doc.line(15, lineY, 15 + spacing - 10, lineY);
             doc.setFontSize(8);
-            doc.text('ADMIN SIGNATURE', 15, 135);
-            doc.text('CLUB PRESIDENT', pageWidth - 70, 135);
+            doc.text('CLUB COORDINATOR IN-CHARGE', 15, lineY + 5);
+
+            // Signature line 2
+            doc.line(15 + spacing, lineY, 15 + (spacing * 2) - 10, lineY);
+            doc.text('OVERALL CLUBS COORDINATOR', 15 + spacing, lineY + 5);
+
+            // Signature line 3
+            doc.line(15 + (spacing * 2), lineY, pageWidth - 15, lineY);
+            doc.text('PRINCIPAL', 15 + (spacing * 2), lineY + 5);
 
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(12);
