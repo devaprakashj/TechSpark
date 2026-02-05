@@ -49,7 +49,6 @@ import { db } from '../../firebase';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import QRCode from 'qrcode';
 import emailjs from '@emailjs/browser';
 import ritLogo from '../../assets/rit-logo.png';
 import techsparkLogo from '../../assets/techspark-logo.png';
@@ -1145,31 +1144,6 @@ const AdminDashboard = () => {
             doc.setTextColor(37, 99, 235);
             doc.text('AUTHORIZED BY TECHSPARK CLUB ADMINISTRATION', pageWidth / 2, 170, { align: 'center' });
 
-            // Executive Summary Box
-            doc.setFillColor(248, 250, 252); // Light gray background
-            doc.setDrawColor(37, 99, 235);
-            doc.setLineWidth(0.5);
-            doc.roundedRect(25, 185, pageWidth - 50, 60, 3, 3, 'FD');
-
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(37, 99, 235);
-            doc.text('AT A GLANCE', pageWidth / 2, 195, { align: 'center' });
-
-            // Key metrics in 2x2 grid
-            doc.setFontSize(8);
-            doc.setTextColor(71, 85, 105);
-            const col1 = 40;
-            const col2 = pageWidth / 2 + 20;
-            const row1 = 210;
-            const row2 = 225;
-
-            doc.setFont('helvetica', 'bold');
-            doc.text(`✓ ${eventRegs.length} REGISTRATIONS`, col1, row1);
-            doc.text(`✓ ${attendanceRate}% ATTENDANCE`, col2, row1);
-            doc.text(`✓ ${avgRating}/5.0 SATISFACTION`, col1, row2);
-            doc.text(`✓ ${Object.keys(analysis.depts).length} DEPARTMENTS`, col2, row2);
-
             addPageFooter(1);
 
             // --- PAGE 2: EXECUTIVE INTELLIGENCE SUMMARY ---
@@ -1201,57 +1175,6 @@ const AdminDashboard = () => {
             });
 
             addPageFooter(2);
-
-            // --- PAGE 2.5: VISUAL ANALYTICS ---
-            doc.addPage();
-            drawBranding();
-            await addLogos();
-            addWatermark('ANALYTICS');
-
-            doc.setFontSize(16);
-            doc.setTextColor(15, 23, 42);
-            doc.setFont('helvetica', 'bold');
-            doc.text('VISUAL ANALYTICS', 15, 45);
-
-            // Department-wise Pie Chart (Simple representation)
-            doc.setFontSize(12);
-            doc.text('Department Distribution', 20, 65);
-
-            const deptEntries = Object.entries(analysis.depts).sort((a, b) => b[1] - a[1]);
-            const colors = [[99, 102, 241], [16, 185, 129], [251, 146, 60], [236, 72, 153], [14, 165, 233]];
-
-            // Simple bar chart for departments
-            let barY = 75;
-            deptEntries.slice(0, 5).forEach(([dept, count], idx) => {
-                const barWidth = (count / eventRegs.length) * 120;
-                doc.setFillColor(...(colors[idx % colors.length]));
-                doc.rect(40, barY, barWidth, 8, 'F');
-                doc.setFontSize(8);
-                doc.setTextColor(60);
-                doc.text(`${dept}: ${count} (${((count / eventRegs.length) * 100).toFixed(1)}%)`, 45, barY + 6);
-                barY += 12;
-            });
-
-            // Attendance Stats Visual
-            doc.setFontSize(12);
-            doc.setFont('helvetica', 'bold');
-            doc.text('Attendance Overview', 20, 145);
-
-            // Simple attendance bar
-            const presentWidth = (presentCount / eventRegs.length) * 150;
-            const absentWidth = (absentCount / eventRegs.length) * 150;
-
-            doc.setFillColor(16, 185, 129); // Green
-            doc.rect(40, 155, presentWidth, 15, 'F');
-            doc.setFillColor(239, 68, 68); // Red
-            doc.rect(40 + presentWidth, 155, absentWidth, 15, 'F');
-
-            doc.setFontSize(9);
-            doc.setTextColor(255);
-            doc.text(`${presentCount} Present (${attendanceRate}%)`, 45, 164);
-            doc.text(`${absentCount} Absent`, 45 + presentWidth + 5, 164);
-
-            addPageFooter(3);
 
             // --- PAGE 3: PARTICIPANT MANIFEST ---
             doc.addPage();
@@ -1364,163 +1287,6 @@ const AdminDashboard = () => {
 
             addPageFooter(5);
 
-            // --- HACKATHON WINNERS SECTION (Only for Hackathon events) ---
-            if (event.type === 'Hackathon' || event.isTeamEvent) {
-                try {
-                    // Fetch hackathon scores
-                    const scoresQuery = query(
-                        collection(db, 'hackathonScores'),
-                        where('eventId', '==', event.id)
-                    );
-                    const scoresSnap = await getDocs(scoresQuery);
-                    const scores = scoresSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-                    if (scores.length > 0) {
-                        // Group by team and calculate averages
-                        const teamScores = new Map();
-                        scores.forEach(score => {
-                            if (!teamScores.has(score.teamCode)) {
-                                teamScores.set(score.teamCode, {
-                                    teamCode: score.teamCode,
-                                    teamName: score.teamName || 'Unknown Team',
-                                    scores: [],
-                                    totalScore: 0,
-                                    averageScore: 0
-                                });
-                            }
-                            teamScores.get(score.teamCode).scores.push(score);
-                        });
-
-                        // Calculate averages and sort
-                        const rankedTeams = Array.from(teamScores.values())
-                            .map(team => {
-                                const total = team.scores.reduce((sum, s) => sum + (s.totalScore || 0), 0);
-                                team.totalScore = total;
-                                team.averageScore = total / team.scores.length;
-                                return team;
-                            })
-                            .sort((a, b) => b.averageScore - a.averageScore);
-
-                        // Add Winners Page
-                        doc.addPage();
-                        drawBranding();
-                        await addLogos();
-                        addWatermark('WINNERS');
-
-                        doc.setFontSize(16);
-                        doc.setTextColor(15, 23, 42);
-                        doc.setFont('helvetica', 'bold');
-                        doc.text('HACKATHON RESULTS & WINNERS', 15, 45);
-
-                        // Top 3 Winners
-                        let winnerY = 60;
-                        const medals = ['🥇', '🥈', '🥉'];
-                        const prizes = ['1ST PLACE', '2ND PLACE', '3RD PLACE'];
-
-                        rankedTeams.slice(0, 3).forEach((team, idx) => {
-                            doc.setFillColor(idx === 0 ? [255, 215, 0] : idx === 1 ? [192, 192, 192] : [205, 127, 50]);
-                            doc.roundedRect(20, winnerY, pageWidth - 40, 30, 2, 2, 'F');
-
-                            doc.setFontSize(12);
-                            doc.setTextColor(0);
-                            doc.setFont('helvetica', 'bold');
-                            doc.text(`${medals[idx]} ${prizes[idx]}`, 25, winnerY + 10);
-                            doc.setFontSize(10);
-                            doc.text(`Team: ${team.teamName} (${team.teamCode})`, 25, winnerY + 18);
-                            doc.setFontSize(9);
-                            doc.setFont('helvetica', 'normal');
-                            doc.text(`Average Score: ${team.averageScore.toFixed(2)} | Judges: ${team.scores.length}`, 25, winnerY + 25);
-
-                            winnerY += 35;
-                        });
-
-                        // Judge Scores Table
-                        if (rankedTeams.length > 0) {
-                            doc.setFontSize(12);
-                            doc.setFont('helvetica', 'bold');
-                            doc.setTextColor(15, 23, 42);
-                            doc.text('Detailed Judge Evaluations', 20, winnerY + 10);
-
-                            const judgeTableData = [];
-                            rankedTeams.slice(0, 5).forEach((team, idx) => {
-                                judgeTableData.push([`${idx + 1}`, team.teamName, team.averageScore.toFixed(2), team.scores.length, '★'.repeat(Math.round(team.averageScore / 10))]);
-                            });
-
-                            autoTable(doc, {
-                                startY: winnerY + 15,
-                                head: [['Rank', 'Team Name', 'Avg Score', 'Judges', 'Rating']],
-                                body: judgeTableData,
-                                headStyles: { fillColor: [99, 102, 241] },
-                                styles: { fontSize: 8 }
-                            });
-                        }
-
-                        addPageFooter(6);
-                    }
-                } catch (err) {
-                    console.log('No hackathon scores found', err);
-                }
-            }
-
-            // --- ORGANIZER DETAILS PAGE ---
-            doc.addPage();
-            drawBranding();
-            await addLogos();
-
-            doc.setFontSize(16);
-            doc.setTextColor(15, 23, 42);
-            doc.setFont('helvetica', 'bold');
-            doc.text('EVENT ORGANIZERS', 15, 45);
-
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(71, 85, 105);
-            doc.text(`Event Lead: ${event.organizer || 'TechSpark Club Administration'}`, 20, 65);
-            doc.text(`Event Type: ${event.type || 'General'}`, 20, 75);
-            doc.text(`Max Participants: ${event.maxParticipants || 'Unlimited'}`, 20, 85);
-            if (event.isTeamEvent) {
-                doc.text(`Team Size: ${event.maxTeamSize || '1-4'} members`, 20, 95);
-            }
-
-            // QR Code for Verification
-            doc.setFontSize(12);
-            doc.setFont('helvetica', 'bold');
-            doc.text('Report Verification', 20, 120);
-
-            try {
-                const qrData = `https://techspark-club.vercel.app/verify-report/${reportId}`;
-                const qrImage = await QRCode.toDataURL(qrData, { width: 100, margin: 1 });
-                doc.addImage(qrImage, 'PNG', 20, 130, 40, 40);
-
-                doc.setFontSize(8);
-                doc.setFont('helvetica', 'normal');
-                doc.text('Scan to verify report authenticity', 20, 175);
-                doc.text(`Report ID: ${reportId}`, 20, 182);
-            } catch (qrErr) {
-                console.log('QR generation failed', qrErr);
-            }
-
-            //Testimonials section
-            if (eventFeedback.length > 0) {
-                doc.setFontSize(12);
-                doc.setFont('helvetica', 'bold');
-                doc.setTextColor(15, 23, 42);
-                doc.text('Participant Testimonials', 20, 200);
-
-                let testY = 210;
-                eventFeedback.filter(f => f.rating >= 4 && (f.comment || f.feedback)).slice(0, 3).forEach(f => {
-                    const comment = (f.comment || f.feedback || '').substring(0, 100);
-                    doc.setFontSize(8);
-                    doc.setFont('helvetica', 'italic');
-                    doc.setTextColor(71, 85, 105);
-                    const lines = doc.splitTextToSize(`"${comment}..." - ${f.rating}★`, pageWidth - 50);
-                    doc.text(lines, 25, testY);
-                    testY += (lines.length * 4) + 5;
-                });
-            }
-
-            addPageFooter(7);
-
             // --- LAST PAGE: DECLARATION ---
             doc.addPage();
             drawBranding();
@@ -1565,7 +1331,7 @@ const AdminDashboard = () => {
             doc.setFontSize(12);
             doc.text('TECHSPARK CLUB - RIT CHENNAI', pageWidth / 2, pageHeight - 30, { align: 'center' });
 
-            addPageFooter(8);
+            addPageFooter(6);
 
             // FINAL SAVE
             doc.save(`${event.title.replace(/\s+/g, '_')}_Final_Report.pdf`);
