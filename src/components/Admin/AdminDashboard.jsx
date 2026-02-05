@@ -1342,7 +1342,7 @@ const AdminDashboard = () => {
 
                         // Winners Podium
                         let currentY = 60;
-                        const medals = ['🥇', '🥈', '🥉'];
+                        const medals = ['[GOLD]', '[SILVER]', '[BRONZE]'];
                         const colors = [[255, 215, 0], [192, 192, 192], [205, 127, 50]];
 
                         rankedTeams.slice(0, 3).forEach((team, idx) => {
