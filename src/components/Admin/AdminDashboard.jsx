@@ -1408,12 +1408,11 @@ const AdminDashboard = () => {
                         doc.setFont('helvetica', 'bold');
                         doc.text('Individual Judge Scores (Top 3 Teams)', 20, currentY);
                         currentY += 10;
-
                         rankedTeams.slice(0, 3).forEach((team, teamIdx) => {
                             if (currentY > 250) {
                                 doc.addPage();
                                 drawBranding();
-                                await addLogos();
+                                addLogos();
                                 currentY = 50;
                             }
 
