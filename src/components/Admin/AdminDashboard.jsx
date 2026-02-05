@@ -1305,22 +1305,27 @@ const AdminDashboard = () => {
             doc.setTextColor(15, 23, 42);
             doc.text('EVENT STATUS: COMPLETED SUCCESSFULLY', 15, 95);
 
-            // Three signature lines
+            // Three signature lines - properly aligned
             const lineY = 130;
-            const spacing = (pageWidth - 30) / 3;
+            const lineWidth = 50;
+            const totalWidth = pageWidth - 30;
+            const gap = (totalWidth - (lineWidth * 3)) / 2;
 
             // Signature line 1
-            doc.line(15, lineY, 15 + spacing - 10, lineY);
-            doc.setFontSize(8);
-            doc.text('CLUB COORDINATOR IN-CHARGE', 15, lineY + 5);
+            const x1 = 15;
+            doc.line(x1, lineY, x1 + lineWidth, lineY);
+            doc.setFontSize(7);
+            doc.text('CLUB COORDINATOR IN-CHARGE', x1 + (lineWidth / 2), lineY + 5, { align: 'center' });
 
             // Signature line 2
-            doc.line(15 + spacing, lineY, 15 + (spacing * 2) - 10, lineY);
-            doc.text('OVERALL CLUBS COORDINATOR', 15 + spacing, lineY + 5);
+            const x2 = x1 + lineWidth + gap;
+            doc.line(x2, lineY, x2 + lineWidth, lineY);
+            doc.text('OVERALL CLUBS COORDINATOR', x2 + (lineWidth / 2), lineY + 5, { align: 'center' });
 
             // Signature line 3
-            doc.line(15 + (spacing * 2), lineY, pageWidth - 15, lineY);
-            doc.text('PRINCIPAL', 15 + (spacing * 2), lineY + 5);
+            const x3 = x2 + lineWidth + gap;
+            doc.line(x3, lineY, x3 + lineWidth, lineY);
+            doc.text('PRINCIPAL', x3 + (lineWidth / 2), lineY + 5, { align: 'center' });
 
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(12);
