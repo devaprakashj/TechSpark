@@ -1287,6 +1287,166 @@ const AdminDashboard = () => {
 
             addPageFooter(5);
 
+            // --- HACKATHON JUDGE SCORES (Only for Hackathon events) ---
+            if (event.type === 'Hackathon' || event.isTeamEvent) {
+                try {
+                    // Fetch hackathon scores
+                    const scoresQuery = query(
+                        collection(db, 'hackathonScores'),
+                        where('eventId', '==', event.id)
+                    );
+                    const scoresSnap = await getDocs(scoresQuery);
+                    const scores = scoresSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+                    if (scores.length > 0) {
+                        // Group by team and calculate averages
+                        const teamScores = new Map();
+                        scores.forEach(score => {
+                            if (!teamScores.has(score.teamCode)) {
+                                teamScores.set(score.teamCode, {
+                                    teamCode: score.teamCode,
+                                    teamName: score.teamName || score.teamCode,
+                                    problemStatement: score.problemStatement || 'N/A',
+                                    scores: [],
+                                    totalScore: 0,
+                                    averageScore: 0
+                                });
+                            }
+                            teamScores.get(score.teamCode).scores.push({
+                                judgeName: score.judgeName || 'Anonymous Judge',
+                                totalScore: score.totalScore || 0,
+                                criteria: score.criteria || {}
+                            });
+                        });
+
+                        // Calculate averages and sort
+                        const rankedTeams = Array.from(teamScores.values())
+                            .map(team => {
+                                const total = team.scores.reduce((sum, s) => sum + s.totalScore, 0);
+                                team.totalScore = total;
+                                team.averageScore = total / team.scores.length;
+                                return team;
+                            })
+                            .sort((a, b) => b.averageScore - a.averageScore);
+
+                        // Add Judge Scores Page
+                        doc.addPage();
+                        drawBranding();
+                        await addLogos();
+                        addWatermark('JUDGING RESULTS');
+
+                        doc.setFontSize(16);
+                        doc.setTextColor(15, 23, 42);
+                        doc.setFont('helvetica', 'bold');
+                        doc.text('HACKATHON JUDGING RESULTS', 15, 45);
+
+                        // Winners Podium
+                        let currentY = 60;
+                        const medals = ['🥇', '🥈', '🥉'];
+                        const colors = [[255, 215, 0], [192, 192, 192], [205, 127, 50]];
+
+                        rankedTeams.slice(0, 3).forEach((team, idx) => {
+                            doc.setFillColor(...colors[idx]);
+                            doc.roundedRect(20, currentY, pageWidth - 40, 25, 2, 2, 'F');
+
+                            doc.setFontSize(11);
+                            doc.setTextColor(0);
+                            doc.setFont('helvetica', 'bold');
+                            doc.text(`${medals[idx]} ${idx + 1}${idx === 0 ? 'ST' : idx === 1 ? 'ND' : 'RD'} PLACE`, 25, currentY + 8);
+                            doc.setFontSize(9);
+                            doc.text(`Team: ${team.teamName}`, 25, currentY + 15);
+                            doc.setFontSize(8);
+                            doc.setFont('helvetica', 'normal');
+                            doc.text(`Average Score: ${team.averageScore.toFixed(2)} | Judges: ${team.scores.length}`, 25, currentY + 21);
+
+                            currentY += 30;
+                        });
+
+                        // Detailed Scoring Table
+                        currentY += 10;
+                        doc.setFontSize(12);
+                        doc.setFont('helvetica', 'bold');
+                        doc.setTextColor(15, 23, 42);
+                        doc.text('Detailed Judge Evaluations', 20, currentY);
+
+                        const judgeTableData = [];
+                        rankedTeams.forEach((team, idx) => {
+                            judgeTableData.push([
+                                `${idx + 1}`,
+                                team.teamName,
+                                team.averageScore.toFixed(2),
+                                team.scores.length,
+                                '★'.repeat(Math.min(5, Math.round(team.averageScore / 10)))
+                            ]);
+                        });
+
+                        autoTable(doc, {
+                            startY: currentY + 5,
+                            head: [['Rank', 'Team Name', 'Avg Score', 'Judges', 'Rating']],
+                            body: judgeTableData,
+                            headStyles: { fillColor: [99, 102, 241], fontSize: 9 },
+                            styles: { fontSize: 8 },
+                            columnStyles: {
+                                0: { cellWidth: 15 },
+                                1: { cellWidth: 70 },
+                                2: { cellWidth: 30 },
+                                3: { cellWidth: 20 },
+                                4: { cellWidth: 30 }
+                            }
+                        });
+
+                        // Individual Judge Scores (for top 3)
+                        currentY = doc.lastAutoTable.finalY + 15;
+                        if (currentY > 240) {
+                            doc.addPage();
+                            drawBranding();
+                            await addLogos();
+                            currentY = 50;
+                        }
+
+                        doc.setFontSize(12);
+                        doc.setFont('helvetica', 'bold');
+                        doc.text('Individual Judge Scores (Top 3 Teams)', 20, currentY);
+                        currentY += 10;
+
+                        rankedTeams.slice(0, 3).forEach((team, teamIdx) => {
+                            if (currentY > 250) {
+                                doc.addPage();
+                                drawBranding();
+                                await addLogos();
+                                currentY = 50;
+                            }
+
+                            doc.setFontSize(10);
+                            doc.setFont('helvetica', 'bold');
+                            doc.setTextColor(37, 99, 235);
+                            doc.text(`${medals[teamIdx]} ${team.teamName}`, 20, currentY);
+                            currentY += 5;
+
+                            const judgeData = team.scores.map(s => [
+                                s.judgeName,
+                                s.totalScore.toFixed(1)
+                            ]);
+
+                            autoTable(doc, {
+                                startY: currentY,
+                                head: [['Judge Name', 'Score']],
+                                body: judgeData,
+                                headStyles: { fillColor: [71, 85, 105], fontSize: 8 },
+                                styles: { fontSize: 7 },
+                                margin: { left: 25 }
+                            });
+
+                            currentY = doc.lastAutoTable.finalY + 10;
+                        });
+
+                        addPageFooter(6);
+                    }
+                } catch (err) {
+                    console.log('No hackathon scores found:', err);
+                }
+            }
+
             // --- LAST PAGE: DECLARATION ---
             doc.addPage();
             drawBranding();
@@ -1331,7 +1491,7 @@ const AdminDashboard = () => {
             doc.setFontSize(12);
             doc.text('TECHSPARK CLUB - RIT CHENNAI', pageWidth / 2, pageHeight - 30, { align: 'center' });
 
-            addPageFooter(6);
+            addPageFooter(7);
 
             // FINAL SAVE
             doc.save(`${event.title.replace(/\s+/g, '_')}_Final_Report.pdf`);
