@@ -1371,12 +1371,18 @@ const AdminDashboard = () => {
 
                         const judgeTableData = [];
                         rankedTeams.forEach((team, idx) => {
+                            // Text-based rating
+                            let rating = 'FAIR';
+                            if (team.averageScore >= 45) rating = 'EXCELLENT';
+                            else if (team.averageScore >= 40) rating = 'VERY GOOD';
+                            else if (team.averageScore >= 35) rating = 'GOOD';
+
                             judgeTableData.push([
                                 `${idx + 1}`,
                                 team.teamName,
                                 team.averageScore.toFixed(2),
                                 team.scores.length,
-                                '★'.repeat(Math.min(5, Math.round(team.averageScore / 10)))
+                                rating
                             ]);
                         });
 
