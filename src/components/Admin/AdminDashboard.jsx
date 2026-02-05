@@ -1116,7 +1116,7 @@ const AdminDashboard = () => {
             const addPageFooter = (pageNum) => {
                 doc.setFontSize(7);
                 doc.setTextColor(160);
-                doc.text(`CONFIDENTIAL MASTER REPORT | ID: ${reportId} | PAGE ${pageNum}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+                doc.text(`OFFICIAL EVENT REPORT | ID: ${reportId} | PAGE ${pageNum}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
             };
 
             await addLogos();
@@ -1126,8 +1126,8 @@ const AdminDashboard = () => {
             doc.setTextColor(15, 23, 42);
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(36);
-            doc.text('STRATEGIC', pageWidth / 2, 85, { align: 'center' });
-            doc.text('MISSION DOSSIER', pageWidth / 2, 100, { align: 'center' });
+            doc.text('TECHSPARK CLUB', pageWidth / 2, 85, { align: 'center' });
+            doc.text('EVENT REPORT', pageWidth / 2, 100, { align: 'center' });
 
             doc.setFillColor(37, 99, 235);
             doc.rect(pageWidth / 2 - 50, 110, 100, 3, 'F');
@@ -1138,11 +1138,11 @@ const AdminDashboard = () => {
 
             doc.setFontSize(11);
             doc.setFont('helvetica', 'normal');
-            doc.text(`MISSION DATE: ${event.date} | VENUE: ${event.venue || 'CAMPUS HUB'}`, pageWidth / 2, 145, { align: 'center' });
+            doc.text(`EVENT DATE: ${event.date} | VENUE: ${event.venue || 'CAMPUS'}`, pageWidth / 2, 145, { align: 'center' });
 
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(37, 99, 235);
-            doc.text('AUTHORIZED BY TECHSPARK CLUB CORE ADMINISTRATION', pageWidth / 2, 170, { align: 'center' });
+            doc.text('AUTHORIZED BY TECHSPARK CLUB ADMINISTRATION', pageWidth / 2, 170, { align: 'center' });
 
             addPageFooter(1);
 
@@ -1155,18 +1155,18 @@ const AdminDashboard = () => {
             doc.setFontSize(16);
             doc.setTextColor(15, 23, 42);
             doc.setFont('helvetica', 'bold');
-            doc.text('SECTION II: EXECUTIVE INTELLIGENCE SUMMARY', 15, 45);
+            doc.text('SECTION II: EVENT SUMMARY', 15, 45);
 
             autoTable(doc, {
                 startY: 55,
                 body: [
-                    ['TOTAL REGISTERED AGENTS', eventRegs.length.toString()],
-                    ['OPERATIONAL ATTENDANCE', presentCount.toString()],
-                    ['ATTENDANCE EFFICIENCY', `${attendanceRate}%`],
-                    ['DIVERSITY INDEX', `${Object.keys(analysis.depts).length} DEPTS REPRESENTED`],
-                    ['STRATEGIC HOTSPOT (DEPT)', `${topDept?.[0] || 'N/A'} (${topDept?.[1] || 0} REGS)`],
-                    ['STRATEGIC HOTSPOT (YEAR)', `${topYear?.[0] || 'N/A'} YEAR (${topYear?.[1] || 0} REGS)`],
-                    ['PARTICIPANT SATISFACTION (PULSE)', `${avgRating} / 5.0`]
+                    ['TOTAL REGISTRATIONS', eventRegs.length.toString()],
+                    ['ATTENDANCE COUNT', presentCount.toString()],
+                    ['ATTENDANCE RATE', `${attendanceRate}%`],
+                    ['DEPARTMENTS REPRESENTED', `${Object.keys(analysis.depts).length} Departments`],
+                    ['TOP DEPARTMENT', `${topDept?.[0] || 'N/A'} (${topDept?.[1] || 0} Students)`],
+                    ['TOP YEAR', `${topYear?.[0] || 'N/A'} Year (${topYear?.[1] || 0} Students)`],
+                    ['AVERAGE FEEDBACK RATING', `${avgRating} / 5.0`]
                 ],
                 theme: 'striped',
                 styles: { fontSize: 10, cellPadding: 8 },
@@ -1183,7 +1183,7 @@ const AdminDashboard = () => {
             addWatermark('REGISTRATION LOG');
 
             doc.setFontSize(16);
-            doc.text('SECTION III: GLOBAL PARTICIPANT MANIFEST', 15, 45);
+            doc.text('SECTION III: REGISTRATION LIST', 15, 45);
 
             const regTableData = eventRegs.map((r, i) => [
                 i + 1,
@@ -1195,7 +1195,7 @@ const AdminDashboard = () => {
 
             autoTable(doc, {
                 startY: 55,
-                head: [['#', 'FULL NAME', 'IDENTITY ROLL', 'DEPT', 'REG DATE']],
+                head: [['#', 'STUDENT NAME', 'ROLL NUMBER', 'DEPARTMENT', 'REGISTRATION DATE']],
                 body: regTableData,
                 headStyles: { fillColor: [15, 23, 42], fontSize: 8 },
                 styles: { fontSize: 7 }
@@ -1209,7 +1209,7 @@ const AdminDashboard = () => {
             addWatermark('ATTENDANCE AUDIT');
 
             doc.setFontSize(16);
-            doc.text('SECTION IV: VERIFIED ATTENDANCE AUDIT', 15, 45);
+            doc.text('SECTION IV: ATTENDANCE REPORT', 15, 45);
 
             const attendedList = eventRegs.filter(r => r.isAttended || r.status === 'Present').map((r, i) => [
                 i + 1,
@@ -1229,7 +1229,7 @@ const AdminDashboard = () => {
 
             autoTable(doc, {
                 startY: 55,
-                head: [['#', 'IDENTIFIED ATTENDEES', 'ROLL NO', 'DEPT', 'STATUS']],
+                head: [['#', 'STUDENT NAME', 'ROLL NUMBER', 'DEPARTMENT', 'STATUS']],
                 body: attendedList,
                 headStyles: { fillColor: [16, 185, 129] },
                 styles: { fontSize: 7 }
@@ -1237,7 +1237,7 @@ const AdminDashboard = () => {
 
             if (absentList.length > 0) {
                 doc.setFontSize(11);
-                doc.text('NON-PARTICIPATING (ABSENTEE) OVERVIEW:', 15, doc.lastAutoTable.finalY + 15);
+                doc.text('ABSENTEES LIST:', 15, doc.lastAutoTable.finalY + 15);
                 autoTable(doc, {
                     startY: doc.lastAutoTable.finalY + 20,
                     head: [['#', 'STUDENT NAME', 'ROLL NO', 'DEPT', 'STATUS']],
@@ -1255,16 +1255,16 @@ const AdminDashboard = () => {
             addWatermark('FEEDBACK INSIGHTS');
 
             doc.setFontSize(16);
-            doc.text('SECTION V: FEEDBACK & SENTIMENT ANALYSIS', 15, 45);
+            doc.text('SECTION V: FEEDBACK ANALYSIS', 15, 45);
 
             const recommendationRate = ((eventFeedback.filter(f => f.rating >= 4).length / (eventFeedback.length || 1)) * 100).toFixed(1);
 
             autoTable(doc, {
                 startY: 55,
-                head: [['INTELLIGENCE METRIC', 'SCORE / STATUS', 'PERFORMANCE']],
+                head: [['FEEDBACK METRIC', 'VALUE', 'RATING']],
                 body: [
-                    ['AVERAGE PARTICIPANT RATING', `${avgRating} / 5.0`, '★★★★★'.slice(0, Math.round(avgRating))],
-                    ['RECOMMENDATION PROBABILITY', `${recommendationRate}%`, 'HIGHLY STRATEGIC'],
+                    ['AVERAGE RATING', `${avgRating} / 5.0`, '★★★★★'.slice(0, Math.round(avgRating))],
+                    ['SATISFACTION RATE', `${recommendationRate}%`, 'EXCELLENT'],
                     ['TOTAL FEEDBACK LOGS', eventFeedback.length.toString(), 'VERIFIED']
                 ],
                 headStyles: { fillColor: [124, 58, 237] }
@@ -1273,7 +1273,7 @@ const AdminDashboard = () => {
             let currentY = doc.lastAutoTable.finalY + 20;
             doc.setFontSize(12);
             doc.setTextColor(16, 185, 129);
-            doc.text('👍 POSITIVE ENGAGEMENT HIGHLIGHTS', 15, currentY);
+            doc.text('👍 POSITIVE FEEDBACK HIGHLIGHTS', 15, currentY);
 
             currentY += 10;
             doc.setFontSize(9);
@@ -1294,31 +1294,31 @@ const AdminDashboard = () => {
 
             doc.setFontSize(16);
             doc.setFont('helvetica', 'bold');
-            doc.text('SECTION VI: INSTITUTIONAL DECLARATION', 15, 45);
+            doc.text('SECTION VI: OFFICIAL DECLARATION', 15, 45);
 
             doc.setFontSize(11);
             doc.setFont('helvetica', 'normal');
-            const declaration = 'This Strategic Mission Dossier serves as the final official record of the event conducted by TechSpark Club. All participation data and feedback intelligence have been authenticated through institutional QR check-ins and system-verified logs. This report is designed for long-term audit and quality assessment purposes.';
+            const declaration = 'This Event Report serves as the official record of the event conducted by TechSpark Club. All participation data and feedback have been verified through QR check-ins and system logs. This report is maintained for audit and quality assessment purposes.';
             doc.text(doc.splitTextToSize(declaration, pageWidth - 30), 15, 60);
 
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(15, 23, 42);
-            doc.text('MISSION CLASSIFICATION: SUCCESS', 15, 95);
+            doc.text('EVENT STATUS: COMPLETED SUCCESSFULLY', 15, 95);
 
             doc.line(15, 130, 70, 130);
             doc.line(pageWidth - 70, 130, pageWidth - 15, 130);
             doc.setFontSize(8);
-            doc.text('ADMINISTRATOR SIGNATURE', 15, 135);
-            doc.text('TECHSPARK BOARD CHAIR', pageWidth - 70, 135);
+            doc.text('ADMIN SIGNATURE', 15, 135);
+            doc.text('CLUB PRESIDENT', pageWidth - 70, 135);
 
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(12);
-            doc.text('TECHSPARK CLUB CENTRAL COMMAND', pageWidth / 2, pageHeight - 30, { align: 'center' });
+            doc.text('TECHSPARK CLUB - RIT CHENNAI', pageWidth / 2, pageHeight - 30, { align: 'center' });
 
             addPageFooter(6);
 
             // FINAL SAVE
-            doc.save(`${event.title.replace(/\s+/g, '_')}_Final_Dossier.pdf`);
+            doc.save(`${event.title.replace(/\s+/g, '_')}_Final_Report.pdf`);
         } catch (error) {
             console.error("MASTER REPORT FAILURE:", error);
             alert("The Master Report assembly system encountered a terminal error.");
