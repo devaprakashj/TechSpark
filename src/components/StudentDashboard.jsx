@@ -111,6 +111,16 @@ const StudentDashboard = () => {
     // --- GENDER UPDATE STATE ---
     const [selectedGender, setSelectedGender] = useState('');
     const [isUpdatingGender, setIsUpdatingGender] = useState(false);
+    const [showGenderModal, setShowGenderModal] = useState(false);
+
+    // Auto-show gender popup for existing students who haven't set gender
+    useEffect(() => {
+        if (user && !user.gender) {
+            // Small delay so dashboard loads first
+            const timer = setTimeout(() => setShowGenderModal(true), 1500);
+            return () => clearTimeout(timer);
+        }
+    }, [user]);
 
     const handleGenderUpdate = async () => {
         if (!selectedGender || !user?.uid) return;
@@ -118,9 +128,8 @@ const StudentDashboard = () => {
         try {
             const userRef = doc(db, 'users', user.uid);
             await updateDoc(userRef, { gender: selectedGender });
-            // No need to manually setUser — the onSnapshot listener in AuthContext
-            // will automatically sync the updated gender field in real-time.
-            alert('Gender updated successfully! ✅');
+            setShowGenderModal(false);
+            setSelectedGender('');
         } catch (error) {
             console.error('Error updating gender:', error);
             alert('Failed to update gender. Please try again.');
@@ -2049,25 +2058,12 @@ const StudentDashboard = () => {
                                         {user.gender ? (
                                             <p className="text-sm font-bold text-slate-700">{user.gender}</p>
                                         ) : (
-                                            <div className="flex items-center gap-1.5">
-                                                <select
-                                                    value={selectedGender}
-                                                    onChange={(e) => setSelectedGender(e.target.value)}
-                                                    className="flex-1 text-xs font-bold text-slate-700 bg-white border border-blue-200 rounded-lg px-2 py-1 outline-none appearance-none cursor-pointer"
-                                                >
-                                                    <option value="" disabled>Select</option>
-                                                    <option value="Male">Male</option>
-                                                    <option value="Female">Female</option>
-                                                    <option value="Other">Other</option>
-                                                </select>
-                                                <button
-                                                    onClick={handleGenderUpdate}
-                                                    disabled={!selectedGender || isUpdatingGender}
-                                                    className="px-2 py-1 bg-blue-600 text-white rounded-lg text-[9px] font-black uppercase disabled:opacity-40"
-                                                >
-                                                    {isUpdatingGender ? '...' : '✓'}
-                                                </button>
-                                            </div>
+                                            <button
+                                                onClick={() => setShowGenderModal(true)}
+                                                className="text-xs font-bold text-blue-600 hover:text-blue-700 underline underline-offset-2 cursor-pointer"
+                                            >
+                                                Tap to update
+                                            </button>
                                         )}
                                     </div>
                                 </div>
@@ -3002,7 +2998,97 @@ const StudentDashboard = () => {
                     document.body
                 )
             }
+            {/* Gender Update Popup Modal */}
+            {
+                showGenderModal && !user?.gender && createPortal(
+                    <AnimatePresence>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[99998] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+                        >
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                                className="bg-white rounded-[2rem] max-w-sm w-full shadow-2xl overflow-hidden"
+                            >
+                                {/* Header */}
+                                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white text-center relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12" />
+                                    <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/10 rounded-full -ml-8 -mb-8" />
+                                    <div className="relative z-10">
+                                        <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                                            <User className="w-7 h-7" />
+                                        </div>
+                                        <h2 className="text-lg font-black uppercase tracking-wide">Update Your Profile</h2>
+                                        <p className="text-blue-100 text-xs mt-1 font-medium">Please select your gender to complete your profile</p>
+                                    </div>
+                                </div>
+
+                                {/* Gender Options */}
+                                <div className="p-6 space-y-4">
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest text-center">Select Gender</p>
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {[
+                                            { value: 'Male', emoji: '👨', color: 'blue' },
+                                            { value: 'Female', emoji: '👩', color: 'pink' },
+                                            { value: 'Other', emoji: '🧑', color: 'purple' }
+                                        ].map((option) => (
+                                            <button
+                                                key={option.value}
+                                                type="button"
+                                                onClick={() => setSelectedGender(option.value)}
+                                                className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all duration-200 cursor-pointer ${selectedGender === option.value
+                                                        ? option.color === 'blue'
+                                                            ? 'border-blue-500 bg-blue-50 shadow-lg shadow-blue-100 scale-105'
+                                                            : option.color === 'pink'
+                                                                ? 'border-pink-500 bg-pink-50 shadow-lg shadow-pink-100 scale-105'
+                                                                : 'border-purple-500 bg-purple-50 shadow-lg shadow-purple-100 scale-105'
+                                                        : 'border-slate-100 bg-slate-50 hover:border-slate-200 hover:bg-white'
+                                                    }`}
+                                            >
+                                                <span className="text-2xl">{option.emoji}</span>
+                                                <span className={`text-xs font-black uppercase tracking-wider ${selectedGender === option.value
+                                                        ? option.color === 'blue' ? 'text-blue-600'
+                                                            : option.color === 'pink' ? 'text-pink-600'
+                                                                : 'text-purple-600'
+                                                        : 'text-slate-500'
+                                                    }`}>{option.value}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <button
+                                        onClick={handleGenderUpdate}
+                                        disabled={!selectedGender || isUpdatingGender}
+                                        className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-40 disabled:hover:scale-100 flex items-center justify-center gap-2"
+                                    >
+                                        {isUpdatingGender ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" /> Updating...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <CheckCircle className="w-4 h-4" /> Confirm & Save
+                                            </>
+                                        )}
+                                    </button>
+
+                                    <p className="text-[9px] text-slate-400 text-center font-medium">
+                                        This helps us maintain accurate records for your profile
+                                    </p>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    </AnimatePresence>,
+                    document.body
+                )
+            }
         </div >
+
     );
 };
 
