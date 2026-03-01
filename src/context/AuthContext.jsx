@@ -209,6 +209,7 @@ export const AuthProvider = ({ children }) => {
             department: finalData.department,
             section: finalData.section,
             phone: finalData.phone,
+            gender: finalData.gender || '',
             admissionYear: admissionYear,
             yearOfStudy: isAlumni ? 'Alumni' : yearOfStudy,
             role: isAlumni ? 'alumni' : 'student',

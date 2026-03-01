@@ -108,6 +108,27 @@ const StudentDashboard = () => {
     const [newSelectedPS, setNewSelectedPS] = useState('');
     const [isUpdatingPS, setIsUpdatingPS] = useState(false);
 
+    // --- GENDER UPDATE STATE ---
+    const [selectedGender, setSelectedGender] = useState('');
+    const [isUpdatingGender, setIsUpdatingGender] = useState(false);
+
+    const handleGenderUpdate = async () => {
+        if (!selectedGender || !user?.uid) return;
+        setIsUpdatingGender(true);
+        try {
+            const userRef = doc(db, 'users', user.uid);
+            await updateDoc(userRef, { gender: selectedGender });
+            // No need to manually setUser — the onSnapshot listener in AuthContext
+            // will automatically sync the updated gender field in real-time.
+            alert('Gender updated successfully! ✅');
+        } catch (error) {
+            console.error('Error updating gender:', error);
+            alert('Failed to update gender. Please try again.');
+        } finally {
+            setIsUpdatingGender(false);
+        }
+    };
+
     // --- RELOAD DETECTION: Check if quiz was active before page reload ---
     useEffect(() => {
         const savedQuizState = sessionStorage.getItem('techspark_quiz_active');
@@ -2018,939 +2039,969 @@ const StudentDashboard = () => {
                                         <p className="text-sm font-bold text-slate-700">{user.admissionYear || 'N/A'}</p>
                                     </div>
                                 </div>
-                                <div className="space-y-3">
-                                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 text-left">
-                                        <Mail className="w-4 h-4 text-slate-400 shrink-0" />
-                                        <p className="text-xs font-bold text-slate-700 truncate">{user.email}</p>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-left">
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Section</p>
+                                        <p className="text-sm font-bold text-slate-700">{user.section || 'N/A'}</p>
                                     </div>
-                                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 text-left">
-                                        <Phone className="w-4 h-4 text-slate-400 shrink-0" />
-                                        <p className="text-xs font-bold text-slate-700">+91 {user.phone || 'XXXXXXXXXX'}</p>
-                                    </div>
-                                    <div className="mt-4 p-4 bg-white rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center gap-3 group hover:border-blue-400 transition-all">
-                                        <div className="bg-white p-2 rounded-lg shadow-sm border border-slate-100 group-hover:scale-105 transition-transform">
-                                            <QRCodeSVG value={user.rollNumber || "TECHSPARK-GUEST"} size={120} level={"H"} includeMargin={false} imageSettings={{ src: tsLogo, x: undefined, y: undefined, height: 24, width: 24, excavate: true }} />
-                                        </div>
-                                        <div className="text-center">
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Digital Entry QR</p>
-                                            <p className="text-[9px] text-blue-600 font-medium font-mono">{user.rollNumber || 'NO-REG-DATA'}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div id="digital-id-card" className="pt-6 border-t border-slate-100">
-                                <button onClick={handleDownloadCard} className="w-full bg-blue-600 text-white p-6 rounded-2xl relative overflow-hidden group cursor-pointer text-left focus:outline-none shadow-lg shadow-blue-100">
-                                    <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-500" />
-                                    <h3 className="text-lg font-bold mb-1">TS Digital Identity</h3>
-                                    <p className="text-blue-100 text-xs mb-4 uppercase font-bold tracking-tight">Your official club member badge.</p>
-                                    <div className="flex items-center gap-2 text-xs font-bold bg-white/20 w-fit px-3 py-1.5 rounded-lg backdrop-blur-sm group-hover:bg-white group-hover:text-blue-600 transition-all uppercase">
-                                        DOWNLOAD CARD <Download className="w-3 h-3" />
-                                    </div>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                                    <Award className="w-5 h-5 text-blue-600" />
-                                    Spark Badges
-                                </h2>
-                                <div className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
-                                    {calculatedPoints} XP
-                                </div>
-                            </div>
-                            <div className="space-y-4">
-                                {certsLoading ? (
-                                    <div className="py-8 flex flex-col items-center gap-3">
-                                        <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Synchronizing Achievement Data...</p>
-                                    </div>
-                                ) : (
-                                    badgeMap.map((badge) => (
-                                        <motion.div key={badge.id} whileHover={{ x: 4 }} className={`flex items-center gap-4 p-4 rounded-2xl border transition-all duration-300 ${badge.unlocked ? 'bg-slate-50 border-slate-100' : 'bg-white border-dashed border-slate-200 opacity-40 grayscale group'}`}>
-                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br ${badge.color} text-white shadow-lg ${badge.unlocked ? badge.glow : ''}`}>
-                                                {badge.icon}
+                                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-left">
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Gender</p>
+                                        {user.gender ? (
+                                            <p className="text-sm font-bold text-slate-700">{user.gender}</p>
+                                        ) : (
+                                            <div className="flex items-center gap-1.5">
+                                                <select
+                                                    value={selectedGender}
+                                                    onChange={(e) => setSelectedGender(e.target.value)}
+                                                    className="flex-1 text-xs font-bold text-slate-700 bg-white border border-blue-200 rounded-lg px-2 py-1 outline-none appearance-none cursor-pointer"
+                                                >
+                                                    <option value="" disabled>Select</option>
+                                                    <option value="Male">Male</option>
+                                                    <option value="Female">Female</option>
+                                                    <option value="Other">Other</option>
+                                                </select>
+                                                <button
+                                                    onClick={handleGenderUpdate}
+                                                    disabled={!selectedGender || isUpdatingGender}
+                                                    className="px-2 py-1 bg-blue-600 text-white rounded-lg text-[9px] font-black uppercase disabled:opacity-40"
+                                                >
+                                                    {isUpdatingGender ? '...' : '✓'}
+                                                </button>
                                             </div>
-                                            <div className="flex-1 min-w-0 text-left">
-                                                <div className="flex items-center gap-1.5">
-                                                    <h3 className="text-sm font-bold text-slate-800 uppercase truncate">{badge.name}</h3>
-                                                    {!badge.unlocked && <Lock className="w-3 h-3 text-slate-400" />}
-                                                    {badge.unlocked && <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />}
-                                                </div>
-                                                <p className="text-[10px] text-slate-500 font-medium leading-tight">{badge.unlocked ? badge.description : `Unlock: ${badge.description}`}</p>
-                                            </div>
-                                        </motion.div>
-                                    ))
-                                )}
-                            </div>
-                            <div className="mt-8 pt-6 border-t border-slate-100">
-                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest text-center mb-4">Points Progress</p>
-                                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                    <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min((calculatedPoints / 10000) * 100, 100)}%` }} className="h-full bg-gradient-to-r from-blue-600 to-indigo-600" />
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="flex justify-between mt-2 text-[10px] text-slate-500 font-bold uppercase tracking-tighter">
-                                    <span>{calculatedPoints} XP</span>
-                                    <span>10000 XP Goal</span>
+                                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 text-left">
+                                    <Mail className="w-4 h-4 text-slate-400 shrink-0" />
+                                    <p className="text-xs font-bold text-slate-700 truncate">{user.email}</p>
                                 </div>
-                            </div>
-                        </div>
-                    </div >
-                </div >
-
-                {/* HIDDEN ID CARD TEMPLATE */}
-                <div className="fixed -left-[2000px] top-0 pointer-events-none">
-                    <div ref={idCardRef} className="w-[400px] h-[600px] bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col relative" style={{ fontFamily: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}>
-                        <div className="h-40 bg-gradient-to-br from-blue-700 to-indigo-900 p-6 flex flex-col justify-between items-center relative overflow-hidden text-center">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
-                            <div className="relative z-10 flex items-center justify-between w-full bg-white px-4 py-3 rounded-xl shadow-md border border-white/50">
-                                <img src={ritLogo} alt="RIT" className="h-6 w-auto" />
-                                <div className="w-px h-6 bg-slate-200 mx-2" />
-                                <img src={tsLogo} alt="TechSpark" className="h-6 w-auto" />
-                            </div>
-                            <h2 className="relative z-10 text-white text-xs font-bold tracking-[0.2em] uppercase mt-4">OFFICIAL MEMBER IDENTITY</h2>
-                        </div>
-                        <div className="flex flex-col items-center -mt-14 relative z-20">
-                            <div className="w-28 h-28 bg-white p-1 rounded-2xl shadow-xl">
-                                <div className="w-full h-full bg-slate-100 rounded-xl flex items-center justify-center text-blue-600 font-bold text-3xl overflow-hidden border border-slate-50 uppercase">
-                                    {user.fullName?.charAt(0)}
+                                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 text-left">
+                                    <Phone className="w-4 h-4 text-slate-400 shrink-0" />
+                                    <p className="text-xs font-bold text-slate-700">+91 {user.phone || 'XXXXXXXXXX'}</p>
                                 </div>
-                            </div>
-                            <h1 className="text-xl font-extrabold text-slate-800 mt-4 uppercase">{user.fullName}</h1>
-                            <p className="text-blue-600 text-[10px] font-bold tracking-widest uppercase">TECHSPARK CLUB MEMBER</p>
-                        </div>
-                        <div className="flex-1 p-8 pt-6 space-y-5">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1 text-left">
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Register Number</p>
-                                    <p className="text-sm text-slate-700 font-bold flex items-center gap-1.5"><Hash className="w-3 h-3 text-blue-600" /> {user.rollNumber}</p>
-                                </div>
-                                <div className="space-y-1 text-left">
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Admission Year</p>
-                                    <p className="text-sm text-slate-700 font-bold flex items-center gap-1.5"><Calendar className="w-3 h-3 text-blue-600" /> {user.admissionYear}</p>
-                                </div>
-                                <div className="space-y-1 text-left">
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Department</p>
-                                    <p className="text-sm text-slate-700 font-bold flex items-center gap-1.5 uppercase"><Building2 className="w-3 h-3 text-blue-600" /> {user.department}</p>
-                                </div>
-                                <div className="space-y-1 text-left">
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Section</p>
-                                    <p className="text-sm text-slate-700 font-bold flex items-center gap-1.5 uppercase"><CheckCircle className="w-3 h-3 text-blue-600" /> {user.section}</p>
-                                </div>
-                            </div>
-                            <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                                <div className="space-y-1 text-left">
-                                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Verification ID</p>
-                                    <p className="text-[11px] text-slate-900 font-mono">TS-IDENTITY-{user.rollNumber?.slice(-4)}</p>
-                                </div>
-                                <div className="w-14 h-14 bg-slate-50 border border-slate-100 rounded-lg flex items-center justify-center p-1 opacity-60">
-                                    <QrCode className="w-full h-full text-slate-400" />
+                                <div className="mt-4 p-4 bg-white rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center gap-3 group hover:border-blue-400 transition-all">
+                                    <div className="bg-white p-2 rounded-lg shadow-sm border border-slate-100 group-hover:scale-105 transition-transform">
+                                        <QRCodeSVG value={user.rollNumber || "TECHSPARK-GUEST"} size={120} level={"H"} includeMargin={false} imageSettings={{ src: tsLogo, x: undefined, y: undefined, height: 24, width: 24, excavate: true }} />
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Digital Entry QR</p>
+                                        <p className="text-[9px] text-blue-600 font-medium font-mono">{user.rollNumber || 'NO-REG-DATA'}</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        <div className="bg-slate-50 p-4 text-center border-t border-slate-100">
-                            <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest flex items-center justify-center gap-1">
-                                <Zap className="w-2.5 h-2.5 text-blue-600" /> IGNITING INNOVATION @ RIT CHENNAI
-                            </p>
+                        <div id="digital-id-card" className="pt-6 border-t border-slate-100">
+                            <button onClick={handleDownloadCard} className="w-full bg-blue-600 text-white p-6 rounded-2xl relative overflow-hidden group cursor-pointer text-left focus:outline-none shadow-lg shadow-blue-100">
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-500" />
+                                <h3 className="text-lg font-bold mb-1">TS Digital Identity</h3>
+                                <p className="text-blue-100 text-xs mb-4 uppercase font-bold tracking-tight">Your official club member badge.</p>
+                                <div className="flex items-center gap-2 text-xs font-bold bg-white/20 w-fit px-3 py-1.5 rounded-lg backdrop-blur-sm group-hover:bg-white group-hover:text-blue-600 transition-all uppercase">
+                                    DOWNLOAD CARD <Download className="w-3 h-3" />
+                                </div>
+                            </button>
                         </div>
                     </div>
-                </div>
 
-                {/* Feedback Modal */}
-                <AnimatePresence>
-                    {showFeedbackModal && (
-                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                onClick={() => setShowFeedbackModal(false)}
-                                className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-                            />
-                            <motion.div
-                                initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                                animate={{ scale: 1, opacity: 1, y: 0 }}
-                                exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                                className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]"
-                            >
-                                {/* Header */}
-                                <div className="p-8 bg-blue-600 text-white text-left relative shrink-0">
-                                    <button
-                                        onClick={() => setShowFeedbackModal(false)}
-                                        className="absolute top-6 right-6 p-2 hover:bg-white/10 rounded-xl transition-colors"
-                                    >
-                                        <X className="w-5 h-5" />
-                                    </button>
-                                    <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mb-4">
-                                        <Rocket className="w-6 h-6" />
+                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                                <Award className="w-5 h-5 text-blue-600" />
+                                Spark Badges
+                            </h2>
+                            <div className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                                {calculatedPoints} XP
+                            </div>
+                        </div>
+                        <div className="space-y-4">
+                            {certsLoading ? (
+                                <div className="py-8 flex flex-col items-center gap-3">
+                                    <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Synchronizing Achievement Data...</p>
+                                </div>
+                            ) : (
+                                badgeMap.map((badge) => (
+                                    <motion.div key={badge.id} whileHover={{ x: 4 }} className={`flex items-center gap-4 p-4 rounded-2xl border transition-all duration-300 ${badge.unlocked ? 'bg-slate-50 border-slate-100' : 'bg-white border-dashed border-slate-200 opacity-40 grayscale group'}`}>
+                                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br ${badge.color} text-white shadow-lg ${badge.unlocked ? badge.glow : ''}`}>
+                                            {badge.icon}
+                                        </div>
+                                        <div className="flex-1 min-w-0 text-left">
+                                            <div className="flex items-center gap-1.5">
+                                                <h3 className="text-sm font-bold text-slate-800 uppercase truncate">{badge.name}</h3>
+                                                {!badge.unlocked && <Lock className="w-3 h-3 text-slate-400" />}
+                                                {badge.unlocked && <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />}
+                                            </div>
+                                            <p className="text-[10px] text-slate-500 font-medium leading-tight">{badge.unlocked ? badge.description : `Unlock: ${badge.description}`}</p>
+                                        </div>
+                                    </motion.div>
+                                ))
+                            )}
+                        </div>
+                        <div className="mt-8 pt-6 border-t border-slate-100">
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest text-center mb-4">Points Progress</p>
+                            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min((calculatedPoints / 10000) * 100, 100)}%` }} className="h-full bg-gradient-to-r from-blue-600 to-indigo-600" />
+                            </div>
+                            <div className="flex justify-between mt-2 text-[10px] text-slate-500 font-bold uppercase tracking-tighter">
+                                <span>{calculatedPoints} XP</span>
+                                <span>10000 XP Goal</span>
+                            </div>
+                        </div>
+                    </div>
+                </div >
+            </div >
+
+            {/* HIDDEN ID CARD TEMPLATE */}
+            <div className="fixed -left-[2000px] top-0 pointer-events-none">
+                <div ref={idCardRef} className="w-[400px] h-[600px] bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col relative" style={{ fontFamily: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}>
+                    <div className="h-40 bg-gradient-to-br from-blue-700 to-indigo-900 p-6 flex flex-col justify-between items-center relative overflow-hidden text-center">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
+                        <div className="relative z-10 flex items-center justify-between w-full bg-white px-4 py-3 rounded-xl shadow-md border border-white/50">
+                            <img src={ritLogo} alt="RIT" className="h-6 w-auto" />
+                            <div className="w-px h-6 bg-slate-200 mx-2" />
+                            <img src={tsLogo} alt="TechSpark" className="h-6 w-auto" />
+                        </div>
+                        <h2 className="relative z-10 text-white text-xs font-bold tracking-[0.2em] uppercase mt-4">OFFICIAL MEMBER IDENTITY</h2>
+                    </div>
+                    <div className="flex flex-col items-center -mt-14 relative z-20">
+                        <div className="w-28 h-28 bg-white p-1 rounded-2xl shadow-xl">
+                            <div className="w-full h-full bg-slate-100 rounded-xl flex items-center justify-center text-blue-600 font-bold text-3xl overflow-hidden border border-slate-50 uppercase">
+                                {user.fullName?.charAt(0)}
+                            </div>
+                        </div>
+                        <h1 className="text-xl font-extrabold text-slate-800 mt-4 uppercase">{user.fullName}</h1>
+                        <p className="text-blue-600 text-[10px] font-bold tracking-widest uppercase">TECHSPARK CLUB MEMBER</p>
+                    </div>
+                    <div className="flex-1 p-8 pt-6 space-y-5">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1 text-left">
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Register Number</p>
+                                <p className="text-sm text-slate-700 font-bold flex items-center gap-1.5"><Hash className="w-3 h-3 text-blue-600" /> {user.rollNumber}</p>
+                            </div>
+                            <div className="space-y-1 text-left">
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Admission Year</p>
+                                <p className="text-sm text-slate-700 font-bold flex items-center gap-1.5"><Calendar className="w-3 h-3 text-blue-600" /> {user.admissionYear}</p>
+                            </div>
+                            <div className="space-y-1 text-left">
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Department</p>
+                                <p className="text-sm text-slate-700 font-bold flex items-center gap-1.5 uppercase"><Building2 className="w-3 h-3 text-blue-600" /> {user.department}</p>
+                            </div>
+                            <div className="space-y-1 text-left">
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Section</p>
+                                <p className="text-sm text-slate-700 font-bold flex items-center gap-1.5 uppercase"><CheckCircle className="w-3 h-3 text-blue-600" /> {user.section}</p>
+                            </div>
+                        </div>
+                        <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                            <div className="space-y-1 text-left">
+                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Verification ID</p>
+                                <p className="text-[11px] text-slate-900 font-mono">TS-IDENTITY-{user.rollNumber?.slice(-4)}</p>
+                            </div>
+                            <div className="w-14 h-14 bg-slate-50 border border-slate-100 rounded-lg flex items-center justify-center p-1 opacity-60">
+                                <QrCode className="w-full h-full text-slate-400" />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-slate-50 p-4 text-center border-t border-slate-100">
+                        <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest flex items-center justify-center gap-1">
+                            <Zap className="w-2.5 h-2.5 text-blue-600" /> IGNITING INNOVATION @ RIT CHENNAI
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Feedback Modal */}
+            <AnimatePresence>
+                {showFeedbackModal && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowFeedbackModal(false)}
+                            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]"
+                        >
+                            {/* Header */}
+                            <div className="p-8 bg-blue-600 text-white text-left relative shrink-0">
+                                <button
+                                    onClick={() => setShowFeedbackModal(false)}
+                                    className="absolute top-6 right-6 p-2 hover:bg-white/10 rounded-xl transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mb-4">
+                                    <Rocket className="w-6 h-6" />
+                                </div>
+                                <h3 className="text-2xl font-black uppercase italic tracking-tight">Mission Feedback</h3>
+                                <p className="text-blue-100 text-xs font-bold uppercase tracking-widest mt-1">Refining future operations: {activeFeedbackEvent?.title}</p>
+                            </div>
+
+                            <div className="p-8 space-y-8 text-left overflow-y-auto custom-scrollbar">
+                                {/* Info Notice */}
+                                <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-3">
+                                    <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-xs font-black text-amber-900 uppercase italic leading-tight">Certificate Requirement</p>
+                                        <p className="text-[10px] text-amber-700 font-bold mt-1 uppercase leading-relaxed">
+                                            Please complete this feedback form to unlock your event certificate. Every field is mandatory for mission debriefing.
+                                        </p>
                                     </div>
-                                    <h3 className="text-2xl font-black uppercase italic tracking-tight">Mission Feedback</h3>
-                                    <p className="text-blue-100 text-xs font-bold uppercase tracking-widest mt-1">Refining future operations: {activeFeedbackEvent?.title}</p>
                                 </div>
 
-                                <div className="p-8 space-y-8 text-left overflow-y-auto custom-scrollbar">
-                                    {/* Info Notice */}
-                                    <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-3">
-                                        <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                                        <div>
-                                            <p className="text-xs font-black text-amber-900 uppercase italic leading-tight">Certificate Requirement</p>
-                                            <p className="text-[10px] text-amber-700 font-bold mt-1 uppercase leading-relaxed">
-                                                Please complete this feedback form to unlock your event certificate. Every field is mandatory for mission debriefing.
-                                            </p>
-                                        </div>
+                                {/* 1. Overall Event Rating */}
+                                <div className="space-y-4">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">1️⃣ Overall Event Rating</label>
+                                    <div className="flex gap-2">
+                                        {[1, 2, 3, 4, 5].map((val) => (
+                                            <button
+                                                key={val}
+                                                onClick={() => setFeedbackData({ ...feedbackData, overallRating: val })}
+                                                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${feedbackData.overallRating >= val
+                                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 scale-110'
+                                                    : 'bg-slate-50 text-slate-300 hover:bg-slate-100'
+                                                    }`}
+                                            >
+                                                <Zap className={`w-5 h-5 ${feedbackData.overallRating >= val ? 'fill-current' : ''}`} />
+                                            </button>
+                                        ))}
                                     </div>
+                                    <p className="text-[9px] text-slate-400 font-bold uppercase italic text-center">
+                                        {['Very Poor', 'Poor', 'Fair', 'Excellent', 'Absolute Brilliance!'][feedbackData.overallRating - 1]}
+                                    </p>
+                                </div>
 
-                                    {/* 1. Overall Event Rating */}
-                                    <div className="space-y-4">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">1️⃣ Overall Event Rating</label>
-                                        <div className="flex gap-2">
+                                {/* Reusable Linear Scale Renderer */}
+                                {[
+                                    { id: 'contentQuality', num: '2️⃣', label: 'Session / Content Quality' },
+                                    { id: 'speakerPerformance', num: '3️⃣', label: 'Speaker / Resource Person Performance' },
+                                    { id: 'relevance', num: '4️⃣', label: 'Relevance to Learning / Career' },
+                                    { id: 'timeManagement', num: '5️⃣', label: 'Time Management of the Event' },
+                                    { id: 'engagement', num: '6️⃣', label: 'Interaction & Engagement Level' },
+                                    { id: 'coordination', num: '7️⃣', label: 'Overall Coordination by TechSpark Team' }
+                                ].map((field) => (
+                                    <div key={field.id} className="space-y-3">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{field.num} {field.label}</label>
+                                        <div className="flex items-center justify-between gap-2 px-2">
                                             {[1, 2, 3, 4, 5].map((val) => (
                                                 <button
                                                     key={val}
-                                                    onClick={() => setFeedbackData({ ...feedbackData, overallRating: val })}
-                                                    className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${feedbackData.overallRating >= val
-                                                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 scale-110'
-                                                        : 'bg-slate-50 text-slate-300 hover:bg-slate-100'
-                                                        }`}
-                                                >
-                                                    <Zap className={`w-5 h-5 ${feedbackData.overallRating >= val ? 'fill-current' : ''}`} />
-                                                </button>
-                                            ))}
-                                        </div>
-                                        <p className="text-[9px] text-slate-400 font-bold uppercase italic text-center">
-                                            {['Very Poor', 'Poor', 'Fair', 'Excellent', 'Absolute Brilliance!'][feedbackData.overallRating - 1]}
-                                        </p>
-                                    </div>
-
-                                    {/* Reusable Linear Scale Renderer */}
-                                    {[
-                                        { id: 'contentQuality', num: '2️⃣', label: 'Session / Content Quality' },
-                                        { id: 'speakerPerformance', num: '3️⃣', label: 'Speaker / Resource Person Performance' },
-                                        { id: 'relevance', num: '4️⃣', label: 'Relevance to Learning / Career' },
-                                        { id: 'timeManagement', num: '5️⃣', label: 'Time Management of the Event' },
-                                        { id: 'engagement', num: '6️⃣', label: 'Interaction & Engagement Level' },
-                                        { id: 'coordination', num: '7️⃣', label: 'Overall Coordination by TechSpark Team' }
-                                    ].map((field) => (
-                                        <div key={field.id} className="space-y-3">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{field.num} {field.label}</label>
-                                            <div className="flex items-center justify-between gap-2 px-2">
-                                                {[1, 2, 3, 4, 5].map((val) => (
-                                                    <button
-                                                        key={val}
-                                                        onClick={() => setFeedbackData({ ...feedbackData, [field.id]: val })}
-                                                        className={`flex-1 py-3 rounded-xl text-xs font-black transition-all border ${feedbackData[field.id] === val
-                                                            ? 'bg-slate-900 border-slate-900 text-white shadow-lg'
-                                                            : 'bg-white border-slate-100 text-slate-400 hover:border-slate-300'
-                                                            }`}
-                                                    >
-                                                        {val}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                            <div className="flex justify-between px-2 text-[8px] font-black text-slate-300 uppercase tracking-tighter">
-                                                <span>POOR/LOW</span>
-                                                <span>EXCELLENT/HIGH</span>
-                                            </div>
-                                        </div>
-                                    ))}
-
-                                    {/* 8. What did you like most? */}
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">8️⃣ What did you like most about the event?</label>
-                                        <textarea
-                                            value={feedbackData.likedMost}
-                                            onChange={(e) => setFeedbackData({ ...feedbackData, likedMost: e.target.value })}
-                                            placeholder="Highlight the strongest points of this mission..."
-                                            className="w-full h-24 px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-medium text-slate-800 text-sm focus:ring-4 focus:ring-blue-500/5 transition-all resize-none"
-                                        />
-                                    </div>
-
-                                    {/* 9. Improvements */}
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">9️⃣ What can be improved in future events?</label>
-                                        <textarea
-                                            value={feedbackData.improvements}
-                                            onChange={(e) => setFeedbackData({ ...feedbackData, improvements: e.target.value })}
-                                            placeholder="How can we optimize the next deployment?"
-                                            className="w-full h-24 px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-medium text-slate-800 text-sm focus:ring-4 focus:ring-blue-500/5 transition-all resize-none"
-                                        />
-                                    </div>
-
-                                    {/* 10. Recommend */}
-                                    <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">🔟 Would you recommend TechSpark Club events to others?</label>
-                                        <div className="flex gap-2">
-                                            {['Yes', 'Maybe', 'No'].map((opt) => (
-                                                <button
-                                                    key={opt}
-                                                    onClick={() => setFeedbackData({ ...feedbackData, recommend: opt })}
-                                                    className={`flex-1 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${feedbackData.recommend === opt
-                                                        ? opt === 'Yes' ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-100' :
-                                                            opt === 'Maybe' ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-100' :
-                                                                'bg-red-500 border-red-500 text-white shadow-lg shadow-red-100'
+                                                    onClick={() => setFeedbackData({ ...feedbackData, [field.id]: val })}
+                                                    className={`flex-1 py-3 rounded-xl text-xs font-black transition-all border ${feedbackData[field.id] === val
+                                                        ? 'bg-slate-900 border-slate-900 text-white shadow-lg'
                                                         : 'bg-white border-slate-100 text-slate-400 hover:border-slate-300'
                                                         }`}
                                                 >
-                                                    {opt}
+                                                    {val}
                                                 </button>
                                             ))}
                                         </div>
+                                        <div className="flex justify-between px-2 text-[8px] font-black text-slate-300 uppercase tracking-tighter">
+                                            <span>POOR/LOW</span>
+                                            <span>EXCELLENT/HIGH</span>
+                                        </div>
                                     </div>
+                                ))}
 
-                                    <div className="pt-4 sticky bottom-0 bg-white/80 backdrop-blur-sm -mx-8 px-8 pb-4">
-                                        <button
-                                            onClick={handleFeedbackSubmit}
-                                            disabled={submittingFeedback}
-                                            className="w-full py-5 bg-blue-600 text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-                                        >
-                                            {submittingFeedback ? (
-                                                <>
-                                                    <Loader2 className="w-4 h-4 animate-spin" /> DISPATCHING...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Send className="w-4 h-4" /> TRANSMIT & UNLOCK CERTIFICATE
-                                                </>
-                                            )}
-                                        </button>
+                                {/* 8. What did you like most? */}
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">8️⃣ What did you like most about the event?</label>
+                                    <textarea
+                                        value={feedbackData.likedMost}
+                                        onChange={(e) => setFeedbackData({ ...feedbackData, likedMost: e.target.value })}
+                                        placeholder="Highlight the strongest points of this mission..."
+                                        className="w-full h-24 px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-medium text-slate-800 text-sm focus:ring-4 focus:ring-blue-500/5 transition-all resize-none"
+                                    />
+                                </div>
+
+                                {/* 9. Improvements */}
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">9️⃣ What can be improved in future events?</label>
+                                    <textarea
+                                        value={feedbackData.improvements}
+                                        onChange={(e) => setFeedbackData({ ...feedbackData, improvements: e.target.value })}
+                                        placeholder="How can we optimize the next deployment?"
+                                        className="w-full h-24 px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-medium text-slate-800 text-sm focus:ring-4 focus:ring-blue-500/5 transition-all resize-none"
+                                    />
+                                </div>
+
+                                {/* 10. Recommend */}
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">🔟 Would you recommend TechSpark Club events to others?</label>
+                                    <div className="flex gap-2">
+                                        {['Yes', 'Maybe', 'No'].map((opt) => (
+                                            <button
+                                                key={opt}
+                                                onClick={() => setFeedbackData({ ...feedbackData, recommend: opt })}
+                                                className={`flex-1 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${feedbackData.recommend === opt
+                                                    ? opt === 'Yes' ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-100' :
+                                                        opt === 'Maybe' ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-100' :
+                                                            'bg-red-500 border-red-500 text-white shadow-lg shadow-red-100'
+                                                    : 'bg-white border-slate-100 text-slate-400 hover:border-slate-300'
+                                                    }`}
+                                            >
+                                                {opt}
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
-                            </motion.div>
-                        </div>
-                    )}
-                </AnimatePresence>
 
-                {/* Registration Intelligence Modal */}
-                <AnimatePresence>
-                    {selectedRegDetails && (
-                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                onClick={() => setSelectedRegDetails(null)}
-                                className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
-                            />
-                            <motion.div
-                                initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                                animate={{ scale: 1, opacity: 1, y: 0 }}
-                                exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                                className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh] border border-slate-100"
-                            >
-                                {/* Header */}
-                                <div className="p-8 bg-slate-900 text-white text-left relative shrink-0">
+                                <div className="pt-4 sticky bottom-0 bg-white/80 backdrop-blur-sm -mx-8 px-8 pb-4">
                                     <button
-                                        onClick={() => setSelectedRegDetails(null)}
-                                        className="absolute top-6 right-6 p-3 hover:bg-white/10 rounded-2xl transition-all group"
+                                        onClick={handleFeedbackSubmit}
+                                        disabled={submittingFeedback}
+                                        className="w-full py-5 bg-blue-600 text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                                     >
-                                        <X className="w-6 h-6 text-slate-400 group-hover:text-white" />
+                                        {submittingFeedback ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" /> DISPATCHING...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Send className="w-4 h-4" /> TRANSMIT & UNLOCK CERTIFICATE
+                                            </>
+                                        )}
                                     </button>
-                                    <div className="flex items-center gap-6">
-                                        <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/20">
-                                            <ShieldCheck className="w-8 h-8 text-white" />
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Registration Intelligence Modal */}
+            <AnimatePresence>
+                {selectedRegDetails && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setSelectedRegDetails(null)}
+                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh] border border-slate-100"
+                        >
+                            {/* Header */}
+                            <div className="p-8 bg-slate-900 text-white text-left relative shrink-0">
+                                <button
+                                    onClick={() => setSelectedRegDetails(null)}
+                                    className="absolute top-6 right-6 p-3 hover:bg-white/10 rounded-2xl transition-all group"
+                                >
+                                    <X className="w-6 h-6 text-slate-400 group-hover:text-white" />
+                                </button>
+                                <div className="flex items-center gap-6">
+                                    <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/20">
+                                        <ShieldCheck className="w-8 h-8 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-2xl font-black uppercase italic tracking-tight">Mission Intelligence</h3>
+                                        <div className="flex items-center gap-3 mt-1">
+                                            <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-[0.2em]">{selectedRegDetails.status === 'Upcoming' ? 'ACTIVE RESERVATION' : 'LOGGED ENTRY'}</span>
+                                            <div className="w-1 h-1 bg-slate-700 rounded-full" />
+                                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">ID: {selectedRegDetails.id?.slice(-8).toUpperCase()}</span>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-8 space-y-8 overflow-y-auto custom-scrollbar bg-slate-50/50">
+                                {/* Operational Summary */}
+                                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                         <div>
-                                            <h3 className="text-2xl font-black uppercase italic tracking-tight">Mission Intelligence</h3>
-                                            <div className="flex items-center gap-3 mt-1">
-                                                <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-[0.2em]">{selectedRegDetails.status === 'Upcoming' ? 'ACTIVE RESERVATION' : 'LOGGED ENTRY'}</span>
-                                                <div className="w-1 h-1 bg-slate-700 rounded-full" />
-                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">ID: {selectedRegDetails.id?.slice(-8).toUpperCase()}</span>
-                                            </div>
+                                            <p className="text-[10px] text-blue-600 font-black uppercase tracking-widest mb-1">Target Mission</p>
+                                            <h4 className="text-xl font-black text-slate-800 uppercase tracking-tight leading-none">{selectedRegDetails.eventTitle}</h4>
+                                        </div>
+                                        <div className="flex items-center gap-2 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100">
+                                            <Calendar className="w-4 h-4 text-blue-600" />
+                                            <span className="text-xs font-black text-blue-600 uppercase italic">{selectedRegDetails.eventDate}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-6 pt-6 border-t border-slate-100">
+                                        <div className="space-y-1">
+                                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
+                                                <Clock className="w-3 h-3" /> Scheduled Time
+                                            </p>
+                                            <p className="text-xs font-black text-slate-700 uppercase">{selectedRegDetails.eventTime}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
+                                                <Building2 className="w-3 h-3" /> Tactical Venue
+                                            </p>
+                                            <p className="text-xs font-black text-slate-700 uppercase">{allEvents.find(e => e.id === selectedRegDetails.eventId)?.venue || 'CAMPUS HUB'}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
+                                                <Award className="w-3 h-3" /> Status Link
+                                            </p>
+                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg uppercase italic ${selectedRegDetails.isAttended || selectedRegDetails.status === 'Present' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>
+                                                {selectedRegDetails.isAttended || selectedRegDetails.status === 'Present' ? 'VERIFIED' : 'UPCOMING'}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="p-8 space-y-8 overflow-y-auto custom-scrollbar bg-slate-50/50">
-                                    {/* Operational Summary */}
-                                    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
-                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                            <div>
-                                                <p className="text-[10px] text-blue-600 font-black uppercase tracking-widest mb-1">Target Mission</p>
-                                                <h4 className="text-xl font-black text-slate-800 uppercase tracking-tight leading-none">{selectedRegDetails.eventTitle}</h4>
-                                            </div>
-                                            <div className="flex items-center gap-2 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100">
-                                                <Calendar className="w-4 h-4 text-blue-600" />
-                                                <span className="text-xs font-black text-blue-600 uppercase italic">{selectedRegDetails.eventDate}</span>
-                                            </div>
+                                {/* Squad Infrastructure */}
+                                {selectedRegDetails.isTeamRegistration && (
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-2 ml-1">
+                                            <div className="w-2 h-5 bg-blue-600 rounded-full" />
+                                            <h5 className="text-[11px] font-black text-slate-900 uppercase tracking-widest italic">Squad Infrastructure Details</h5>
                                         </div>
-
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-6 pt-6 border-t border-slate-100">
-                                            <div className="space-y-1">
-                                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
-                                                    <Clock className="w-3 h-3" /> Scheduled Time
-                                                </p>
-                                                <p className="text-xs font-black text-slate-700 uppercase">{selectedRegDetails.eventTime}</p>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
-                                                    <Building2 className="w-3 h-3" /> Tactical Venue
-                                                </p>
-                                                <p className="text-xs font-black text-slate-700 uppercase">{allEvents.find(e => e.id === selectedRegDetails.eventId)?.venue || 'CAMPUS HUB'}</p>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
-                                                    <Award className="w-3 h-3" /> Status Link
-                                                </p>
-                                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg uppercase italic ${selectedRegDetails.isAttended || selectedRegDetails.status === 'Present' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>
-                                                    {selectedRegDetails.isAttended || selectedRegDetails.status === 'Present' ? 'VERIFIED' : 'UPCOMING'}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Squad Infrastructure */}
-                                    {selectedRegDetails.isTeamRegistration && (
-                                        <div className="space-y-4">
-                                            <div className="flex items-center gap-2 ml-1">
-                                                <div className="w-2 h-5 bg-blue-600 rounded-full" />
-                                                <h5 className="text-[11px] font-black text-slate-900 uppercase tracking-widest italic">Squad Infrastructure Details</h5>
-                                            </div>
-                                            <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden group shadow-2xl shadow-blue-500/10">
-                                                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 blur-[50px]" />
-                                                <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8">
-                                                    <div className="flex items-center gap-5">
-                                                        <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center shadow-xl shadow-blue-500/20">
-                                                            <Rocket className="w-7 h-7 text-white" />
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest mb-1">Squad Designation</p>
-                                                            <h4 className="text-2xl font-black italic tracking-tighter leading-none">{selectedRegDetails.teamName}</h4>
-                                                        </div>
+                                        <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden group shadow-2xl shadow-blue-500/10">
+                                            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 blur-[50px]" />
+                                            <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8">
+                                                <div className="flex items-center gap-5">
+                                                    <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center shadow-xl shadow-blue-500/20">
+                                                        <Rocket className="w-7 h-7 text-white" />
                                                     </div>
-                                                    <div className="bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-sm self-stretch md:self-auto flex items-center gap-3">
-                                                        <div className="text-right">
-                                                            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Auth Code</p>
-                                                            <p className="text-base font-black text-blue-400 font-mono tracking-wider leading-none mt-1">{selectedRegDetails.teamCode}</p>
-                                                        </div>
-                                                        <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
-                                                            <Lock className="w-4 h-4 text-blue-400" />
-                                                        </div>
+                                                    <div>
+                                                        <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest mb-1">Squad Designation</p>
+                                                        <h4 className="text-2xl font-black italic tracking-tighter leading-none">{selectedRegDetails.teamName}</h4>
                                                     </div>
                                                 </div>
-
-                                                <div className="space-y-4">
-                                                    <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest ml-1">Tactical Deployment (Active Agents)</p>
-                                                    {isFetchingTeam ? (
-                                                        <div className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl">
-                                                            <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
-                                                            <span className="text-[10px] font-bold text-slate-400 uppercase">Synchronizing squad link...</span>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                            {teamMembers.map((member, i) => (
-                                                                <div key={i} className={`flex items-center gap-3 p-3.5 bg-white/5 border rounded-2xl transition-all ${member.userId === user.uid ? 'border-blue-500/50 bg-blue-500/10' : 'border-white/5'}`}>
-                                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black ${member.teamRole === 'LEADER' ? 'bg-amber-400 text-amber-900' : 'bg-slate-700 text-slate-300'}`}>
-                                                                        {member.teamRole === 'LEADER' ? <Crown className="w-4 h-4" /> : i + 1}
-                                                                    </div>
-                                                                    <div className="min-w-0 flex-1">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <p className="text-[11px] font-black text-white truncate uppercase">{member.studentName}</p>
-                                                                            {member.userId === user.uid && <span className="text-[8px] bg-blue-600 text-white px-1 py-0.5 rounded font-black italic">YOU</span>}
-                                                                        </div>
-                                                                        <p className="text-[9px] text-slate-500 font-bold uppercase font-mono">{member.studentRoll}</p>
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    )}
+                                                <div className="bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-sm self-stretch md:self-auto flex items-center gap-3">
+                                                    <div className="text-right">
+                                                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Auth Code</p>
+                                                        <p className="text-base font-black text-blue-400 font-mono tracking-wider leading-none mt-1">{selectedRegDetails.teamCode}</p>
+                                                    </div>
+                                                    <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
+                                                        <Lock className="w-4 h-4 text-blue-400" />
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    )}
 
-                                    {/* Directive Info (Problem Statement) */}
-                                    {(() => {
-                                        const event = allEvents.find(e => e.id === selectedRegDetails.eventId);
-                                        const isHackathon = event?.type === 'Hackathon';
-                                        const hasAvailablePS = event?.problemStatements?.length > 0;
-                                        const currentPS = selectedRegDetails.problemStatement;
-                                        const isCheckedIn = selectedRegDetails.status === 'Present' || selectedRegDetails.isAttended;
-                                        const canSelectPS = hasAvailablePS && (!event?.isOnSpotPS || isCheckedIn);
-
-                                        if (!isHackathon) return null;
-
-                                        return (
                                             <div className="space-y-4">
-                                                <div className="flex items-center justify-between ml-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-2 h-5 bg-emerald-600 rounded-full" />
-                                                        <h5 className="text-[11px] font-black text-slate-900 uppercase tracking-widest italic">Mission Objective (Problem Statement)</h5>
-                                                    </div>
-                                                    {canSelectPS && (
-                                                        <button
-                                                            onClick={() => openPSSelectionModal(selectedRegDetails)}
-                                                            className="px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all flex items-center gap-1.5"
-                                                        >
-                                                            <Zap className="w-3 h-3" />
-                                                            {currentPS ? 'Change' : 'Select'}
-                                                        </button>
-                                                    )}
-                                                </div>
-                                                {currentPS ? (
-                                                    <div className="bg-emerald-50 border border-emerald-100 p-8 rounded-[2.5rem] relative group cursor-help">
-                                                        <div className="absolute top-4 right-4 text-emerald-600 opacity-20 group-hover:opacity-40 transition-opacity">
-                                                            <Brain className="w-12 h-12" />
-                                                        </div>
-                                                        <p className="text-xs font-bold text-emerald-900 leading-relaxed italic uppercase">
-                                                            "{currentPS}"
-                                                        </p>
+                                                <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest ml-1">Tactical Deployment (Active Agents)</p>
+                                                {isFetchingTeam ? (
+                                                    <div className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl">
+                                                        <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase">Synchronizing squad link...</span>
                                                     </div>
                                                 ) : (
-                                                    <div className="bg-amber-50 border-2 border-dashed border-amber-200 p-6 rounded-[2rem] text-center">
-                                                        <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto mb-3" />
-                                                        <p className="text-xs font-bold text-amber-700 uppercase leading-relaxed">
-                                                            {event?.isOnSpotPS && !isCheckedIn
-                                                                ? 'On-Spot PS Allocation: You must Check-In at the venue to unlock Problem Statement selection.'
-                                                                : hasAvailablePS
-                                                                    ? 'Problem Statement not selected yet. Click "Select" above to choose one.'
-                                                                    : 'Problem Statements will be announced by the organizer. Check back later!'}
-                                                        </p>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                        {teamMembers.map((member, i) => (
+                                                            <div key={i} className={`flex items-center gap-3 p-3.5 bg-white/5 border rounded-2xl transition-all ${member.userId === user.uid ? 'border-blue-500/50 bg-blue-500/10' : 'border-white/5'}`}>
+                                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black ${member.teamRole === 'LEADER' ? 'bg-amber-400 text-amber-900' : 'bg-slate-700 text-slate-300'}`}>
+                                                                    {member.teamRole === 'LEADER' ? <Crown className="w-4 h-4" /> : i + 1}
+                                                                </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <p className="text-[11px] font-black text-white truncate uppercase">{member.studentName}</p>
+                                                                        {member.userId === user.uid && <span className="text-[8px] bg-blue-600 text-white px-1 py-0.5 rounded font-black italic">YOU</span>}
+                                                                    </div>
+                                                                    <p className="text-[9px] text-slate-500 font-bold uppercase font-mono">{member.studentRoll}</p>
+                                                                </div>
+                                                            </div>
+                                                        ))}
                                                     </div>
                                                 )}
                                             </div>
-                                        );
-                                    })()}
+                                        </div>
+                                    </div>
+                                )}
 
-                                    {/* Team QR Code for Hackathon Judging */}
-                                    {selectedRegDetails.isTeamRegistration && (selectedRegDetails.isAttended || selectedRegDetails.status === 'Present') && (
+                                {/* Directive Info (Problem Statement) */}
+                                {(() => {
+                                    const event = allEvents.find(e => e.id === selectedRegDetails.eventId);
+                                    const isHackathon = event?.type === 'Hackathon';
+                                    const hasAvailablePS = event?.problemStatements?.length > 0;
+                                    const currentPS = selectedRegDetails.problemStatement;
+                                    const isCheckedIn = selectedRegDetails.status === 'Present' || selectedRegDetails.isAttended;
+                                    const canSelectPS = hasAvailablePS && (!event?.isOnSpotPS || isCheckedIn);
+
+                                    if (!isHackathon) return null;
+
+                                    return (
                                         <div className="space-y-4">
-                                            <div className="flex items-center gap-2 ml-1">
-                                                <div className="w-2 h-5 bg-purple-600 rounded-full" />
-                                                <h5 className="text-[11px] font-black text-slate-900 uppercase tracking-widest italic">Judging QR Code</h5>
+                                            <div className="flex items-center justify-between ml-1">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-2 h-5 bg-emerald-600 rounded-full" />
+                                                    <h5 className="text-[11px] font-black text-slate-900 uppercase tracking-widest italic">Mission Objective (Problem Statement)</h5>
+                                                </div>
+                                                {canSelectPS && (
+                                                    <button
+                                                        onClick={() => openPSSelectionModal(selectedRegDetails)}
+                                                        className="px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all flex items-center gap-1.5"
+                                                    >
+                                                        <Zap className="w-3 h-3" />
+                                                        {currentPS ? 'Change' : 'Select'}
+                                                    </button>
+                                                )}
                                             </div>
-                                            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 p-6 md:p-8 rounded-[2.5rem] relative overflow-hidden">
-                                                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 blur-[50px]" />
-                                                <div className="flex flex-col md:flex-row items-center gap-6 relative z-10">
-                                                    <div className="p-3 bg-white rounded-2xl shadow-lg border border-purple-100">
-                                                        <QRCodeSVG
-                                                            value={`TEAM|${selectedRegDetails.eventId}|${selectedRegDetails.teamCode}|${selectedRegDetails.teamName}`}
-                                                            size={120}
-                                                            level="H"
-                                                            bgColor="#ffffff"
-                                                            fgColor="#7c3aed"
-                                                            includeMargin={true}
-                                                        />
+                                            {currentPS ? (
+                                                <div className="bg-emerald-50 border border-emerald-100 p-8 rounded-[2.5rem] relative group cursor-help">
+                                                    <div className="absolute top-4 right-4 text-emerald-600 opacity-20 group-hover:opacity-40 transition-opacity">
+                                                        <Brain className="w-12 h-12" />
                                                     </div>
-                                                    <div className="flex-1 text-center md:text-left">
-                                                        <h4 className="text-lg font-black text-purple-900 uppercase tracking-tight mb-2 flex items-center gap-2 justify-center md:justify-start">
-                                                            <Award className="w-5 h-5" /> Show to Judge
-                                                        </h4>
-                                                        <p className="text-xs text-purple-700 font-medium mb-3">
-                                                            A judge will scan this QR code to score your team during the evaluation round.
-                                                        </p>
-                                                        <div className="flex flex-wrap items-center gap-2 justify-center md:justify-start">
-                                                            <span className="px-3 py-1.5 bg-purple-600 text-white text-[10px] font-black rounded-lg uppercase tracking-widest">
-                                                                {selectedRegDetails.teamCode}
-                                                            </span>
-                                                            <span className="px-3 py-1.5 bg-white text-purple-600 text-[10px] font-black rounded-lg uppercase tracking-widest border border-purple-200">
-                                                                {selectedRegDetails.teamName}
-                                                            </span>
-                                                        </div>
+                                                    <p className="text-xs font-bold text-emerald-900 leading-relaxed italic uppercase">
+                                                        "{currentPS}"
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div className="bg-amber-50 border-2 border-dashed border-amber-200 p-6 rounded-[2rem] text-center">
+                                                    <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto mb-3" />
+                                                    <p className="text-xs font-bold text-amber-700 uppercase leading-relaxed">
+                                                        {event?.isOnSpotPS && !isCheckedIn
+                                                            ? 'On-Spot PS Allocation: You must Check-In at the venue to unlock Problem Statement selection.'
+                                                            : hasAvailablePS
+                                                                ? 'Problem Statement not selected yet. Click "Select" above to choose one.'
+                                                                : 'Problem Statements will be announced by the organizer. Check back later!'}
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* Team QR Code for Hackathon Judging */}
+                                {selectedRegDetails.isTeamRegistration && (selectedRegDetails.isAttended || selectedRegDetails.status === 'Present') && (
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-2 ml-1">
+                                            <div className="w-2 h-5 bg-purple-600 rounded-full" />
+                                            <h5 className="text-[11px] font-black text-slate-900 uppercase tracking-widest italic">Judging QR Code</h5>
+                                        </div>
+                                        <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 p-6 md:p-8 rounded-[2.5rem] relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 blur-[50px]" />
+                                            <div className="flex flex-col md:flex-row items-center gap-6 relative z-10">
+                                                <div className="p-3 bg-white rounded-2xl shadow-lg border border-purple-100">
+                                                    <QRCodeSVG
+                                                        value={`TEAM|${selectedRegDetails.eventId}|${selectedRegDetails.teamCode}|${selectedRegDetails.teamName}`}
+                                                        size={120}
+                                                        level="H"
+                                                        bgColor="#ffffff"
+                                                        fgColor="#7c3aed"
+                                                        includeMargin={true}
+                                                    />
+                                                </div>
+                                                <div className="flex-1 text-center md:text-left">
+                                                    <h4 className="text-lg font-black text-purple-900 uppercase tracking-tight mb-2 flex items-center gap-2 justify-center md:justify-start">
+                                                        <Award className="w-5 h-5" /> Show to Judge
+                                                    </h4>
+                                                    <p className="text-xs text-purple-700 font-medium mb-3">
+                                                        A judge will scan this QR code to score your team during the evaluation round.
+                                                    </p>
+                                                    <div className="flex flex-wrap items-center gap-2 justify-center md:justify-start">
+                                                        <span className="px-3 py-1.5 bg-purple-600 text-white text-[10px] font-black rounded-lg uppercase tracking-widest">
+                                                            {selectedRegDetails.teamCode}
+                                                        </span>
+                                                        <span className="px-3 py-1.5 bg-white text-purple-600 text-[10px] font-black rounded-lg uppercase tracking-widest border border-purple-200">
+                                                            {selectedRegDetails.teamName}
+                                                        </span>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    )}
+                                    </div>
+                                )}
 
-                                    {/* Metadata Logistics */}
-                                    <div className="flex items-center justify-between p-6 bg-white border border-slate-100 rounded-[2rem] shadow-sm">
-                                        <div className="text-left">
-                                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Authorization Logged</p>
-                                            <p className="text-xs font-black text-slate-700">
-                                                {selectedRegDetails.registeredAt?.toDate ? selectedRegDetails.registeredAt.toDate().toLocaleString() : 'SYSTEM VERIFIED'}
-                                            </p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Operational Core</p>
-                                            <p className="text-xs font-black text-blue-600 uppercase italic">TS-RIT-{user.department}</p>
-                                        </div>
+                                {/* Metadata Logistics */}
+                                <div className="flex items-center justify-between p-6 bg-white border border-slate-100 rounded-[2rem] shadow-sm">
+                                    <div className="text-left">
+                                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Authorization Logged</p>
+                                        <p className="text-xs font-black text-slate-700">
+                                            {selectedRegDetails.registeredAt?.toDate ? selectedRegDetails.registeredAt.toDate().toLocaleString() : 'SYSTEM VERIFIED'}
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Operational Core</p>
+                                        <p className="text-xs font-black text-blue-600 uppercase italic">TS-RIT-{user.department}</p>
                                     </div>
                                 </div>
+                            </div>
 
-                                <div className="p-8 bg-white border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
-                                    <button
-                                        onClick={() => setSelectedRegDetails(null)}
-                                        className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.2em] shadow-xl shadow-slate-200 hover:bg-black transition-all flex items-center justify-center gap-3"
-                                    >
-                                        DISMISS DOSSIER <ShieldCheck className="w-5 h-5" />
-                                    </button>
-                                </div>
-                            </motion.div>
-                        </div>
-                    )}
-                </AnimatePresence>
+                            <div className="p-8 bg-white border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
+                                <button
+                                    onClick={() => setSelectedRegDetails(null)}
+                                    className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.2em] shadow-xl shadow-slate-200 hover:bg-black transition-all flex items-center justify-center gap-3"
+                                >
+                                    DISMISS DOSSIER <ShieldCheck className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
 
-                {/* Problem Statement Selection Modal */}
-                <AnimatePresence>
-                    {showPSModal && psModalEvent && (
-                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60000] flex items-center justify-center p-4">
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.9, y: 30 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.9, y: 30 }}
-                                className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden"
-                            >
-                                {/* Header */}
-                                <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <h3 className="text-lg font-black text-white uppercase tracking-tight">Select Problem Statement</h3>
-                                            <p className="text-emerald-100 text-xs font-medium mt-1">{psModalEvent.title}</p>
-                                        </div>
-                                        <button
-                                            onClick={() => {
-                                                setShowPSModal(false);
-                                                setPsModalReg(null);
-                                                setPsModalEvent(null);
-                                            }}
-                                            className="p-2 hover:bg-white/20 rounded-xl transition-all"
-                                        >
-                                            <X className="w-5 h-5 text-white" />
-                                        </button>
+            {/* Problem Statement Selection Modal */}
+            <AnimatePresence>
+                {showPSModal && psModalEvent && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60000] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                            className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden"
+                        >
+                            {/* Header */}
+                            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h3 className="text-lg font-black text-white uppercase tracking-tight">Select Problem Statement</h3>
+                                        <p className="text-emerald-100 text-xs font-medium mt-1">{psModalEvent.title}</p>
                                     </div>
-                                </div>
-
-                                {/* Options */}
-                                <div className="p-6 max-h-[50vh] overflow-y-auto space-y-3">
-                                    {psModalEvent.problemStatements.map((ps, idx) => (
-                                        <label
-                                            key={idx}
-                                            className={`block p-4 rounded-xl border-2 cursor-pointer transition-all ${newSelectedPS === ps
-                                                ? 'border-emerald-500 bg-emerald-50 shadow-lg shadow-emerald-100'
-                                                : 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50'
-                                                }`}
-                                        >
-                                            <div className="flex items-start gap-3">
-                                                <input
-                                                    type="radio"
-                                                    name="problemStatement"
-                                                    value={ps}
-                                                    checked={newSelectedPS === ps}
-                                                    onChange={(e) => setNewSelectedPS(e.target.value)}
-                                                    className="mt-1 w-4 h-4 text-emerald-600 focus:ring-emerald-500"
-                                                />
-                                                <div className="flex-1">
-                                                    <p className="text-sm font-bold text-slate-800 uppercase leading-relaxed">
-                                                        {ps}
-                                                    </p>
-                                                    <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase">
-                                                        Option {idx + 1}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </label>
-                                    ))}
-                                </div>
-
-                                {/* Footer */}
-                                <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
                                     <button
                                         onClick={() => {
                                             setShowPSModal(false);
                                             setPsModalReg(null);
                                             setPsModalEvent(null);
                                         }}
-                                        className="px-5 py-3 text-slate-600 font-black text-xs uppercase tracking-widest hover:bg-slate-200 rounded-xl transition-all"
+                                        className="p-2 hover:bg-white/20 rounded-xl transition-all"
                                     >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={handleUpdateProblemStatement}
-                                        disabled={!newSelectedPS || isUpdatingPS}
-                                        className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-emerald-200 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                                    >
-                                        {isUpdatingPS ? (
-                                            <>
-                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                                Updating...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <CheckCircle className="w-4 h-4" />
-                                                Confirm Selection
-                                            </>
-                                        )}
+                                        <X className="w-5 h-5 text-white" />
                                     </button>
                                 </div>
-                            </motion.div>
-                        </div>
-                    )}
-                </AnimatePresence>
+                            </div>
 
-                {/* Quiz Modal - Embedded Google Form */}
-                <AnimatePresence>
-                    {showQuizModal && activeQuizUrl && (
-                        <div id="quiz-proctored-container" className="fixed inset-0 bg-slate-900 z-[99999] flex flex-col" style={{ top: 0, left: 0, right: 0, bottom: 0, margin: 0, padding: 0 }}>
+                            {/* Options */}
+                            <div className="p-6 max-h-[50vh] overflow-y-auto space-y-3">
+                                {psModalEvent.problemStatements.map((ps, idx) => (
+                                    <label
+                                        key={idx}
+                                        className={`block p-4 rounded-xl border-2 cursor-pointer transition-all ${newSelectedPS === ps
+                                            ? 'border-emerald-500 bg-emerald-50 shadow-lg shadow-emerald-100'
+                                            : 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50'
+                                            }`}
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            <input
+                                                type="radio"
+                                                name="problemStatement"
+                                                value={ps}
+                                                checked={newSelectedPS === ps}
+                                                onChange={(e) => setNewSelectedPS(e.target.value)}
+                                                className="mt-1 w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                                            />
+                                            <div className="flex-1">
+                                                <p className="text-sm font-bold text-slate-800 uppercase leading-relaxed">
+                                                    {ps}
+                                                </p>
+                                                <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase">
+                                                    Option {idx + 1}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </label>
+                                ))}
+                            </div>
 
-                            {/* Header */}
-                            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-3 md:px-5 py-2 md:py-2.5 flex items-center justify-between shadow-lg border-b border-purple-500/30">
-                                <div className="flex items-center gap-3 md:gap-5">
-                                    <img src={tsLogo} alt="TechSpark" className="h-10 md:h-14 w-auto object-contain shrink-0" style={{ filter: 'brightness(0) invert(1)' }} />
-                                    <div className="w-px h-8 bg-white/20 hidden md:block" />
-                                    <div className="min-w-0">
-                                        <h3 className="text-sm md:text-xl font-black text-white uppercase tracking-tight truncate">{activeQuizTitle}</h3>
-                                    </div>
+                            {/* Footer */}
+                            <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+                                <button
+                                    onClick={() => {
+                                        setShowPSModal(false);
+                                        setPsModalReg(null);
+                                        setPsModalEvent(null);
+                                    }}
+                                    className="px-5 py-3 text-slate-600 font-black text-xs uppercase tracking-widest hover:bg-slate-200 rounded-xl transition-all"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleUpdateProblemStatement}
+                                    disabled={!newSelectedPS || isUpdatingPS}
+                                    className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-emerald-200 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                >
+                                    {isUpdatingPS ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Updating...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CheckCircle className="w-4 h-4" />
+                                            Confirm Selection
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Quiz Modal - Embedded Google Form */}
+            <AnimatePresence>
+                {showQuizModal && activeQuizUrl && (
+                    <div id="quiz-proctored-container" className="fixed inset-0 bg-slate-900 z-[99999] flex flex-col" style={{ top: 0, left: 0, right: 0, bottom: 0, margin: 0, padding: 0 }}>
+
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-3 md:px-5 py-2 md:py-2.5 flex items-center justify-between shadow-lg border-b border-purple-500/30">
+                            <div className="flex items-center gap-3 md:gap-5">
+                                <img src={tsLogo} alt="TechSpark" className="h-10 md:h-14 w-auto object-contain shrink-0" style={{ filter: 'brightness(0) invert(1)' }} />
+                                <div className="w-px h-8 bg-white/20 hidden md:block" />
+                                <div className="min-w-0">
+                                    <h3 className="text-sm md:text-xl font-black text-white uppercase tracking-tight truncate">{activeQuizTitle}</h3>
                                 </div>
+                            </div>
 
-                                {/* Live Clock */}
-                                <div className="hidden lg:flex items-center gap-3 bg-black/20 px-4 py-1.5 rounded-full border border-white/10 backdrop-blur-sm">
-                                    <Clock className="w-4 h-4 text-purple-200 animate-pulse" />
-                                    <span className="text-white font-mono font-black text-lg tracking-wider">
+                            {/* Live Clock */}
+                            <div className="hidden lg:flex items-center gap-3 bg-black/20 px-4 py-1.5 rounded-full border border-white/10 backdrop-blur-sm">
+                                <Clock className="w-4 h-4 text-purple-200 animate-pulse" />
+                                <span className="text-white font-mono font-black text-lg tracking-wider">
+                                    {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+                                </span>
+                            </div>
+
+                            {/* Proctor Status Indicator */}
+                            <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border backdrop-blur-sm transition-all ${tabSwitchCount === 0 ? 'bg-emerald-500/20 border-emerald-400/30 text-emerald-300' :
+                                tabSwitchCount < MAX_VIOLATIONS ? 'bg-amber-500/20 border-amber-400/30 text-amber-300 animate-pulse' :
+                                    'bg-red-500/20 border-red-400/30 text-red-300'
+                                }`}>
+                                <div className={`w-2 h-2 rounded-full ${tabSwitchCount === 0 ? 'bg-emerald-400' :
+                                    tabSwitchCount < MAX_VIOLATIONS ? 'bg-amber-400 animate-ping' : 'bg-red-400'
+                                    }`} />
+                                <span className="text-[10px] font-black uppercase tracking-wider">
+                                    {tabSwitchCount === 0 ? 'PROCTORED' : `⚠ ${tabSwitchCount}/${MAX_VIOLATIONS}`}
+                                </span>
+                            </div>
+
+                            <div className="flex items-center gap-2 md:gap-3">
+                                {/* Mobile Clock */}
+                                <div className="lg:hidden bg-black/20 px-2 py-1 rounded-lg border border-white/10">
+                                    <span className="text-white font-mono font-bold text-[10px]">
                                         {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
                                     </span>
                                 </div>
 
-                                {/* Proctor Status Indicator */}
-                                <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border backdrop-blur-sm transition-all ${tabSwitchCount === 0 ? 'bg-emerald-500/20 border-emerald-400/30 text-emerald-300' :
-                                    tabSwitchCount < MAX_VIOLATIONS ? 'bg-amber-500/20 border-amber-400/30 text-amber-300 animate-pulse' :
-                                        'bg-red-500/20 border-red-400/30 text-red-300'
-                                    }`}>
-                                    <div className={`w-2 h-2 rounded-full ${tabSwitchCount === 0 ? 'bg-emerald-400' :
-                                        tabSwitchCount < MAX_VIOLATIONS ? 'bg-amber-400 animate-ping' : 'bg-red-400'
-                                        }`} />
-                                    <span className="text-[10px] font-black uppercase tracking-wider">
-                                        {tabSwitchCount === 0 ? 'PROCTORED' : `⚠ ${tabSwitchCount}/${MAX_VIOLATIONS}`}
-                                    </span>
-                                </div>
-
-                                <div className="flex items-center gap-2 md:gap-3">
-                                    {/* Mobile Clock */}
-                                    <div className="lg:hidden bg-black/20 px-2 py-1 rounded-lg border border-white/10">
-                                        <span className="text-white font-mono font-bold text-[10px]">
-                                            {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
-                                        </span>
-                                    </div>
-
-                                    {/* Smart Finish Button */}
-                                    {showFinishButton && (
-                                        <motion.button
-                                            initial={{ scale: 0.5, opacity: 0 }}
-                                            animate={{ scale: 1, opacity: 1 }}
-                                            whileHover={{ scale: 1.05 }}
-                                            whileTap={{ scale: 0.95 }}
-                                            onClick={handleQuizCompletion}
-                                            className="px-4 md:px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg md:rounded-xl font-black text-[10px] md:text-xs uppercase tracking-[0.15em] transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/30 border border-emerald-400 group"
-                                        >
-                                            <div className="w-2 h-2 bg-white rounded-full animate-ping" />
-                                            VERIFY & FINISH
-                                        </motion.button>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Proctor Warning Overlay */}
-                            <AnimatePresence>
-                                {proctorWarning && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: -50 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -50 }}
-                                        className="absolute top-20 left-1/2 -translate-x-1/2 z-[100001] px-6 py-3 bg-gradient-to-r from-red-600 to-orange-600 rounded-xl shadow-2xl shadow-red-500/50 border border-red-400"
+                                {/* Smart Finish Button */}
+                                {showFinishButton && (
+                                    <motion.button
+                                        initial={{ scale: 0.5, opacity: 0 }}
+                                        animate={{ scale: 1, opacity: 1 }}
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={handleQuizCompletion}
+                                        className="px-4 md:px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg md:rounded-xl font-black text-[10px] md:text-xs uppercase tracking-[0.15em] transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/30 border border-emerald-400 group"
                                     >
-                                        <p className="text-white font-black text-sm md:text-base uppercase tracking-wide text-center">
-                                            {proctorWarning}
-                                        </p>
-                                    </motion.div>
+                                        <div className="w-2 h-2 bg-white rounded-full animate-ping" />
+                                        VERIFY & FINISH
+                                    </motion.button>
                                 )}
-                            </AnimatePresence>
-
-
-
-                            {/* Quiz Iframe */}
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                className="flex-1 w-full bg-white overflow-hidden relative z-[10] pointer-events-auto"
-                            >
-                                <iframe
-                                    src={activeQuizUrl}
-                                    onLoad={handleIframeLoad}
-                                    title="TechSpark Quiz"
-                                    className="w-full h-full border-0 relative z-[11] pointer-events-auto"
-                                    style={{ minHeight: 'calc(100vh - 120px)' }}
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                    allowFullScreen
-                                />
-
-                                {/* Watermark Overlay - Screenshot Deterrent */}
-                                <div className="absolute inset-0 z-[12] pointer-events-none overflow-hidden select-none" style={{ userSelect: 'none' }}>
-                                    {/* Diagonal Watermarks Pattern */}
-                                    <div className="absolute inset-0 flex flex-wrap gap-20 rotate-[-25deg] scale-150 origin-center opacity-[0.04]">
-                                        {[...Array(30)].map((_, i) => (
-                                            <div key={i} className="whitespace-nowrap text-slate-900 font-black text-lg uppercase tracking-widest">
-                                                {user?.fullName || 'Student'} • {user?.rollNumber || 'ID'} • {new Date().toLocaleDateString()}
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    {/* Corner Watermarks */}
-                                    <div className="absolute top-2 left-2 px-3 py-1.5 bg-black/5 rounded-lg backdrop-blur-sm">
-                                        <p className="text-[8px] text-black/20 font-bold uppercase tracking-widest">
-                                            {user?.fullName} | {user?.rollNumber}
-                                        </p>
-                                    </div>
-                                    <div className="absolute top-2 right-2 px-3 py-1.5 bg-black/5 rounded-lg backdrop-blur-sm">
-                                        <p className="text-[8px] text-black/20 font-bold uppercase tracking-widest">
-                                            {currentTime.toLocaleTimeString()}
-                                        </p>
-                                    </div>
-                                    <div className="absolute bottom-16 left-2 px-3 py-1.5 bg-black/5 rounded-lg backdrop-blur-sm">
-                                        <p className="text-[8px] text-black/20 font-bold uppercase tracking-widest">
-                                            PROCTORED | {user?.department}
-                                        </p>
-                                    </div>
-                                    <div className="absolute bottom-16 right-2 px-3 py-1.5 bg-black/5 rounded-lg backdrop-blur-sm">
-                                        <p className="text-[8px] text-black/20 font-bold uppercase tracking-widest">
-                                            {user?.fullName} | {new Date().toLocaleDateString()}
-                                        </p>
-                                    </div>
-
-                                    {/* Center Watermark */}
-                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-[-25deg]">
-                                        <p className="text-4xl md:text-6xl font-black text-black/[0.03] uppercase tracking-widest whitespace-nowrap">
-                                            {user?.rollNumber || 'PROCTORED'}
-                                        </p>
-                                    </div>
-                                </div>
-                            </motion.div>
-
-                            {/* Footer */}
-                            <div className="bg-slate-900 px-3 md:px-6 py-2 md:py-3 text-center shrink-0">
-                                <p className="text-[8px] md:text-[10px] text-slate-400 font-bold uppercase tracking-wider md:tracking-widest">
-                                    🔒 Proctored Quiz • 🚫 Tab Switch = Violation • ⌨️ Activity Monitored • ⏱️ Submit on time
-                                </p>
                             </div>
                         </div>
-                    )}
-                </AnimatePresence>
 
-                {/* Quiz Rules Modal */}
-                {
-                    showQuizRulesModal && pendingQuizData && createPortal(
+                        {/* Proctor Warning Overlay */}
                         <AnimatePresence>
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
-                            >
+                            {proctorWarning && (
                                 <motion.div
-                                    initial={{ scale: 0.9, opacity: 0, y: -20 }}
-                                    animate={{ scale: 1, opacity: 1, y: 0 }}
-                                    exit={{ scale: 0.9, opacity: 0, y: -20 }}
-                                    className="bg-white rounded-[2rem] max-w-md w-full shadow-2xl overflow-hidden flex flex-col"
+                                    initial={{ opacity: 0, y: -50 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -50 }}
+                                    className="absolute top-20 left-1/2 -translate-x-1/2 z-[100001] px-6 py-3 bg-gradient-to-r from-red-600 to-orange-600 rounded-xl shadow-2xl shadow-red-500/50 border border-red-400"
                                 >
-                                    {/* Header - Compact */}
-                                    <div className="bg-gradient-to-r from-red-600 to-orange-600 p-4 text-white text-center shrink-0">
-                                        <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                                            <ShieldCheck className="w-6 h-6" />
-                                        </div>
-                                        <h2 className="text-lg font-black uppercase tracking-wide">⚠️ Proctored Quiz</h2>
-                                        <p className="text-xs text-white/80 mt-1 font-medium">{pendingQuizData.title}</p>
-                                    </div>
-
-                                    {/* Rules List - Scrollable */}
-                                    <div className="p-4 space-y-3 overflow-y-auto flex-1 max-h-[50vh]">
-                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest text-center mb-2">
-                                            📋 Read Carefully Before Starting
-                                        </p>
-
-                                        {/* Rule Items - Compact */}
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-3 p-3 bg-red-50 rounded-xl border border-red-100">
-                                                <div className="w-8 h-8 bg-red-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">🚫</div>
-                                                <div>
-                                                    <p className="text-xs font-black text-red-700 uppercase">No Tab Switching / Alt+Tab</p>
-                                                    <p className="text-[10px] text-red-600">3 violations = Quiz Terminated</p>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100">
-                                                <div className="w-8 h-8 bg-amber-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">👁️</div>
-                                                <div>
-                                                    <p className="text-xs font-black text-amber-700 uppercase">Activity Monitored</p>
-                                                    <p className="text-[10px] text-amber-600">Session and visibility are logged</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
-                                            <div className="w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">✅</div>
-                                            <div>
-                                                <p className="text-xs font-black text-blue-700 uppercase">How to Complete</p>
-                                                <p className="text-[10px] text-blue-600">Submit form → Click "VERIFY & FINISH"</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-3 p-3 bg-slate-900 rounded-xl text-center">
-                                        <p className="text-[9px] text-white font-bold uppercase tracking-widest">
-                                            ⚠️ By clicking "Start Quiz", you agree to be monitored
-                                        </p>
-                                    </div>
-
-                                    {/* Action Buttons - Compact */}
-                                    <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-3 shrink-0">
-                                        <button
-                                            onClick={() => {
-                                                // Exit fullscreen if active
-                                                if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
-                                                    if (document.exitFullscreen) document.exitFullscreen().catch(() => { });
-                                                    else if (document.webkitExitFullscreen) document.webkitExitFullscreen().catch(() => { });
-                                                    else if (document.msExitFullscreen) document.msExitFullscreen().catch(() => { });
-                                                }
-                                                setShowQuizRulesModal(false);
-                                                setPendingQuizData(null);
-                                            }}
-                                            className="flex-1 py-3 px-4 bg-white border border-slate-200 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all"
-                                        >
-                                            ← Cancel
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                // Request fullscreen on the whole document
-                                                const elem = document.documentElement;
-                                                if (elem.requestFullscreen) {
-                                                    elem.requestFullscreen();
-                                                } else if (elem.webkitRequestFullscreen) {
-                                                    elem.webkitRequestFullscreen();
-                                                } else if (elem.msRequestFullscreen) {
-                                                    elem.msRequestFullscreen();
-                                                }
-
-                                                // Save quiz state to session storage for reload detection
-                                                sessionStorage.setItem('techspark_quiz_active', JSON.stringify({
-                                                    url: pendingQuizData.url,
-                                                    title: pendingQuizData.title,
-                                                    regId: pendingQuizData.regId,
-                                                    violations: 0,
-                                                    startTime: Date.now()
-                                                }));
-
-                                                setActiveQuizUrl(pendingQuizData.url);
-                                                setActiveQuizTitle(pendingQuizData.title);
-                                                setActiveQuizRegId(pendingQuizData.regId);
-                                                setIframeLoadCount(0);
-                                                setShowFinishButton(false);
-                                                setTabSwitchCount(0);
-                                                setProctorWarning('');
-                                                quizStartTime.current = null;
-                                                isQuizFinishing.current = false;
-                                                setShowQuizModal(true);
-                                                setShowQuizRulesModal(false);
-                                                setPendingQuizData(null);
-                                            }}
-                                            className="flex-1 py-3 px-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
-                                        >
-                                            <Rocket className="w-3 h-3" /> Start Quiz
-                                        </button>
-                                    </div>
+                                    <p className="text-white font-black text-sm md:text-base uppercase tracking-wide text-center">
+                                        {proctorWarning}
+                                    </p>
                                 </motion.div>
+                            )}
+                        </AnimatePresence>
+
+
+
+                        {/* Quiz Iframe */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="flex-1 w-full bg-white overflow-hidden relative z-[10] pointer-events-auto"
+                        >
+                            <iframe
+                                src={activeQuizUrl}
+                                onLoad={handleIframeLoad}
+                                title="TechSpark Quiz"
+                                className="w-full h-full border-0 relative z-[11] pointer-events-auto"
+                                style={{ minHeight: 'calc(100vh - 120px)' }}
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                            />
+
+                            {/* Watermark Overlay - Screenshot Deterrent */}
+                            <div className="absolute inset-0 z-[12] pointer-events-none overflow-hidden select-none" style={{ userSelect: 'none' }}>
+                                {/* Diagonal Watermarks Pattern */}
+                                <div className="absolute inset-0 flex flex-wrap gap-20 rotate-[-25deg] scale-150 origin-center opacity-[0.04]">
+                                    {[...Array(30)].map((_, i) => (
+                                        <div key={i} className="whitespace-nowrap text-slate-900 font-black text-lg uppercase tracking-widest">
+                                            {user?.fullName || 'Student'} • {user?.rollNumber || 'ID'} • {new Date().toLocaleDateString()}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Corner Watermarks */}
+                                <div className="absolute top-2 left-2 px-3 py-1.5 bg-black/5 rounded-lg backdrop-blur-sm">
+                                    <p className="text-[8px] text-black/20 font-bold uppercase tracking-widest">
+                                        {user?.fullName} | {user?.rollNumber}
+                                    </p>
+                                </div>
+                                <div className="absolute top-2 right-2 px-3 py-1.5 bg-black/5 rounded-lg backdrop-blur-sm">
+                                    <p className="text-[8px] text-black/20 font-bold uppercase tracking-widest">
+                                        {currentTime.toLocaleTimeString()}
+                                    </p>
+                                </div>
+                                <div className="absolute bottom-16 left-2 px-3 py-1.5 bg-black/5 rounded-lg backdrop-blur-sm">
+                                    <p className="text-[8px] text-black/20 font-bold uppercase tracking-widest">
+                                        PROCTORED | {user?.department}
+                                    </p>
+                                </div>
+                                <div className="absolute bottom-16 right-2 px-3 py-1.5 bg-black/5 rounded-lg backdrop-blur-sm">
+                                    <p className="text-[8px] text-black/20 font-bold uppercase tracking-widest">
+                                        {user?.fullName} | {new Date().toLocaleDateString()}
+                                    </p>
+                                </div>
+
+                                {/* Center Watermark */}
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-[-25deg]">
+                                    <p className="text-4xl md:text-6xl font-black text-black/[0.03] uppercase tracking-widest whitespace-nowrap">
+                                        {user?.rollNumber || 'PROCTORED'}
+                                    </p>
+                                </div>
+                            </div>
+                        </motion.div>
+
+                        {/* Footer */}
+                        <div className="bg-slate-900 px-3 md:px-6 py-2 md:py-3 text-center shrink-0">
+                            <p className="text-[8px] md:text-[10px] text-slate-400 font-bold uppercase tracking-wider md:tracking-widest">
+                                🔒 Proctored Quiz • 🚫 Tab Switch = Violation • ⌨️ Activity Monitored • ⏱️ Submit on time
+                            </p>
+                        </div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Quiz Rules Modal */}
+            {
+                showQuizRulesModal && pendingQuizData && createPortal(
+                    <AnimatePresence>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+                        >
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0, y: -20 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.9, opacity: 0, y: -20 }}
+                                className="bg-white rounded-[2rem] max-w-md w-full shadow-2xl overflow-hidden flex flex-col"
+                            >
+                                {/* Header - Compact */}
+                                <div className="bg-gradient-to-r from-red-600 to-orange-600 p-4 text-white text-center shrink-0">
+                                    <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                                        <ShieldCheck className="w-6 h-6" />
+                                    </div>
+                                    <h2 className="text-lg font-black uppercase tracking-wide">⚠️ Proctored Quiz</h2>
+                                    <p className="text-xs text-white/80 mt-1 font-medium">{pendingQuizData.title}</p>
+                                </div>
+
+                                {/* Rules List - Scrollable */}
+                                <div className="p-4 space-y-3 overflow-y-auto flex-1 max-h-[50vh]">
+                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest text-center mb-2">
+                                        📋 Read Carefully Before Starting
+                                    </p>
+
+                                    {/* Rule Items - Compact */}
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-3 p-3 bg-red-50 rounded-xl border border-red-100">
+                                            <div className="w-8 h-8 bg-red-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">🚫</div>
+                                            <div>
+                                                <p className="text-xs font-black text-red-700 uppercase">No Tab Switching / Alt+Tab</p>
+                                                <p className="text-[10px] text-red-600">3 violations = Quiz Terminated</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100">
+                                            <div className="w-8 h-8 bg-amber-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">👁️</div>
+                                            <div>
+                                                <p className="text-xs font-black text-amber-700 uppercase">Activity Monitored</p>
+                                                <p className="text-[10px] text-amber-600">Session and visibility are logged</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                                        <div className="w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center shrink-0 text-sm">✅</div>
+                                        <div>
+                                            <p className="text-xs font-black text-blue-700 uppercase">How to Complete</p>
+                                            <p className="text-[10px] text-blue-600">Submit form → Click "VERIFY & FINISH"</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="mt-3 p-3 bg-slate-900 rounded-xl text-center">
+                                    <p className="text-[9px] text-white font-bold uppercase tracking-widest">
+                                        ⚠️ By clicking "Start Quiz", you agree to be monitored
+                                    </p>
+                                </div>
+
+                                {/* Action Buttons - Compact */}
+                                <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-3 shrink-0">
+                                    <button
+                                        onClick={() => {
+                                            // Exit fullscreen if active
+                                            if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
+                                                if (document.exitFullscreen) document.exitFullscreen().catch(() => { });
+                                                else if (document.webkitExitFullscreen) document.webkitExitFullscreen().catch(() => { });
+                                                else if (document.msExitFullscreen) document.msExitFullscreen().catch(() => { });
+                                            }
+                                            setShowQuizRulesModal(false);
+                                            setPendingQuizData(null);
+                                        }}
+                                        className="flex-1 py-3 px-4 bg-white border border-slate-200 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all"
+                                    >
+                                        ← Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            // Request fullscreen on the whole document
+                                            const elem = document.documentElement;
+                                            if (elem.requestFullscreen) {
+                                                elem.requestFullscreen();
+                                            } else if (elem.webkitRequestFullscreen) {
+                                                elem.webkitRequestFullscreen();
+                                            } else if (elem.msRequestFullscreen) {
+                                                elem.msRequestFullscreen();
+                                            }
+
+                                            // Save quiz state to session storage for reload detection
+                                            sessionStorage.setItem('techspark_quiz_active', JSON.stringify({
+                                                url: pendingQuizData.url,
+                                                title: pendingQuizData.title,
+                                                regId: pendingQuizData.regId,
+                                                violations: 0,
+                                                startTime: Date.now()
+                                            }));
+
+                                            setActiveQuizUrl(pendingQuizData.url);
+                                            setActiveQuizTitle(pendingQuizData.title);
+                                            setActiveQuizRegId(pendingQuizData.regId);
+                                            setIframeLoadCount(0);
+                                            setShowFinishButton(false);
+                                            setTabSwitchCount(0);
+                                            setProctorWarning('');
+                                            quizStartTime.current = null;
+                                            isQuizFinishing.current = false;
+                                            setShowQuizModal(true);
+                                            setShowQuizRulesModal(false);
+                                            setPendingQuizData(null);
+                                        }}
+                                        className="flex-1 py-3 px-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Rocket className="w-3 h-3" /> Start Quiz
+                                    </button>
+                                </div>
                             </motion.div>
-                        </AnimatePresence>,
-                        document.body
-                    )
-                }
-            </div >
+                        </motion.div>
+                    </AnimatePresence>,
+                    document.body
+                )
+            }
         </div >
     );
 };

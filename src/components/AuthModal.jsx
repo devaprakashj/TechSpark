@@ -32,6 +32,7 @@ const AuthModal = () => {
     const rollNoRef = useRef();
     const phoneRef = useRef();
     const sectionRef = useRef();
+    const genderRef = useRef();
     const yearRef = useRef();
 
     const [isRegScanning, setIsRegScanning] = useState(false);
@@ -65,6 +66,7 @@ const AuthModal = () => {
             department: pendingUser.department,
             phone: phoneRef.current.value,
             section: sectionRef.current.value,
+            gender: genderRef.current.value,
             admissionYear: yearRef.current.value
         };
         completeRegistration(data);
@@ -412,6 +414,43 @@ const AuthModal = () => {
                                     </div>
                                 </div>
 
+                                {/* Gender Selection */}
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">Gender</label>
+                                    <div className="relative">
+                                        <User className="absolute left-3 top-3.5 w-4 h-4 text-gray-400" />
+                                        <select
+                                            ref={genderRef}
+                                            required
+                                            defaultValue=""
+                                            className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all appearance-none"
+                                        >
+                                            <option value="" disabled>Select Gender</option>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {/* Gender Selection */}
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">Gender</label>
+                                    <div className="relative">
+                                        <User className="absolute left-3 top-3.5 w-4 h-4 text-gray-400" />
+                                        <select
+                                            ref={genderRef}
+                                            required
+                                            className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all appearance-none"
+                                        >
+                                            <option value="" disabled selected>Select Gender</option>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+                                </div>
+
                                 {/* Admission Year (Pre-filled) */}
                                 <div className="space-y-1.5">
                                     <div className="flex items-center justify-between ml-1">
@@ -434,8 +473,8 @@ const AuthModal = () => {
                                             placeholder="2024"
                                             required
                                             className={`w-full pl-10 pr-4 py-3 rounded-xl text-sm transition-all focus:ring-2 focus:ring-blue-500 outline-none ${pendingUser.admissionYear
-                                                    ? 'bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed'
-                                                    : 'bg-white border-gray-200 text-gray-900'
+                                                ? 'bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed'
+                                                : 'bg-white border-gray-200 text-gray-900'
                                                 }`}
                                         />
                                     </div>
