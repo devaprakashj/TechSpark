@@ -112,15 +112,19 @@ const StudentDashboard = () => {
     const [selectedGender, setSelectedGender] = useState('');
     const [isUpdatingGender, setIsUpdatingGender] = useState(false);
     const [showGenderModal, setShowGenderModal] = useState(false);
+    const genderPromptShown = useRef(false);
 
-    // Auto-show gender popup for existing students who haven't set gender
     useEffect(() => {
-        if (user && !user.gender) {
-            // Small delay so dashboard loads first
+        if (user && !user.gender && !genderPromptShown.current && !loading) {
+            genderPromptShown.current = true;
             const timer = setTimeout(() => setShowGenderModal(true), 1500);
             return () => clearTimeout(timer);
+        } else if (user?.gender) {
+            // If gender exists, reset the shown flag so if an admin 
+            // reverts/removes it, the popup can trigger again.
+            genderPromptShown.current = false;
         }
-    }, [user]);
+    }, [user?.gender, loading]);
 
     const handleGenderUpdate = async () => {
         if (!selectedGender || !user?.uid) return;
@@ -166,7 +170,7 @@ const StudentDashboard = () => {
     useEffect(() => {
         const navbar = document.querySelector('nav');
         const header = document.querySelector('header');
-        const isModalOpen = showQuizModal || showQuizRulesModal || showFeedbackModal;
+        const isModalOpen = showQuizModal || showQuizRulesModal || showFeedbackModal || showGenderModal || showPSModal;
 
         if (isModalOpen) {
             document.body.style.overflow = 'hidden';
@@ -191,7 +195,7 @@ const StudentDashboard = () => {
             if (navbar) navbar.style.display = '';
             if (header) header.style.display = '';
         };
-    }, [showQuizModal, showQuizRulesModal, showFeedbackModal]);
+    }, [showQuizModal, showQuizRulesModal, showFeedbackModal, showGenderModal, showPSModal]);
 
     // --- PROCTORING: Tab Switch Detection ---
     useEffect(() => {
@@ -3042,20 +3046,20 @@ const StudentDashboard = () => {
                                                 type="button"
                                                 onClick={() => setSelectedGender(option.value)}
                                                 className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all duration-200 cursor-pointer ${selectedGender === option.value
-                                                        ? option.color === 'blue'
-                                                            ? 'border-blue-500 bg-blue-50 shadow-lg shadow-blue-100 scale-105'
-                                                            : option.color === 'pink'
-                                                                ? 'border-pink-500 bg-pink-50 shadow-lg shadow-pink-100 scale-105'
-                                                                : 'border-purple-500 bg-purple-50 shadow-lg shadow-purple-100 scale-105'
-                                                        : 'border-slate-100 bg-slate-50 hover:border-slate-200 hover:bg-white'
+                                                    ? option.color === 'blue'
+                                                        ? 'border-blue-500 bg-blue-50 shadow-lg shadow-blue-100 scale-105'
+                                                        : option.color === 'pink'
+                                                            ? 'border-pink-500 bg-pink-50 shadow-lg shadow-pink-100 scale-105'
+                                                            : 'border-purple-500 bg-purple-50 shadow-lg shadow-purple-100 scale-105'
+                                                    : 'border-slate-100 bg-slate-50 hover:border-slate-200 hover:bg-white'
                                                     }`}
                                             >
                                                 <span className="text-2xl">{option.emoji}</span>
                                                 <span className={`text-xs font-black uppercase tracking-wider ${selectedGender === option.value
-                                                        ? option.color === 'blue' ? 'text-blue-600'
-                                                            : option.color === 'pink' ? 'text-pink-600'
-                                                                : 'text-purple-600'
-                                                        : 'text-slate-500'
+                                                    ? option.color === 'blue' ? 'text-blue-600'
+                                                        : option.color === 'pink' ? 'text-pink-600'
+                                                            : 'text-purple-600'
+                                                    : 'text-slate-500'
                                                     }`}>{option.value}</span>
                                             </button>
                                         ))}

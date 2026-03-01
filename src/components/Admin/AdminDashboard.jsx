@@ -980,7 +980,8 @@ const AdminDashboard = () => {
                 yearOfStudy: editingStudent.yearOfStudy,
                 email: editingStudent.email,
                 section: editingStudent.section || 'A',
-                admissionYear: editingStudent.admissionYear || new Date().getFullYear().toString()
+                admissionYear: editingStudent.admissionYear || new Date().getFullYear().toString(),
+                gender: editingStudent.gender || ''
             };
             await updateDoc(studentRef, updateData);
             setIsEditStudentModalOpen(false);
@@ -3991,15 +3992,45 @@ const AdminDashboard = () => {
                                     </div>
                                 </div>
 
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Digital Identity (Email) - READ ONLY</label>
-                                    <input
-                                        required
-                                        type="email"
-                                        value={editingStudent.email}
-                                        disabled
-                                        className="w-full px-5 py-4 bg-slate-100 border border-slate-100 rounded-2xl outline-none font-bold text-xs lowercase text-slate-400 cursor-not-allowed"
-                                    />
+                                <div className="grid grid-cols-2 gap-5">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Digital Identity (Email) - READ ONLY</label>
+                                        <input
+                                            required
+                                            type="email"
+                                            value={editingStudent.email}
+                                            disabled
+                                            className="w-full px-5 py-4 bg-slate-100 border border-slate-100 rounded-2xl outline-none font-bold text-xs lowercase text-slate-400 cursor-not-allowed"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between ml-1">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Personnel Gender</label>
+                                            {editingStudent.gender && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (window.confirm("Revert gender? This will trigger the update prompt for the student.")) {
+                                                            setEditingStudent({ ...editingStudent, gender: '' });
+                                                        }
+                                                    }}
+                                                    className="text-[9px] font-black text-orange-500 uppercase hover:text-orange-600 flex items-center gap-1 transition-all"
+                                                >
+                                                    <RotateCcw className="w-3 h-3" /> Revert
+                                                </button>
+                                            )}
+                                        </div>
+                                        <select
+                                            value={editingStudent.gender || ''}
+                                            onChange={(e) => setEditingStudent({ ...editingStudent, gender: e.target.value })}
+                                            className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl outline-none font-black text-xs uppercase"
+                                        >
+                                            <option value="">Not Set / Revert</option>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
                                 </div>
 
                                 <button
