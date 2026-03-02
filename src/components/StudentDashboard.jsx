@@ -3037,15 +3037,15 @@ const StudentDashboard = () => {
                                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest text-center">Select Gender</p>
                                     <div className="grid grid-cols-3 gap-3">
                                         {[
-                                            { value: 'Male', emoji: '👨', color: 'blue' },
-                                            { value: 'Female', emoji: '👩', color: 'pink' },
-                                            { value: 'Other', emoji: '🧑', color: 'purple' }
+                                            { value: 'Male', color: 'blue' },
+                                            { value: 'Female', color: 'pink' },
+                                            { value: 'Other', color: 'purple' }
                                         ].map((option) => (
                                             <button
                                                 key={option.value}
                                                 type="button"
                                                 onClick={() => setSelectedGender(option.value)}
-                                                className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all duration-200 cursor-pointer ${selectedGender === option.value
+                                                className={`p-6 rounded-2xl border-2 flex flex-col items-center justify-center transition-all duration-200 cursor-pointer ${selectedGender === option.value
                                                     ? option.color === 'blue'
                                                         ? 'border-blue-500 bg-blue-50 shadow-lg shadow-blue-100 scale-105'
                                                         : option.color === 'pink'
@@ -3054,7 +3054,6 @@ const StudentDashboard = () => {
                                                     : 'border-slate-100 bg-slate-50 hover:border-slate-200 hover:bg-white'
                                                     }`}
                                             >
-                                                <span className="text-2xl">{option.emoji}</span>
                                                 <span className={`text-xs font-black uppercase tracking-wider ${selectedGender === option.value
                                                     ? option.color === 'blue' ? 'text-blue-600'
                                                         : option.color === 'pink' ? 'text-pink-600'
