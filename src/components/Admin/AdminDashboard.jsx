@@ -95,7 +95,9 @@ const AdminDashboard = () => {
         deptWise: {},
         yearWise: {},
         batchWise: {},
-        sectionWise: {}
+        sectionWise: {},
+        genderWise: {},
+        pendingGenderUpdates: 0
     });
 
     const [submissions, setSubmissions] = useState([]);
@@ -255,6 +257,9 @@ const AdminDashboard = () => {
         const batchMap = {};
         const sectionMap = {};
 
+        const genderMap = {};
+        let pendingGenderUpdates = 0;
+
         allStudents.forEach(s => {
             totalXP += (s.points || 0);
             totalBadges += (s.badges?.length || 0);
@@ -265,6 +270,12 @@ const AdminDashboard = () => {
             yearMap[year] = (yearMap[year] || 0) + 1;
             batchMap[batch] = (batchMap[batch] || 0) + 1;
             sectionMap[s.section || 'Unknown'] = (sectionMap[s.section || 'Unknown'] || 0) + 1;
+
+            if (s.gender) {
+                genderMap[s.gender] = (genderMap[s.gender] || 0) + 1;
+            } else {
+                pendingGenderUpdates++;
+            }
         });
 
         setStats({
@@ -278,7 +289,9 @@ const AdminDashboard = () => {
             deptWise: deptMap,
             yearWise: yearMap,
             batchWise: batchMap,
-            sectionWise: sectionMap
+            sectionWise: sectionMap,
+            genderWise: genderMap,
+            pendingGenderUpdates: pendingGenderUpdates
         });
 
         // Update active students list (top 10 for overview)
@@ -2251,7 +2264,7 @@ const AdminDashboard = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                             {[
                                 { label: 'Top Department', value: Object.entries(analytics.deptWise).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A', icon: <Briefcase /> },
-                                { label: 'Peak Year', value: Object.entries(analytics.yearWise).sort((a, b) => b[1] - a[1])[0]?.[0] + ' Year' || 'N/A', icon: <TrendingUp /> },
+                                { label: 'Peak Year', value: (Object.entries(analytics.yearWise).sort((a, b) => b[1] - a[1])[0]?.[0] ? `${Object.entries(analytics.yearWise).sort((a, b) => b[1] - a[1])[0]?.[0]} Year` : 'N/A'), icon: <TrendingUp /> },
                                 { label: 'Largest Batch', value: Object.entries(analytics.batchWise).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A', icon: <Users /> },
                                 { label: 'Active Section', value: Object.entries(analytics.sectionWise).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A', icon: <PieChart /> }
                             ].map((card, i) => (
@@ -2263,6 +2276,47 @@ const AdminDashboard = () => {
                                     <div className="text-xl font-black text-slate-800 uppercase tracking-tight">{card.value}</div>
                                 </div>
                             ))}
+                        </div>
+
+                        {/* Gender Intelligence Section */}
+                        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                            <div className="lg:col-span-3 bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-8">
+                                <div className="shrink-0 flex items-center gap-4">
+                                    <div className="w-14 h-14 bg-indigo-50 rounded-[1.5rem] flex items-center justify-center text-indigo-600">
+                                        <PieChart className="w-7 h-7" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest italic">Gender Balance</h4>
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Personnel Distribution Map</p>
+                                    </div>
+                                </div>
+                                <div className="flex-1 flex flex-wrap items-center gap-6">
+                                    {['Male', 'Female', 'Other'].map(g => (
+                                        <div key={g} className="flex items-center gap-3 bg-slate-50 px-5 py-3 rounded-2xl border border-slate-100 min-w-[140px]">
+                                            <div className={`w-3 h-3 rounded-full ${g === 'Male' ? 'bg-blue-500' : g === 'Female' ? 'bg-pink-500' : 'bg-purple-500'}`} />
+                                            <div>
+                                                <div className="text-lg font-black text-slate-800 tabular-nums">{analytics.genderWise[g] || 0}</div>
+                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{g}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="lg:col-span-1 bg-gradient-to-br from-orange-500 to-red-600 p-6 rounded-[2.5rem] shadow-xl shadow-orange-500/10 text-white relative overflow-hidden group">
+                                <div className="relative z-10">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <ShieldAlert className="w-5 h-5 text-orange-200" />
+                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-100">Pending Action</span>
+                                    </div>
+                                    <div className="text-4xl font-black mb-1 tabular-nums">{analytics.pendingGenderUpdates}</div>
+                                    <p className="text-[10px] font-black text-orange-500 bg-white/90 px-3 py-1.5 rounded-xl inline-block uppercase tracking-widest">
+                                        Missing Gender Info
+                                    </p>
+                                </div>
+                                <div className="absolute -bottom-4 -right-4 text-white/10 group-hover:scale-110 transition-transform">
+                                    <Activity className="w-32 h-32" />
+                                </div>
+                            </div>
                         </div>
 
                         {/* Analysis Grid */}
