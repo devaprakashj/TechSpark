@@ -12,6 +12,8 @@ import {
     Building2,
     Calendar,
     Phone,
+    Camera,
+    Heart,
     CheckCircle,
     Clock,
     Award,
@@ -41,6 +43,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
+import SparkBooth from './SparkBooth';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, onSnapshot, orderBy, doc, getDoc, setDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
 
@@ -112,6 +115,7 @@ const StudentDashboard = () => {
     const [selectedGender, setSelectedGender] = useState('');
     const [isUpdatingGender, setIsUpdatingGender] = useState(false);
     const [showGenderModal, setShowGenderModal] = useState(false);
+    const [showSparkBooth, setShowSparkBooth] = useState(false);
     const genderPromptShown = useRef(false);
 
     useEffect(() => {
@@ -170,7 +174,7 @@ const StudentDashboard = () => {
     useEffect(() => {
         const navbar = document.querySelector('nav');
         const header = document.querySelector('header');
-        const isModalOpen = showQuizModal || showQuizRulesModal || showFeedbackModal || showGenderModal || showPSModal;
+        const isModalOpen = showQuizModal || showQuizRulesModal || showFeedbackModal || showGenderModal || showPSModal || showSparkBooth;
 
         if (isModalOpen) {
             document.body.style.overflow = 'hidden';
@@ -1816,6 +1820,53 @@ const StudentDashboard = () => {
                                 </motion.div>
                             ) : (
                                 <>
+                                    {/* Women's Day Special Card */}
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="mb-8 p-1 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 rounded-[2.5rem] shadow-xl shadow-pink-500/20"
+                                    >
+                                        <div className="bg-white rounded-[2.4rem] p-6 md:p-10 flex flex-col md:flex-row items-center gap-8 relative overflow-hidden">
+                                            {/* Decorative Elements */}
+                                            <div className="absolute top-[-20px] right-[-20px] w-40 h-40 bg-pink-100 rounded-full blur-3xl opacity-50" />
+                                            <div className="absolute bottom-[-20px] left-[-20px] w-40 h-40 bg-purple-100 rounded-full blur-3xl opacity-50" />
+
+                                            <div className="relative z-10 text-center md:text-left flex-1">
+                                                <div className="inline-flex items-center gap-2 px-4 py-2 bg-pink-50 text-pink-600 rounded-full text-[10px] font-black uppercase tracking-widest mb-4">
+                                                    <Sparkles className="w-4 h-4" /> Season of Celebration
+                                                </div>
+                                                <h2 className="text-3xl md:text-4xl font-black italic text-slate-900 leading-none uppercase tracking-tighter">
+                                                    Women's Day <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-purple-600">Special</span>
+                                                </h2>
+                                                <p className="mt-4 text-xs font-bold text-slate-500 max-w-md leading-relaxed uppercase tracking-widest">
+                                                    Celebrating the incredible women of TechSpark! Use our exclusive <span className="text-slate-900">SparkBooth</span> to capture your celebration poster.
+                                                </p>
+
+                                                <div className="mt-8 flex flex-col sm:flex-row items-center gap-4">
+                                                    <button
+                                                        onClick={() => setShowSparkBooth(true)}
+                                                        className="px-10 py-5 bg-slate-900 text-white rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] shadow-2xl hover:bg-pink-600 hover:scale-105 transition-all flex items-center gap-3 group"
+                                                    >
+                                                        <Camera className="w-5 h-5 group-hover:rotate-12" /> OPEN SPARKBOOTH
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="shrink-0 relative z-10 w-full md:w-auto flex justify-center">
+                                                <div className="relative w-48 h-48 md:w-64 md:h-64 flex items-center justify-center">
+                                                    <motion.div
+                                                        animate={{ rotate: 360 }}
+                                                        transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
+                                                        className="absolute inset-0 border-[3px] border-dashed border-pink-200 rounded-full"
+                                                    />
+                                                    <div className="w-32 h-32 md:w-40 md:h-40 bg-gradient-to-br from-pink-500 to-purple-600 rounded-full flex items-center justify-center text-white shadow-2xl shadow-pink-500/30">
+                                                        <Heart className="w-16 h-16 md:w-20 md:h-20 fill-white" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+
                                     <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-blue-50/30">
                                         <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
                                             <Rocket className="w-5 h-5 text-blue-600" />
@@ -3090,8 +3141,16 @@ const StudentDashboard = () => {
                     document.body
                 )
             }
-        </div >
 
+            {showSparkBooth && createPortal(
+                <SparkBooth
+                    isOpen={showSparkBooth}
+                    onClose={() => setShowSparkBooth(false)}
+                    userName={user?.fullName}
+                />,
+                document.body
+            )}
+        </div>
     );
 };
 
