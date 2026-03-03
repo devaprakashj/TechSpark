@@ -47,12 +47,25 @@ export function useWomensDay(user) {
 
     // ── Real-time: messages I received (only released approved) ──────────────
     useEffect(() => {
-        if (!myRegNo) return;
+        if (!user?.uid) return;
 
-        // We query by the same ID senders use (roll number preferred)
+        const ids = [user.uid];
+        if (user.rollNumber) {
+            ids.push(user.rollNumber.toString());
+            const num = parseInt(user.rollNumber, 10);
+            if (!isNaN(num)) ids.push(num);
+        }
+        if (user.registerNumber) {
+            ids.push(user.registerNumber.toString());
+            const num = parseInt(user.registerNumber, 10);
+            if (!isNaN(num)) ids.push(num);
+        }
+        const uniqueIds = [...new Set(ids)];
+
+        // We query by any ID senders might have used (UID, Roll String, Roll Num)
         const q = query(
             collection(db, 'wdMessages'),
-            where('receiverRegNo', '==', myRegNo),
+            where('receiverRegNo', 'in', uniqueIds),
             where('status', '==', 'approved'),
             orderBy('timestamp', 'desc')
         );
@@ -61,21 +74,30 @@ export function useWomensDay(user) {
             setInbox(msgs);
         });
         return unsub;
-    }, [myRegNo]);
+    }, [user?.uid, user?.rollNumber, user?.registerNumber]);
 
     // ── Real-time: messages I sent ────────────────────────────────────────────
     useEffect(() => {
-        if (!myRegNo) return;
+        if (!user?.uid) return;
+
+        const ids = [user.uid];
+        if (user.rollNumber) {
+            ids.push(user.rollNumber.toString());
+            const num = parseInt(user.rollNumber, 10);
+            if (!isNaN(num)) ids.push(num);
+        }
+        const uniqueIds = [...new Set(ids)];
+
         const q = query(
             collection(db, 'wdMessages'),
-            where('senderRegNo', '==', myRegNo),
+            where('senderRegNo', 'in', uniqueIds),
             orderBy('timestamp', 'desc')
         );
         const unsub = onSnapshot(q, snap => {
             setSentMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
         });
         return unsub;
-    }, [myRegNo]);
+    }, [user?.uid, user?.rollNumber]);
 
     // ── Opt-in ────────────────────────────────────────────────────────────────
     const optIn = useCallback(async () => {
