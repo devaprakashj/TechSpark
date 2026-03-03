@@ -480,6 +480,161 @@ const AdminDashboard = () => {
         } catch (error) { console.error(error); alert("Audit report failed."); }
     };
 
+    const downloadWomensDayReport = async () => {
+        try {
+            const doc = new jsPDF();
+            const reportId = `TS-WD-${Math.random().toString(36).substr(2, 7).toUpperCase()}`;
+            const [rit, ts] = await Promise.all([
+                new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = ritLogo; }),
+                new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = techsparkLogo; })
+            ]);
+
+            // Professional Global Settings
+            const primaryColor = [190, 24, 93]; // Pink-700
+            const secondaryColor = [30, 41, 59]; // Slate-800
+
+            const addFooter = (pageNum, totalPages) => {
+                doc.setPage(pageNum);
+                doc.setFontSize(8).setTextColor(150);
+                doc.text(`TechSpark Strategic Data Unit | Women's Day 2026 Audit Report | ID: ${reportId}`, 15, 285);
+                doc.text(`Page ${pageNum} of ${totalPages}`, 195, 285, { align: 'right' });
+            };
+
+            // --- PAGE 1: EXECUTIVE SUMMARY ---
+            // Header Section (Corrected Layout)
+            doc.setFillColor(255, 255, 255);
+            doc.rect(0, 0, 210, 60, 'F');
+            doc.addImage(rit, 'PNG', 15, 12, 45, 38);
+            doc.addImage(ts, 'PNG', 155, 12, 40, 40);
+
+            doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+            doc.setFontSize(24);
+            doc.setFont('helvetica', 'bold');
+            doc.text("STRATEGIC EVENT REPORT", 105, 32, { align: 'center' });
+
+            doc.setFontSize(14);
+            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+            doc.text("WOMEN'S DAY 2026: CONNECTING VOICES", 105, 42, { align: 'center' });
+
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(100, 116, 139);
+            doc.text(`REPORT GENERATED: ${new Date().toLocaleString().toUpperCase()}`, 105, 52, { align: 'center' });
+
+            doc.setDrawColor(226, 232, 240);
+            doc.line(15, 60, 195, 60);
+
+            // Impact Metrics
+            doc.setFontSize(16).setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]).setFont('helvetica', 'bold');
+            doc.text('I. EXECUTIVE IMPACT METRICS', 15, 75);
+
+            const summaryData = [
+                ['Unique Student Participations', wdAdmin.stats.participants.toString()],
+                ['Gross Message Throughput', wdAdmin.stats.total.toString()],
+                ['Approved Sentiment Delivery', wdAdmin.stats.approved.toString()],
+                ['Moderation Queue (Pending)', wdAdmin.stats.pending.toString()],
+                ['Safety Interventions (Flagged)', wdAdmin.stats.flagged.toString()],
+                ['Sentiment Approval Rating', `${((wdAdmin.stats.approved / (wdAdmin.stats.total || 1)) * 100).toFixed(1)}%`]
+            ];
+
+            autoTable(doc, {
+                startY: 85,
+                body: summaryData,
+                theme: 'plain',
+                styles: { fontSize: 11, cellPadding: 6 },
+                columnStyles: { 0: { fontStyle: 'bold', textColor: [71, 85, 105] }, 1: { halign: 'right', fontStyle: 'bold', textColor: primaryColor } }
+            });
+
+            // Demographic Intelligence
+            doc.setFontSize(16).setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+            doc.text('II. DEMOGRAPHIC INTELLIGENCE', 15, doc.lastAutoTable.finalY + 20);
+
+            // Group by Department
+            const deptCounts = wdAdmin.participants.reduce((acc, p) => {
+                const d = p.department || 'Unknown';
+                acc[d] = (acc[d] || 0) + 1;
+                return acc;
+            }, {});
+
+            const deptData = Object.entries(deptCounts).sort((a, b) => b[1] - a[1]);
+
+            autoTable(doc, {
+                startY: doc.lastAutoTable.finalY + 28,
+                head: [['ACADEMIC DEPARTMENT', 'PARTICIPANT COUNT', 'PERCENTAGE']],
+                body: deptData.map(([dept, count]) => [
+                    dept.toUpperCase(),
+                    count.toString(),
+                    `${((count / (wdAdmin.stats.participants || 1)) * 100).toFixed(1)}%`
+                ]),
+                headStyles: { fillColor: primaryColor, fontSize: 10, fontStyle: 'bold' },
+                styles: { fontSize: 9 },
+                alternateRowStyles: { fillColor: [255, 241, 242] }
+            });
+
+            // --- PAGE 2: MESSAGE AUDIT ---
+            doc.addPage();
+            doc.setFontSize(16).setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]).setFont('helvetica', 'bold');
+            doc.text('III. OPERATIONAL MESSAGE AUDIT', 15, 25);
+            doc.setFontSize(10).setFont('helvetica', 'normal').setTextColor(100);
+            doc.text('A comprehensive log of all sentiment interactions processed by the moderation engine.', 15, 32);
+
+            autoTable(doc, {
+                startY: 40,
+                head: [['TIMESTAMP', 'SENDER ID', 'RECEIVER ID', 'STATUS', 'CONTENT OVERVIEW']],
+                body: wdAdmin.messages.map(m => [
+                    m.timestamp?.toDate ? m.timestamp.toDate().toLocaleDateString() : 'REALTIME',
+                    m.senderRegNo || 'ANON',
+                    m.receiverRegNo || 'SYSTEM',
+                    m.status?.toUpperCase(),
+                    m.messageText?.substring(0, 50) + (m.messageText?.length > 50 ? '...' : '')
+                ]),
+                headStyles: { fillColor: secondaryColor, fontSize: 8 },
+                bodyStyles: { fontSize: 7 },
+                columnStyles: {
+                    3: { fontStyle: 'bold' },
+                    4: { cellWidth: 70 }
+                },
+                didParseCell: (data) => {
+                    if (data.column.index === 3) {
+                        if (data.cell.raw === 'APPROVED') data.cell.styles.textColor = [16, 185, 129];
+                        if (data.cell.raw === 'FLAGGED' || data.cell.raw === 'REJECTED') data.cell.styles.textColor = [239, 68, 68];
+                    }
+                }
+            });
+
+            // --- PAGE 3: FULL ROSTER ---
+            doc.addPage();
+            doc.setFontSize(16).setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+            doc.text('IV. COMPLETE PARTICIPANT ROSTER', 15, 25);
+
+            autoTable(doc, {
+                startY: 35,
+                head: [['STUDENT NAME', 'REGISTER NO', 'DEPARTMENT', 'BATCH/YEAR', 'STATUS']],
+                body: wdAdmin.participants.map(p => [
+                    p.name?.toUpperCase() || 'N/A',
+                    p.rollNumber || p.rollNo || 'N/A',
+                    p.department?.toUpperCase() || 'N/A',
+                    p.batch || 'N/A',
+                    p.optedIn ? 'OPTED-IN' : 'PARTICIPANT'
+                ]),
+                headStyles: { fillColor: primaryColor, fontSize: 9 },
+                bodyStyles: { fontSize: 8 },
+                alternateRowStyles: { fillColor: [248, 250, 252] }
+            });
+
+            // Add Footers to all pages
+            const totalPages = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= totalPages; i++) {
+                addFooter(i, totalPages);
+            }
+
+            doc.save(`TechSpark_WomensDay_Strategic_Report_${reportId}.pdf`);
+        } catch (error) {
+            console.error("WD Strategic Report Failure:", error);
+            alert("Strategic Report terminal encountered a critical error.");
+        }
+    };
+
     const handleTestApi = async () => {
         setIsTestingApi(true);
         setApiTestMessage(null);
@@ -3256,12 +3411,21 @@ const AdminDashboard = () => {
                     <div className="space-y-8 animate-in fade-in duration-500">
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             <div className="lg:col-span-2 bg-gradient-to-r from-pink-500 to-purple-600 rounded-[2.5rem] p-8 text-white">
-                                <div className="flex items-center gap-4 mb-5">
-                                    <div className="p-3 bg-white/20 rounded-2xl"><Heart className="w-7 h-7" /></div>
-                                    <div>
-                                        <h2 className="text-2xl font-black uppercase tracking-tight">Women's Day Messages</h2>
-                                        <p className="text-pink-200 text-xs font-bold uppercase tracking-widest mt-0.5">March 8, 2026 · Moderation Panel</p>
+                                <div className="flex items-center justify-between mb-5">
+                                    <div className="flex items-center gap-4">
+                                        <div className="p-3 bg-white/20 rounded-2xl"><Heart className="w-7 h-7" /></div>
+                                        <div>
+                                            <h2 className="text-2xl font-black uppercase tracking-tight">Women's Day Messages</h2>
+                                            <p className="text-pink-200 text-xs font-bold uppercase tracking-widest mt-0.5">March 8, 2026 · Moderation Panel</p>
+                                        </div>
                                     </div>
+                                    <button
+                                        onClick={downloadWomensDayReport}
+                                        className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl flex items-center gap-2 transition-all font-bold text-[10px] uppercase tracking-wider backdrop-blur-sm active:scale-95"
+                                    >
+                                        <FileText className="w-4 h-4" />
+                                        Final Report
+                                    </button>
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                                     {[
