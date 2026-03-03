@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Camera, Download, X, RefreshCw, Loader2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -264,7 +264,9 @@ async function buildPoster(photoDataUrl, userName) {
 ══════════════════════════════════════════════════ */
 export default function SparkBooth({ isOpen, onClose, userName }) {
     const videoRef = useRef(null);
-    const [stream, setStream] = useState(null);
+    const streamRef = useRef(null);   // always holds the live MediaStream
+    const mountedRef = useRef(true);   // guards async getUserMedia
+
     const [photoData, setPhotoData] = useState(null);
     const [posterUrl, setPosterUrl] = useState(null);
     const [countdown, setCountdown] = useState(null);
@@ -272,28 +274,49 @@ export default function SparkBooth({ isOpen, onClose, userName }) {
     const [camError, setCamError] = useState(null);
     const [camReady, setCamReady] = useState(false);
 
+    // ── stop any active stream ──────────────────────────────
+    const stopCamera = () => {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(t => t.stop());
+            streamRef.current = null;
+            if (videoRef.current) videoRef.current.srcObject = null;
+        }
+    };
+
+    // ── start camera ────────────────────────────────────────
     const startCamera = async () => {
+        stopCamera();
+        setCamReady(false);
         try {
             const ms = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 960 } },
                 audio: false,
             });
-            setStream(ms);
+            // If component unmounted while getUserMedia was pending, kill it immediately
+            if (!mountedRef.current) { ms.getTracks().forEach(t => t.stop()); return; }
+            streamRef.current = ms;
             if (videoRef.current) videoRef.current.srcObject = ms;
-            setCamError(null);
-        } catch { setCamError('Camera access denied. Please allow permissions.'); }
+            if (mountedRef.current) setCamError(null);
+        } catch { if (mountedRef.current) setCamError('Camera access denied. Please allow permissions.'); }
     };
 
-    const stopCamera = useCallback(() => {
-        if (stream) { stream.getTracks().forEach(t => t.stop()); setStream(null); }
-    }, [stream]);
+    // ── mount / unmount lifecycle ────────────────────────────
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+            stopCamera();   // always kill camera on unmount
+        };
+    }, []); // eslint-disable-line
 
+    // ── open / close ─────────────────────────────────────────
     useEffect(() => {
         if (isOpen) {
-            setPhotoData(null); setPosterUrl(null); setCountdown(null); setCamReady(false);
+            setPhotoData(null); setPosterUrl(null); setCountdown(null);
             startCamera();
-        } else stopCamera();
-        return () => stopCamera();
+        } else {
+            stopCamera();
+        }
     }, [isOpen]); // eslint-disable-line
 
     useEffect(() => {
@@ -314,6 +337,7 @@ export default function SparkBooth({ isOpen, onClose, userName }) {
         ctx.drawImage(v, (vw - side) / 2, (vh - side) / 2, side, side, 0, 0, side, side);
         setPhotoData(c2.toDataURL('image/jpeg', 0.97));
         setCountdown(null);
+        stopCamera(); // Stop camera after taking photo
         confetti({
             particleCount: 220, spread: 110, origin: { y: 0.45 },
             colors: ['#f472b6', '#c084fc', '#fde047', '#a78bfa', '#f9a8d4', '#ffffff']
@@ -467,7 +491,7 @@ export default function SparkBooth({ isOpen, onClose, userName }) {
                         style={{ borderTop: '1px solid rgba(255,120,200,0.10)', background: 'rgba(0,0,0,0.15)' }}>
                         {photoData ? (
                             <div className="flex gap-3">
-                                <button onClick={() => { setPhotoData(null); setPosterUrl(null); }}
+                                <button onClick={() => { setPhotoData(null); setPosterUrl(null); startCamera(); }}
                                     className="flex-1 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest text-pink-200 flex items-center justify-center gap-2 transition-all"
                                     style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,120,200,0.20)' }}>
                                     <RefreshCw className="w-4 h-4" /> Retake

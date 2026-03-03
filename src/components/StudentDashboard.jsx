@@ -44,11 +44,16 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import SparkBooth from './SparkBooth';
+import WomensDayOptIn from './WomensDay/WomensDayOptIn';
+import WomensDayMessage from './WomensDay/WomensDayMessage';
+import WomensDayInbox from './WomensDay/WomensDayInbox';
+import { useWomensDay } from '../hooks/useWomensDay';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, onSnapshot, orderBy, doc, getDoc, setDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
 
 const StudentDashboard = () => {
     const { user, logout } = useAuth();
+    const wd = useWomensDay(user);
     const [registrations, setRegistrations] = useState([]);
     const [availableEvents, setAvailableEvents] = useState([]);
     const [allEvents, setAllEvents] = useState([]);
@@ -1334,6 +1339,43 @@ const StudentDashboard = () => {
                                 </motion.div>
                             ))}
                         </div>
+
+                        {/* Special Feature: Women's Day Messaging */}
+                        {(wd.isOptInOpen || wd.isSendOpen || wd.inbox.length > 0) && (
+                            <div className={`grid grid-cols-1 ${wd.isFemale ? 'lg:grid-cols-2' : ''} gap-8 animate-in slide-in-from-bottom-5 duration-700`}>
+                                {/* Opt-in and Inbox Section (Only for Females) */}
+                                {wd.isFemale && (
+                                    <div className="space-y-8">
+                                        <WomensDayOptIn
+                                            user={user}
+                                            participation={wd.participation}
+                                            onOptIn={wd.optIn}
+                                            onOptOut={wd.optOut}
+                                            loading={wd.loadingPart}
+                                        />
+                                        {wd.participation?.optedIn && (
+                                            <WomensDayInbox
+                                                participation={wd.participation}
+                                                inbox={wd.inbox}
+                                                released={wd.isReleased}
+                                            />
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Message Sending Section (Everyone) */}
+                                <div className="space-y-8">
+                                    <WomensDayMessage
+                                        user={user}
+                                        sentMessages={wd.sentMessages}
+                                        sendMessage={wd.sendMessage}
+                                        validateReceiver={wd.validateReceiver}
+                                        sentCount={wd.sentCount}
+                                        maxMessages={wd.maxMessages}
+                                    />
+                                </div>
+                            </div>
+                        )}
 
                         {/* Registered Events */}
                         <div id="registered-events" className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">

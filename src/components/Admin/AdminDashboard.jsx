@@ -42,10 +42,14 @@ import {
     UserCheck,
     FileText,
     Bell,
-    Edit
+    Edit,
+    Heart,
+    Lock,
+    Unlock
 } from 'lucide-react';
 import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, where, updateDoc, doc, increment, deleteDoc, getDoc, onSnapshot, limit } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { useWomensDayAdmin } from '../../hooks/useWomensDay';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -66,6 +70,7 @@ const AdminDashboard = () => {
     });
     const [loadingData, setLoadingData] = useState(true);
     const [activeTab, setActiveTab] = useState('overview');
+    const wdAdmin = useWomensDayAdmin();
     const [searchQuery, setSearchQuery] = useState('');
     const [isScanning, setIsScanning] = useState(true);
     const [scanFeedback, setScanFeedback] = useState(null); // { type: 'success' | 'error' | 'loading', message: string, student?: object }
@@ -3246,6 +3251,163 @@ const AdminDashboard = () => {
                         </div>
                     </div>
                 );
+            case 'womensday':
+                return (
+                    <div className="space-y-8 animate-in fade-in duration-500">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div className="lg:col-span-2 bg-gradient-to-r from-pink-500 to-purple-600 rounded-[2.5rem] p-8 text-white">
+                                <div className="flex items-center gap-4 mb-5">
+                                    <div className="p-3 bg-white/20 rounded-2xl"><Heart className="w-7 h-7" /></div>
+                                    <div>
+                                        <h2 className="text-2xl font-black uppercase tracking-tight">Women's Day Messages</h2>
+                                        <p className="text-pink-200 text-xs font-bold uppercase tracking-widest mt-0.5">March 8, 2026 · Moderation Panel</p>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                                    {[
+                                        { label: 'Participants', value: wdAdmin.stats.participants, bg: 'bg-white/20' },
+                                        { label: 'Total', value: wdAdmin.stats.total, bg: 'bg-white/20' },
+                                        { label: 'Pending', value: wdAdmin.stats.pending, bg: 'bg-orange-400/30' },
+                                        { label: 'Flagged', value: wdAdmin.stats.flagged, bg: 'bg-red-400/30' },
+                                        { label: 'Approved', value: wdAdmin.stats.approved, bg: 'bg-emerald-400/30' },
+                                    ].map(s => (
+                                        <div key={s.label} className={`${s.bg} rounded-2xl p-4 text-center`}>
+                                            <div className="text-3xl font-black">{s.value}</div>
+                                            <div className="text-[10px] font-black uppercase tracking-widest text-white/70 mt-0.5">{s.label}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Release Control Card */}
+                            <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-8 flex flex-col justify-center">
+                                <div className="flex items-center gap-3 mb-4 text-left">
+                                    <div className={`p-2 rounded-xl ${wdAdmin.settings?.manualRelease ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                                        {wdAdmin.settings?.manualRelease ? <Unlock className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
+                                    </div>
+                                    <div>
+                                        <h4 className="font-black text-slate-800 text-sm uppercase tracking-tight">Release Control</h4>
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase">Manual Override</p>
+                                    </div>
+                                </div>
+
+                                <p className="text-xs text-slate-500 mb-6 leading-relaxed text-left">
+                                    {wdAdmin.settings?.manualRelease
+                                        ? "Messages are currently RELEASED and visible to status-eligible students."
+                                        : "Messages are currently LOCKED. They will auto-release on March 8 at 9:00 AM IST unless overridden."}
+                                </p>
+
+                                <button
+                                    onClick={() => {
+                                        const action = wdAdmin.settings?.manualRelease ? 'LOCK' : 'RELEASE';
+                                        if (confirm(`Are you sure you want to ${action} all messages manually?`)) {
+                                            wdAdmin.toggleManualRelease(!wdAdmin.settings?.manualRelease);
+                                        }
+                                    }}
+                                    className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${wdAdmin.settings?.manualRelease
+                                            ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                            : 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30 hover:scale-[1.02]'
+                                        }`}
+                                >
+                                    {wdAdmin.settings?.manualRelease ? 'Lock Messages' : 'Release All Now'}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="p-8 border-b border-slate-100">
+                                <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Message Queue</h3>
+                                <p className="text-xs text-slate-400 font-bold mt-0.5">Approved messages release automatically on March 8 at 9:00 AM IST</p>
+                            </div>
+                            {wdAdmin.loading ? (
+                                <div className="flex items-center justify-center py-20">
+                                    <div className="w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full animate-spin" />
+                                </div>
+                            ) : wdAdmin.messages.length === 0 ? (
+                                <div className="py-20 text-center">
+                                    <Heart className="w-10 h-10 text-pink-200 mx-auto mb-3" />
+                                    <p className="text-slate-400 font-black uppercase text-xs">No messages yet</p>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                                            <tr>
+                                                <th className="px-6 py-4">Sender</th>
+                                                <th className="px-6 py-4">Receiver Reg No</th>
+                                                <th className="px-6 py-4">Message</th>
+                                                <th className="px-6 py-4">Status</th>
+                                                <th className="px-6 py-4">Flagged</th>
+                                                <th className="px-6 py-4 text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {wdAdmin.messages.map(msg => (
+                                                <tr key={msg.id} className={`hover:bg-slate-50/50 transition-colors ${msg.status === 'flagged' ? 'bg-red-50/40' :
+                                                    msg.status === 'approved' ? 'bg-emerald-50/20' :
+                                                        msg.status === 'rejected' ? 'bg-slate-100/50' : ''}`}>
+                                                    <td className="px-6 py-5">
+                                                        <p className="font-black text-sm text-slate-800 uppercase">{msg.senderName}</p>
+                                                        <p className="text-[10px] text-slate-400 font-mono">{msg.senderRegNo}</p>
+                                                    </td>
+                                                    <td className="px-6 py-5 font-mono text-xs font-bold text-slate-600">{msg.receiverRegNo}</td>
+                                                    <td className="px-6 py-5 max-w-xs">
+                                                        <p className="text-sm text-slate-700 line-clamp-2">{msg.messageText}</p>
+                                                    </td>
+                                                    <td className="px-6 py-5">
+                                                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${msg.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
+                                                            msg.status === 'rejected' ? 'bg-red-100 text-red-600' :
+                                                                msg.status === 'flagged' ? 'bg-red-200 text-red-700 animate-pulse' :
+                                                                    'bg-orange-100 text-orange-700'}`}>{msg.status}</span>
+                                                    </td>
+                                                    <td className="px-6 py-5">
+                                                        {msg.flaggedWords?.length > 0
+                                                            ? <div className="flex flex-wrap gap-1">{msg.flaggedWords.map(w => <span key={w} className="text-[9px] bg-red-100 text-red-600 font-bold px-1.5 py-0.5 rounded">{w}</span>)}</div>
+                                                            : <span className="text-[10px] text-emerald-600 font-bold">✓ Clean</span>}
+                                                    </td>
+                                                    <td className="px-6 py-5 text-right">
+                                                        {(msg.status === 'pending' || msg.status === 'flagged') ? (
+                                                            <div className="flex items-center justify-end gap-2">
+                                                                <button onClick={() => wdAdmin.approveMessage(msg.id)}
+                                                                    className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase hover:bg-emerald-700 transition-all flex items-center gap-1">
+                                                                    <CheckCircle className="w-3.5 h-3.5" /> Approve
+                                                                </button>
+                                                                <button onClick={() => wdAdmin.rejectMessage(msg.id)}
+                                                                    className="px-3 py-1.5 rounded-xl bg-red-100 text-red-600 text-[10px] font-black uppercase hover:bg-red-200 transition-all flex items-center gap-1">
+                                                                    <X className="w-3.5 h-3.5" /> Reject
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-[10px] text-slate-400 font-bold uppercase">{msg.status}</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-8">
+                            <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight mb-6">
+                                Opted-in Participants ({wdAdmin.stats.participants})
+                            </h3>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                {wdAdmin.participants.filter(p => p.optedIn).map(p => (
+                                    <div key={p.id} className="p-4 bg-pink-50 rounded-2xl border border-pink-100">
+                                        <p className="font-black text-sm text-gray-800 uppercase truncate">{p.name}</p>
+                                        <p className="text-[10px] text-gray-500 font-mono">{p.rollNo}</p>
+                                        <p className="text-[10px] text-pink-600 font-bold uppercase">{p.department} · {p.batch}</p>
+                                    </div>
+                                ))}
+                                {wdAdmin.participants.filter(p => p.optedIn).length === 0 && (
+                                    <p className="text-xs text-slate-400 font-bold col-span-4">No participants yet — opt-in opens March 5–6</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
         }
     };
 
@@ -3317,7 +3479,8 @@ const AdminDashboard = () => {
                             { id: 'reports', icon: <PieChart className="w-5 h-5" />, label: 'Reports', desc: 'PDF Intelligence' },
                             { id: 'submissions', icon: <Activity className="w-5 h-5" />, label: 'Quiz Scores', desc: 'Live Performance', isLive: true },
                             { id: 'settings', icon: <Settings className="w-5 h-5" />, label: 'Settings', desc: 'System Config' },
-                            { id: 'logs', icon: <ShieldAlert className="w-5 h-5" />, label: 'Security', desc: 'Audit Trail' }
+                            { id: 'logs', icon: <ShieldAlert className="w-5 h-5" />, label: 'Security', desc: 'Audit Trail' },
+                            { id: 'womensday', icon: <Heart className="w-5 h-5" />, label: "Women's Day", desc: 'Message Moderation', badge: wdAdmin.stats.pending + wdAdmin.stats.flagged, badgeColor: 'orange' }
                         ].map((item) => (
                             <motion.button
                                 key={item.id}
