@@ -61,18 +61,22 @@ export function useWomensDay(user) {
             if (!isNaN(num)) ids.push(num);
         }
         const uniqueIds = [...new Set(ids)];
+        console.log("WD_DEBUG: Fetching inbox for IDs:", uniqueIds);
 
-        // We query by any ID senders might have used (UID, Roll String, Roll Num)
+        // removed orderBy to avoid index requirement
         const q = query(
             collection(db, 'wdMessages'),
             where('receiverRegNo', 'in', uniqueIds),
-            where('status', '==', 'approved'),
-            orderBy('timestamp', 'desc')
+            where('status', '==', 'approved')
         );
+
         const unsub = onSnapshot(q, snap => {
             const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            // Manual sort by timestamp
+            msgs.sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0));
             setInbox(msgs);
-        });
+        }, (err) => console.error("WD_INBOX_ERROR:", err));
+
         return unsub;
     }, [user?.uid, user?.rollNumber, user?.registerNumber]);
 
@@ -88,14 +92,18 @@ export function useWomensDay(user) {
         }
         const uniqueIds = [...new Set(ids)];
 
+        // removed orderBy to avoid index requirement
         const q = query(
             collection(db, 'wdMessages'),
-            where('senderRegNo', 'in', uniqueIds),
-            orderBy('timestamp', 'desc')
+            where('senderRegNo', 'in', uniqueIds)
         );
+
         const unsub = onSnapshot(q, snap => {
-            setSentMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-        });
+            const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            msgs.sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0));
+            setSentMessages(msgs);
+        }, (err) => console.error("WD_SENT_ERROR:", err));
+
         return unsub;
     }, [user?.uid, user?.rollNumber]);
 
