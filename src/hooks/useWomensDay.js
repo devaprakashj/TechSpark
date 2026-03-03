@@ -47,50 +47,93 @@ export function useWomensDay(user) {
 
     // ── Real-time: messages I received (only released approved) ──────────────
     useEffect(() => {
-        if (!user?.uid) return;
-
-        const ids = [user.uid];
-        if (user.rollNumber) {
-            ids.push(user.rollNumber.toString());
-            const num = parseInt(user.rollNumber, 10);
-            if (!isNaN(num)) ids.push(num);
+        if (!user?.uid) {
+            setInbox([]);
+            return;
         }
-        if (user.registerNumber) {
-            ids.push(user.registerNumber.toString());
-            const num = parseInt(user.registerNumber, 10);
-            if (!isNaN(num)) ids.push(num);
-        }
-        const uniqueIds = [...new Set(ids)];
-        console.log("WD_DEBUG: Fetching inbox for IDs:", uniqueIds);
 
-        // removed orderBy to avoid index requirement
-        const q = query(
+        // Build exhaustive identity set
+        const ids = new Set([user.uid, user.uid.toString()]);
+
+        // From user object
+        [user.rollNumber, user.registerNumber].forEach(val => {
+            if (val) {
+                const s = val.toString().trim();
+                if (s) {
+                    ids.add(s);
+                    const n = parseInt(s, 10);
+                    if (!isNaN(n)) ids.add(n);
+                }
+            }
+        });
+
+        // From participation record
+        if (participation?.rollNumber) {
+            const s = participation.rollNumber.toString().trim();
+            if (s) {
+                ids.add(s);
+                const n = parseInt(s, 10);
+                if (!isNaN(n)) ids.add(n);
+            }
+        }
+
+        const uniqueIds = [...ids].filter(Boolean);
+        console.log("WD_DEBUG: Active Inbox Filters:", uniqueIds);
+
+        // We use two parallel listeners to ensure absolute reliability
+        const qByRegNo = query(
             collection(db, 'wdMessages'),
             where('receiverRegNo', 'in', uniqueIds),
             where('status', '==', 'approved')
         );
 
-        const unsub = onSnapshot(q, snap => {
-            const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            // Manual sort by timestamp
-            msgs.sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0));
-            setInbox(msgs);
-        }, (err) => console.error("WD_INBOX_ERROR:", err));
+        const qByUid = query(
+            collection(db, 'wdMessages'),
+            where('receiverUid', '==', user.uid),
+            where('status', '==', 'approved')
+        );
 
-        return unsub;
-    }, [user?.uid, user?.rollNumber, user?.registerNumber]);
+        let resultsByReg = [];
+        let resultsByUid = [];
+
+        const updateCombinedInbox = () => {
+            const all = [...resultsByReg, ...resultsByUid];
+            const unique = [];
+            const seen = new Set();
+            for (const m of all) {
+                if (!seen.has(m.id)) {
+                    unique.push(m);
+                    seen.add(m.id);
+                }
+            }
+            unique.sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0));
+            setInbox(unique);
+        };
+
+        const unsubReg = onSnapshot(qByRegNo, snap => {
+            resultsByReg = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            updateCombinedInbox();
+        }, err => console.error("WD_INBOX_REG_ERR:", err));
+
+        const unsubUid = onSnapshot(qByUid, snap => {
+            resultsByUid = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            updateCombinedInbox();
+        }, err => console.error("WD_INBOX_UID_ERR:", err));
+
+        return () => { unsubReg(); unsubUid(); };
+    }, [user?.uid, user?.rollNumber, user?.registerNumber, participation?.rollNumber]);
 
     // ── Real-time: messages I sent ────────────────────────────────────────────
     useEffect(() => {
         if (!user?.uid) return;
 
-        const ids = [user.uid];
+        const ids = new Set([user.uid]);
         if (user.rollNumber) {
-            ids.push(user.rollNumber.toString());
+            ids.add(user.rollNumber.toString().trim());
             const num = parseInt(user.rollNumber, 10);
-            if (!isNaN(num)) ids.push(num);
+            if (!isNaN(num)) ids.add(num);
         }
-        const uniqueIds = [...new Set(ids)];
+        const uniqueIds = [...ids];
 
         // removed orderBy to avoid index requirement
         const q = query(
@@ -111,7 +154,7 @@ export function useWomensDay(user) {
     const optIn = useCallback(async () => {
         if (!user) throw new Error('Not logged in');
 
-        const canonicalId = user?.rollNumber || user?.registerNumber;
+        const canonicalId = (user?.rollNumber || user?.registerNumber || '').toString().trim();
         if (!canonicalId) {
             throw new Error('Identification failed: Please update your "Academic Profile" with your Register Number before opting in.');
         }
@@ -120,7 +163,7 @@ export function useWomensDay(user) {
             throw new Error('Women\'s Day participation is currently limited to female students only.');
         }
 
-        const autoDeactivate = new Date('2026-03-09T00:00:00+05:30');
+        const autoDeactivateAt = new Date('2026-03-09T00:00:00+05:30');
         await setDoc(doc(db, 'wdParticipants', canonicalId), {
             rollNumber: canonicalId,
             uid: user.uid,
@@ -129,14 +172,14 @@ export function useWomensDay(user) {
             batch: user?.batch || user?.admissionYear || '',
             optedIn: true,
             optedInAt: serverTimestamp(),
-            autoDeactivateAt: autoDeactivate,
+            autoDeactivateAt,
         });
         await logAction(canonicalId, 'OPT_IN', { uid: user.uid });
     }, [user]);
 
     // ── Opt-out ───────────────────────────────────────────────────────────────
     const optOut = useCallback(async () => {
-        const canonicalId = user?.rollNumber || user?.registerNumber || user?.uid;
+        const canonicalId = (user?.rollNumber || user?.registerNumber || user?.uid).toString().trim();
         if (!canonicalId) throw new Error('Not logged in');
         await updateDoc(doc(db, 'wdParticipants', canonicalId), { optedIn: false });
         await logAction(canonicalId, 'OPT_OUT', {});
@@ -165,7 +208,10 @@ export function useWomensDay(user) {
     }, [myRegNo]);
 
     // ── Validate receiver reg no ──────────────────────────────────────────────
-    const validateReceiver = useCallback(async (receiverRegNo) => {
+    const validateReceiver = useCallback(async (input) => {
+        const receiverRegNo = (input || '').toString().trim();
+        if (!receiverRegNo) return { valid: false, reason: 'Please enter a register number.' };
+
         const rl = await checkRateLimit();
         if (!rl.allowed) return { valid: false, reason: rl.reason };
 
@@ -276,6 +322,7 @@ export function useWomensDay(user) {
             valid: true,
             receiver: {
                 regNo: foundRegNo,
+                uid: studentData.uid || null,
                 name: student.fullName,
                 department: student.department,
                 batch: student.admissionYear
@@ -284,7 +331,10 @@ export function useWomensDay(user) {
     }, [checkRateLimit]);
 
     // ── Send message ──────────────────────────────────────────────────────────
-    const sendMessage = useCallback(async (receiverRegNo, messageText) => {
+    const sendMessage = useCallback(async (receiver, messageText) => {
+        const receiverRegNo = receiver.regNo;
+        const receiverUid = receiver.uid;
+
         if (!myRegNo) throw new Error('Not logged in');
 
         // Message count check
@@ -293,13 +343,13 @@ export function useWomensDay(user) {
         }
 
         // Duplicate check
-        const alreadySent = sentMessages.some(m => m.receiverRegNo === receiverRegNo);
+        const alreadySent = sentMessages.some(m => m.receiverRegNo === receiverRegNo || (receiverUid && m.receiverUid === receiverUid));
         if (alreadySent) {
             return { success: false, reason: 'You have already sent a message to this student.' };
         }
 
         // Can't message yourself
-        if (receiverRegNo === myRegNo) {
+        if (receiverRegNo === myRegNo || (receiverUid && receiverUid === user?.uid)) {
             return { success: false, reason: 'You cannot send a message to yourself.' };
         }
 
@@ -311,6 +361,7 @@ export function useWomensDay(user) {
             senderRegNo: myRegNo,
             senderName: user?.fullName || 'Anonymous',
             receiverRegNo,
+            receiverUid,
             messageText,
             sanitizedText: sanitized,
             status: isClean ? 'pending' : 'flagged',

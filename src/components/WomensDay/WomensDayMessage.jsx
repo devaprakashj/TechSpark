@@ -38,7 +38,7 @@ export default function WomensDayMessage({ user, sentMessages = [], sentCount, m
     const handleSend = async () => {
         if (!msgText.trim() || !receiver) return;
         setSending(true); setError('');
-        const result = await sendMessage(receiver.regNo, msgText.trim());
+        const result = await sendMessage(receiver, msgText.trim());
         setSending(false);
         if (result.success) {
             setLastResult(result);
