@@ -3305,8 +3305,8 @@ const AdminDashboard = () => {
                                         }
                                     }}
                                     className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${wdAdmin.settings?.manualRelease
-                                            ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                                            : 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30 hover:scale-[1.02]'
+                                        ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                        : 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30 hover:scale-[1.02]'
                                         }`}
                                 >
                                     {wdAdmin.settings?.manualRelease ? 'Lock Messages' : 'Release All Now'}
@@ -3397,7 +3397,7 @@ const AdminDashboard = () => {
                                 {wdAdmin.participants.filter(p => p.optedIn).map(p => (
                                     <div key={p.id} className="p-4 bg-pink-50 rounded-2xl border border-pink-100">
                                         <p className="font-black text-sm text-gray-800 uppercase truncate">{p.name}</p>
-                                        <p className="text-[10px] text-gray-500 font-mono">{p.rollNo}</p>
+                                        <p className="text-[10px] text-gray-500 font-mono">{p.rollNumber || p.rollNo}</p>
                                         <p className="text-[10px] text-pink-600 font-bold uppercase">{p.department} · {p.batch}</p>
                                     </div>
                                 ))}

@@ -18,7 +18,9 @@ export function useWomensDay(user) {
     const [loadingPart, setLoadingPart] = useState(true);
     const [settings, setSettings] = useState(null);
 
-    const myRegNo = user?.rollNo || user?.uid;
+    // Use rollNumber/registerNumber as primary identifier; fallback to UID for session only
+    const myRegNo = user?.rollNumber || user?.registerNumber || user?.uid;
+    const canParticipate = !!(user?.rollNumber || user?.registerNumber);
 
     // ── Real-time: global settings ───────────────────────────────────────────
     useEffect(() => {
@@ -31,17 +33,23 @@ export function useWomensDay(user) {
     // ── Real-time: my opt-in status ──────────────────────────────────────────
     useEffect(() => {
         if (!myRegNo) { setLoadingPart(false); return; }
-        const ref = doc(db, 'wdParticipants', myRegNo);
+
+        // Check by canonical ID (roll number)
+        const canonicalId = user?.rollNumber || user?.registerNumber;
+        const ref = doc(db, 'wdParticipants', canonicalId || user?.uid);
+
         const unsub = onSnapshot(ref, snap => {
             setParticipation(snap.exists() ? snap.data() : null);
             setLoadingPart(false);
         });
         return unsub;
-    }, [myRegNo]);
+    }, [myRegNo, user?.rollNumber, user?.registerNumber, user?.uid]);
 
     // ── Real-time: messages I received (only released approved) ──────────────
     useEffect(() => {
         if (!myRegNo) return;
+
+        // We query by the same ID senders use (roll number preferred)
         const q = query(
             collection(db, 'wdMessages'),
             where('receiverRegNo', '==', myRegNo),
@@ -71,13 +79,21 @@ export function useWomensDay(user) {
 
     // ── Opt-in ────────────────────────────────────────────────────────────────
     const optIn = useCallback(async () => {
-        if (!myRegNo) throw new Error('Not logged in');
+        if (!user) throw new Error('Not logged in');
+
+        const canonicalId = user?.rollNumber || user?.registerNumber;
+        if (!canonicalId) {
+            throw new Error('Identification failed: Please update your "Academic Profile" with your Register Number before opting in.');
+        }
+
         if (user?.gender !== 'Female') {
             throw new Error('Women\'s Day participation is currently limited to female students only.');
         }
+
         const autoDeactivate = new Date('2026-03-09T00:00:00+05:30');
-        await setDoc(doc(db, 'wdParticipants', myRegNo), {
-            rollNo: myRegNo,
+        await setDoc(doc(db, 'wdParticipants', canonicalId), {
+            rollNumber: canonicalId,
+            uid: user.uid,
             name: user?.fullName || '',
             department: user?.department || '',
             batch: user?.batch || user?.admissionYear || '',
@@ -85,18 +101,20 @@ export function useWomensDay(user) {
             optedInAt: serverTimestamp(),
             autoDeactivateAt: autoDeactivate,
         });
-        await logAction(myRegNo, 'OPT_IN', {});
-    }, [myRegNo, user]);
+        await logAction(canonicalId, 'OPT_IN', { uid: user.uid });
+    }, [user]);
 
     // ── Opt-out ───────────────────────────────────────────────────────────────
     const optOut = useCallback(async () => {
-        if (!myRegNo) throw new Error('Not logged in');
-        await updateDoc(doc(db, 'wdParticipants', myRegNo), { optedIn: false });
-        await logAction(myRegNo, 'OPT_OUT', {});
-    }, [myRegNo]);
+        const canonicalId = user?.rollNumber || user?.registerNumber || user?.uid;
+        if (!canonicalId) throw new Error('Not logged in');
+        await updateDoc(doc(db, 'wdParticipants', canonicalId), { optedIn: false });
+        await logAction(canonicalId, 'OPT_OUT', {});
+    }, [user]);
 
     // ── Check rate limit ──────────────────────────────────────────────────────
     const checkRateLimit = useCallback(async () => {
+        if (!myRegNo) return { allowed: false, reason: 'Session expired' };
         const ref = doc(db, 'wdRateLimits', myRegNo);
         const snap = await getDoc(ref);
         const data = snap.data() || {};
@@ -121,26 +139,105 @@ export function useWomensDay(user) {
         const rl = await checkRateLimit();
         if (!rl.allowed) return { valid: false, reason: rl.reason };
 
-        // check in users collection
-        const q = query(collection(db, 'users'), where('rollNo', '==', receiverRegNo));
-        const snap = await getDocs(q);
-        if (snap.empty) return { valid: false, reason: 'Student not found in database.' };
+        let studentData = null;
+        let foundRegNo = receiverRegNo;
+        const regNoNum = parseInt(receiverRegNo, 10);
+        const hasNum = !isNaN(regNoNum);
 
-        const studentDoc = snap.docs[0];
-        const student = studentDoc.data();
+        // helper to check a collection for any of the common register number fields
+        const findInCollection = async (collName) => {
+            // Check by document ID first (sometimes document IDs are reg numbers)
+            try {
+                const docRef = doc(db, collName, receiverRegNo);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) return docSnap.data();
+            } catch (e) {
+                console.log(`DocID check failed for ${collName}`);
+            }
+
+            const fields = [
+                'rollNumber', 'registerNumber', 'rollNo', 'regNo',
+                'studentRoll', 'registrationNumber', 'regNumber',
+                'roll_number', 'register_number', 'student_roll'
+            ];
+
+            for (const field of fields) {
+                try {
+                    // Try string match
+                    const qStr = query(collection(db, collName), where(field, '==', receiverRegNo));
+                    const snapStr = await getDocs(qStr);
+                    if (!snapStr.empty) return snapStr.docs[0].data();
+
+                    // Try number match if possible
+                    if (hasNum) {
+                        const qNum = query(collection(db, collName), where(field, '==', regNoNum));
+                        const snapNum = await getDocs(qNum);
+                        if (!snapNum.empty) return snapNum.docs[0].data();
+                    }
+                } catch (e) {
+                    console.log(`Lookup failed for ${collName}.${field}`);
+                }
+            }
+            return null;
+        };
+
+        // 1. Check active users
+        studentData = await findInCollection('users');
+
+        // 2. If not found, check master student list
+        if (!studentData) {
+            studentData = await findInCollection('students');
+        }
+
+        // 3. Fallback to participation list itself
+        if (!studentData) {
+            studentData = await findInCollection('wdParticipants');
+        }
+
+        if (!studentData) return { valid: false, reason: 'Student not found in database.' };
+
+        // Normalize student data
+        const student = {
+            fullName: studentData.fullName || studentData.name || 'Anonymous',
+            department: studentData.department || studentData.studentDept || 'N/A',
+            admissionYear: studentData.admissionYear || studentData.batch || studentData.year || 'N/A',
+            gender: studentData.gender || 'Female',
+            rollNumber: studentData.rollNumber || studentData.registerNumber || studentData.rollNo || studentData.regNo || receiverRegNo
+        };
+
+        foundRegNo = student.rollNumber;
 
         if (student.gender !== 'Female') {
             return { valid: false, reason: 'This feature is for sending messages to female students for Women\'s Day.' };
         }
 
         // check participant opt-in
-        const partSnap = await getDoc(doc(db, 'wdParticipants', receiverRegNo));
-        if (!partSnap.exists() || !partSnap.data().optedIn) {
-            return { valid: false, reason: 'This student is not participating in Women\'s Day event.' };
+        const partSnap = await getDoc(doc(db, 'wdParticipants', foundRegNo.toString()));
+        let optedIn = partSnap.exists() && partSnap.data().optedIn;
+
+        if (!optedIn) {
+            // Check by original input string
+            const altSnap = await getDoc(doc(db, 'wdParticipants', receiverRegNo));
+            if (altSnap.exists() && altSnap.data().optedIn) {
+                optedIn = true;
+            }
+        }
+
+        if (!optedIn && studentData.uid) {
+            // Check by student's UID (for cases where they opted in via old system)
+            const uidSnap = await getDoc(doc(db, 'wdParticipants', studentData.uid));
+            if (uidSnap.exists() && uidSnap.data().optedIn) {
+                optedIn = true;
+            }
+        }
+
+        if (!optedIn) {
+            return { valid: false, reason: 'This student is not participating in Women\'s Day event (they must opt-in first).' };
         }
 
         // Auto-deactivate check
-        const deactivateAt = partSnap.data().autoDeactivateAt?.toDate?.();
+        const partDoc = partSnap.exists() ? partSnap.data() : (await getDoc(doc(db, 'wdParticipants', receiverRegNo))).data();
+        const deactivateAt = partDoc?.autoDeactivateAt?.toDate?.();
         if (deactivateAt && new Date() > deactivateAt) {
             return { valid: false, reason: 'Women\'s Day event has ended.' };
         }
@@ -148,10 +245,10 @@ export function useWomensDay(user) {
         return {
             valid: true,
             receiver: {
-                regNo: receiverRegNo,
-                name: student.fullName || '',
-                department: student.department || '',
-                batch: student.admissionYear || student.batch || '',
+                regNo: foundRegNo,
+                name: student.fullName,
+                department: student.department,
+                batch: student.admissionYear
             }
         };
     }, [checkRateLimit]);
