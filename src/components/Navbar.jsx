@@ -109,23 +109,22 @@ const Navbar = () => {
 
     return (
         <>
-            {/* Republic Day / Special Day Banner */}
+            {/* Special Day Banner - Styled dynamically */}
             {specialDay.isSpecialDay && (
                 <div className="fixed top-0 left-0 right-0 z-[60]">
-                    {/* Tricolor animated bar */}
-                    <div className="h-1 tricolor-bar" />
-                    {/* Message banner */}
-                    <div className="bg-gradient-to-r from-[#FF9933] via-white to-[#138808] py-1.5 text-center">
-                        <p className="text-xs font-bold text-slate-800 tracking-wide flex items-center justify-center gap-2">
-                            <span>{specialDay.emoji}</span>
-                            <span>{specialDay.message}</span>
-                            <span>{specialDay.emoji}</span>
+                    <div className="bg-white/80 backdrop-blur-sm py-1.5 text-center border-b shadow-sm"
+                        style={{ borderBottomColor: specialDay.colors.primary }}>
+                        <p className="text-[10px] md:text-xs font-black tracking-widest flex items-center justify-center gap-1.5 md:gap-3 uppercase"
+                            style={{ color: specialDay.colors.primary }}>
+                            <span className="animate-bounce">{specialDay.emoji}</span>
+                            <span className="italic">{specialDay.message}</span>
+                            <span className="animate-bounce">{specialDay.emoji}</span>
                         </p>
                     </div>
                 </div>
             )}
             <nav
-                className={`fixed ${specialDay.isSpecialDay ? 'top-[38px]' : 'top-0'} w-full z-50 transition-all duration-300 ${isScrolled
+                className={`fixed ${specialDay.isSpecialDay ? 'top-[36px]' : 'top-0'} w-full z-50 transition-all duration-300 ${isScrolled
                     ? 'glass shadow-lg'
                     : 'bg-white/80 backdrop-blur-xl shrink-navbar'
                     } border-b border-gray-100`}

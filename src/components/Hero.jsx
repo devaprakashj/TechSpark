@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Sparkles, ArrowRight } from 'lucide-react';
 import TypewriterText from './TypewriterText';
 import CountUp from './CountUp';
@@ -71,16 +72,44 @@ const Hero = () => {
 
     return (
         <section id="home" className={`${specialDay.isSpecialDay ? 'pt-32' : 'pt-24'} pb-20 lg:pt-32 lg:pb-32 relative overflow-hidden`}>
-            {/* Animated Background Elements - Tricolor for Republic Day */}
+            {/* Animated Background Elements */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 {specialDay.isSpecialDay ? (
                     <>
-                        {/* Saffron Orb */}
-                        <div className="absolute top-20 left-10 w-72 h-72 bg-[#FF9933]/30 rounded-full blur-3xl animate-pulse-slow"></div>
-                        {/* Green Orb */}
-                        <div className="absolute bottom-20 right-10 w-96 h-96 bg-[#138808]/25 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }}></div>
-                        {/* White Orb */}
-                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-white/40 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
+                        {/* Themed Orbs based on Special Day Colors */}
+                        <div className="absolute top-20 left-10 w-72 h-72 rounded-full blur-3xl animate-pulse-slow opacity-30"
+                            style={{ backgroundColor: specialDay.colors.primary }}></div>
+                        <div className="absolute bottom-20 right-10 w-96 h-96 rounded-full blur-3xl animate-pulse-slow opacity-25"
+                            style={{ backgroundColor: specialDay.colors.secondary, animationDelay: '1s' }}></div>
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-white/40 rounded-full blur-3xl animate-pulse-slow"
+                            style={{ animationDelay: '2s' }}></div>
+
+                        {/* Special Day Decorative Elements (e.g. Petals for Women's Day) */}
+                        {specialDay.isWomensDay && (
+                            <div className="absolute inset-0 z-0">
+                                {[...Array(6)].map((_, i) => (
+                                    <motion.div
+                                        key={i}
+                                        initial={{ y: -20, x: Math.random() * 100 + '%', opacity: 0, rotate: 0 }}
+                                        animate={{
+                                            y: '110vh',
+                                            x: (Math.random() * 100 - 50) + '%',
+                                            opacity: [0, 1, 1, 0],
+                                            rotate: 360
+                                        }}
+                                        transition={{
+                                            duration: 10 + Math.random() * 10,
+                                            repeat: Infinity,
+                                            ease: "linear",
+                                            delay: i * 2
+                                        }}
+                                        className="absolute text-pink-200/40 text-2xl"
+                                    >
+                                        🌸
+                                    </motion.div>
+                                ))}
+                            </div>
+                        )}
                     </>
                 ) : (
                     <>
@@ -92,9 +121,24 @@ const Hero = () => {
             </div>
 
             <div className="container-custom relative z-10">
-                <div className="max-w-4xl mx-auto text-center animate-fade-in">
+                <div className="max-w-4xl mx-auto text-center animate-fade-in relative">
+                    {/* Women's Day Special Badge */}
+                    {specialDay.isWomensDay && (
+                        <motion.div
+                            initial={{ scale: 0, rotate: -20 }}
+                            animate={{ scale: 1, rotate: -5 }}
+                            className="absolute -top-12 -right-4 md:-right-12 hidden xs:flex flex-col items-center justify-center w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white shadow-2xl z-20 cursor-default group overflow-hidden"
+                            style={{ background: 'linear-gradient(135deg, #ec4899 0%, #a855f7 100%)' }}
+                        >
+                            <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity" />
+                            <span className="text-white text-2xl md:text-4xl mb-1">🌸</span>
+                            <span className="text-white font-black text-[8px] md:text-[10px] uppercase tracking-tighter text-center leading-none">Celebrating<br />Women 2026</span>
+                            <div className="absolute -bottom-1 w-full h-4 bg-white/20 blur-sm" />
+                        </motion.div>
+                    )}
+
                     {/* Badge */}
-                    <div className="inline-flex items-center gap-3 px-5 py-2.5 bg-white border border-blue-100 rounded-full mb-8 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="inline-flex items-center gap-3 px-5 py-2.5 bg-white border border-blue-100 rounded-full mb-8 shadow-sm hover:shadow-md transition-shadow relative z-10">
                         <img src={ritLogo} alt="RIT Logo" className="h-5 w-auto object-contain" />
                         <div className="w-px h-4 bg-gray-200" />
                         <Sparkles className="w-3.5 h-3.5 text-blue-600" />

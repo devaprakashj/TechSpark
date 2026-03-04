@@ -56,6 +56,29 @@ export const getSpecialDayTheme = () => {
         };
     }
 
+    // Women's Day - March 1-8
+    if ((month === 3 && date <= 8)) {
+        return {
+            isSpecialDay: true,
+            isWomensDay: true,
+            name: 'Women\'s Day',
+            emoji: '🌸',
+            message: 'Happy International Women\'s Day! Celebrate her power. 💐',
+            colors: {
+                primary: '#ec4899', // Pink
+                secondary: '#a855f7', // Purple
+                accent: '#fdf0fb', // Soft Pink
+                gradient: 'linear-gradient(135deg, #ec4899 0%, #a855f7 100%)',
+            },
+            classes: {
+                navbarBorder: 'border-b-2 border-pink-200',
+                buttonGradient: 'from-pink-500 to-purple-600',
+                textGradient: 'bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent',
+                glowPink: 'shadow-[0_0_30px_rgba(236,72,153,0.3)]',
+            }
+        };
+    }
+
     // No special day - return normal theme
     return {
         isSpecialDay: false,

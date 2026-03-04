@@ -103,7 +103,7 @@ export default function WomensDayInbox({ participation, inbox, released }) {
                         <div className="mb-3 p-3 rounded-xl text-center"
                             style={{ background: 'linear-gradient(135deg,#fff0f8,#f3e8ff)' }}>
                             <p className="text-sm font-black text-pink-700">
-                                💐 You received {visibleMessages.length} Women's Day message{visibleMessages.length > 1 ? 's' : ''}!
+                                Appreciation — meant for you
                             </p>
                         </div>
 
@@ -121,23 +121,21 @@ export default function WomensDayInbox({ participation, inbox, released }) {
                                         {/* decorative */}
                                         <div className="absolute top-2 right-3 text-2xl opacity-20">💐</div>
 
-                                        <div className="flex items-center gap-1.5 mb-2">
-                                            <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                                                style={{ background: 'linear-gradient(135deg,#ec4899,#a855f7)' }}>
-                                                <ShieldCheck className="w-2.5 h-2.5 text-white" />
-                                            </div>
-                                            <span className="text-[10px] font-black text-pink-600 uppercase tracking-widest flex items-center gap-1">
-                                                Spark Official <span className="text-[8px] bg-pink-100 px-1 rounded">SECURE</span>
-                                            </span>
-                                        </div>
-
                                         <p className="text-sm text-gray-700 leading-relaxed">"{msg.sanitizedText || msg.messageText}"</p>
 
-                                        <div className="flex items-center gap-1 mt-2">
-                                            <Clock className="w-3 h-3 text-gray-300" />
-                                            <span className="text-[10px] text-gray-400">
-                                                Received March 8, 2026 · Women's Day 💜
-                                            </span>
+                                        <div className="flex items-center justify-between gap-1 mt-3 pt-2 border-t border-pink-100/50">
+                                            <div className="flex items-center gap-1.5 opacity-60">
+                                                <ShieldCheck className="w-2.5 h-2.5 text-pink-500" />
+                                                <span className="text-[8px] font-black text-pink-600 uppercase tracking-widest">
+                                                    Spark Official <span className="text-[7px] bg-pink-100 px-1 rounded ml-1">SECURE</span>
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                <Clock className="w-2.5 h-2.5 text-gray-300" />
+                                                <span className="text-[8px] text-gray-400">
+                                                    March 8, 2026 · Women's Day 💜
+                                                </span>
+                                            </div>
                                         </div>
                                     </motion.div>
                                 ))}
