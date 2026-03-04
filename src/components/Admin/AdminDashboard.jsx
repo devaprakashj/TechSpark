@@ -47,7 +47,7 @@ import {
     Lock,
     Unlock
 } from 'lucide-react';
-import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, where, updateDoc, doc, increment, deleteDoc, getDoc, onSnapshot, limit } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, where, updateDoc, doc, increment, deleteDoc, getDoc, onSnapshot, limit, getCountFromServer } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useWomensDayAdmin } from '../../hooks/useWomensDay';
 import { Scanner } from '@yudiel/react-qr-scanner';
@@ -283,12 +283,11 @@ const AdminDashboard = () => {
             }
         });
 
-        setStats({
-            totalMembers: allStudents.length,
-            activeEvents: events.length,
+        setStats(prev => ({
+            ...prev,
             totalXP: totalXP,
             totalBadges: totalBadges
-        });
+        }));
 
         setAnalytics({
             deptWise: deptMap,
@@ -412,7 +411,7 @@ const AdminDashboard = () => {
                 body: deptData.map(([dept, count]) => [
                     dept,
                     count,
-                    `${((count / allStudents.length) * 100).toFixed(1)}%`
+                    `${((count / (stats.totalMembers || 1)) * 100).toFixed(1)}%`
                 ]),
                 headStyles: { fillColor: [37, 99, 235] }
             });
@@ -658,52 +657,56 @@ const AdminDashboard = () => {
 
     const initDashboardSync = async () => {
         setLoadingData(true);
-        console.log("Initializing Admin Synchronizer with Caching...");
+        console.log("Initializing Strategic Data Engine (Optimized)...");
 
         try {
-            // Fetch all data with getDocs instead of onSnapshot to reduce reads
-            // 1. Fetch Students
-            const studentsQuery = query(collection(db, 'users'), orderBy('fullName', 'asc'));
+            // 1. Optimized Totals using getCountFromServer (Cost: 1 read per 1000 docs)
+            const [studentsCount, eventsCount, regsCount, feedbackCount] = await Promise.all([
+                getCountFromServer(collection(db, 'users')),
+                getCountFromServer(collection(db, 'events')),
+                getCountFromServer(collection(db, 'registrations')),
+                getCountFromServer(collection(db, 'feedback'))
+            ]);
+
+            setStats({
+                totalMembers: studentsCount.data().count,
+                activeEvents: eventsCount.data().count, // This is an approximation of all events
+                totalXP: 0, // Calculated later if needed, or fetched differently
+                totalBadges: 0
+            });
+
+            // 2. Fetch Limited Students (Latest/Search-based)
+            const studentsQuery = query(collection(db, 'users'), orderBy('fullName', 'asc'), limit(100));
             const studentsSnap = await getDocs(studentsQuery);
-            const studentList = studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setAllStudents(studentList);
+            setAllStudents(studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-            // 2. Fetch Events
+            // 3. Fetch Events (All events are usually fewer than students, but let's limit if needed)
             const eventsSnap = await getDocs(collection(db, 'events'));
-            const eventList = eventsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setEvents(eventList);
+            setEvents(eventsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-            // 3. Fetch Organizers
-            const organizersSnap = await getDocs(collection(db, 'organizers'));
-            const organizersList = organizersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setOrganizers(organizersList);
+            // 4. Fetch Recent Registrations only (Last 100)
+            const regsQuery = query(collection(db, 'registrations'), orderBy('registeredAt', 'desc'), limit(100));
+            const regsSnap = await getDocs(regsQuery);
+            setRegistrations(regsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-            // 4. Fetch Registrations
-            const regsSnap = await getDocs(collection(db, 'registrations'));
-            const regsList = regsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setRegistrations(regsList);
+            // 5. Fetch Recent Feedback only
+            const feedbackQuery = query(collection(db, 'feedback'), orderBy('timestamp', 'desc'), limit(50));
+            const feedbackSnap = await getDocs(feedbackQuery);
+            setFeedbackBase(feedbackSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-            // 5. Fetch Feedback
-            const feedbackSnap = await getDocs(collection(db, 'feedback'));
-            const feedbackList = feedbackSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setFeedbackBase(feedbackList);
-
-            // 6. Fetch Security Logs (limit to last 50 for efficiency)
+            // 6. Security & Submissions (Already limited)
             const securityQuery = query(collection(db, 'security_logs'), orderBy('timestamp', 'desc'), limit(50));
             const securitySnap = await getDocs(securityQuery);
-            const logsList = securitySnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setSecurityLogs(logsList);
+            setSecurityLogs(securitySnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-            // 7. Fetch Quiz Submissions (limit to last 100)
             const submissionsQuery = query(collection(db, 'quizSubmissions'), orderBy('timestamp', 'desc'), limit(100));
             const submissionsSnap = await getDocs(submissionsQuery);
-            const subsList = submissionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setSubmissions(subsList);
+            setSubmissions(submissionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-            console.log("Admin Dashboard Data Loaded Successfully!");
+            console.log("Strategic Intel Synchronized.");
             setLoadingData(false);
         } catch (error) {
-            console.error("Data Sync Error:", error);
+            console.error("Strategic Sync Error:", error);
             setLoadingData(false);
         }
     };
@@ -3530,20 +3533,37 @@ const AdminDashboard = () => {
                                                             : <span className="text-[10px] text-emerald-600 font-bold">✓ Clean</span>}
                                                     </td>
                                                     <td className="px-6 py-5 text-right">
-                                                        {(msg.status === 'pending' || msg.status === 'flagged') ? (
-                                                            <div className="flex items-center justify-end gap-2">
-                                                                <button onClick={() => wdAdmin.approveMessage(msg.id)}
-                                                                    className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase hover:bg-emerald-700 transition-all flex items-center gap-1">
-                                                                    <CheckCircle className="w-3.5 h-3.5" /> Approve
+                                                        <div className="flex items-center justify-end gap-1.5">
+                                                            {msg.status !== 'approved' && (
+                                                                <button
+                                                                    onClick={() => wdAdmin.approveMessage(msg.id)}
+                                                                    title="Approve Message"
+                                                                    className="p-2 rounded-xl bg-emerald-100 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all active:scale-90"
+                                                                >
+                                                                    <CheckCircle className="w-4 h-4" />
                                                                 </button>
-                                                                <button onClick={() => wdAdmin.rejectMessage(msg.id)}
-                                                                    className="px-3 py-1.5 rounded-xl bg-red-100 text-red-600 text-[10px] font-black uppercase hover:bg-red-200 transition-all flex items-center gap-1">
-                                                                    <X className="w-3.5 h-3.5" /> Reject
+                                                            )}
+                                                            {msg.status !== 'pending' && msg.status !== 'flagged' && (
+                                                                <button
+                                                                    onClick={() => wdAdmin.resetToPending(msg.id)}
+                                                                    title="Reset to Pending"
+                                                                    className="p-2 rounded-xl bg-orange-100 text-orange-600 hover:bg-orange-600 hover:text-white transition-all active:scale-90"
+                                                                >
+                                                                    <Clock className="w-4 h-4" />
                                                                 </button>
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-[10px] text-slate-400 font-bold uppercase">{msg.status}</span>
-                                                        )}
+                                                            )}
+                                                            {msg.status !== 'rejected' && (
+                                                                <button
+                                                                    onClick={() => wdAdmin.rejectMessage(msg.id)}
+                                                                    title="Reject Message"
+                                                                    className="p-2 rounded-xl bg-red-100 text-red-600 hover:bg-red-600 hover:text-white transition-all active:scale-90"
+                                                                >
+                                                                    <X className="w-4 h-4" />
+                                                                </button>
+                                                            )}
+                                                            {msg.status === 'approved' && <span className="text-[10px] font-black text-emerald-500 uppercase ml-2 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100 italic">Live State</span>}
+                                                            {msg.status === 'rejected' && <span className="text-[10px] font-black text-red-400 uppercase ml-2 bg-red-50 px-2 py-1 rounded-lg border border-red-50">Rejected</span>}
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -3554,19 +3574,67 @@ const AdminDashboard = () => {
                         </div>
 
                         <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-8">
-                            <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight mb-6">
+                            <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight mb-6 flex items-center justify-between">
                                 Opted-in Participants ({wdAdmin.stats.participants})
                             </h3>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                {wdAdmin.participants.filter(p => p.optedIn).map(p => (
+                                {wdAdmin.participants.map(p => (
                                     <div key={p.id} className="p-4 bg-pink-50 rounded-2xl border border-pink-100">
                                         <p className="font-black text-sm text-gray-800 uppercase truncate">{p.name}</p>
                                         <p className="text-[10px] text-gray-500 font-mono">{p.rollNumber || p.rollNo}</p>
                                         <p className="text-[10px] text-pink-600 font-bold uppercase">{p.department} · {p.batch}</p>
                                     </div>
                                 ))}
-                                {wdAdmin.participants.filter(p => p.optedIn).length === 0 && (
-                                    <p className="text-xs text-slate-400 font-bold col-span-4">No participants yet — opt-in opens March 5–6</p>
+                                {wdAdmin.participants.length === 0 && (
+                                    <p className="text-xs text-slate-400 font-bold col-span-4">No participants found</p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Optimization: Manual Activity Logs */}
+                        <div className="bg-slate-900 rounded-[2.5rem] p-8 shadow-2xl">
+                            <div className="flex items-center justify-between mb-6">
+                                <div>
+                                    <h3 className="font-black text-white text-lg uppercase tracking-tight">Activity Intelligence</h3>
+                                    <p className="text-slate-500 text-[10px] font-bold uppercase">Real-time signal interception (Manual Refresh)</p>
+                                </div>
+                                <button
+                                    onClick={() => wdAdmin.refreshLogs()}
+                                    className="p-3 bg-white/10 hover:bg-white/20 rounded-xl text-white transition-all active:scale-95 group"
+                                    title="Fetch Latest Signals"
+                                >
+                                    <RefreshCw className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
+                                </button>
+                            </div>
+                            <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                                {(wdAdmin.logs || []).map(log => (
+                                    <div key={log.id} className="p-4 bg-white/5 rounded-2xl border border-white/5 flex items-start gap-4">
+                                        <div className="p-2 bg-blue-500/10 rounded-lg">
+                                            <Terminal className="w-4 h-4 text-blue-400" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-[10px] font-black text-blue-400 uppercase">{log.action}</span>
+                                                <span className="text-[9px] text-slate-500 font-mono">
+                                                    {log.timestamp?.toDate ? new Date(log.timestamp.toDate()).toLocaleTimeString() : 'RECENT'}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-slate-300 font-bold">
+                                                Student <span className="text-white">#{log.regNo}</span> triggered internal protocol.
+                                            </p>
+                                            {log.meta && (
+                                                <p className="text-[10px] text-slate-500 mt-1 font-mono bg-black/20 p-1.5 rounded-lg border border-white/5">
+                                                    {JSON.stringify(log.meta)}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                                {(wdAdmin.logs || []).length === 0 && (
+                                    <div className="py-20 text-center">
+                                        <ShieldAlert className="w-10 h-10 text-slate-800 mx-auto mb-3" />
+                                        <p className="text-slate-600 font-black uppercase text-xs">No activity signals intercepted yet</p>
+                                    </div>
                                 )}
                             </div>
                         </div>

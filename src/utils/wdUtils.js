@@ -35,20 +35,51 @@ export function timeToRelease() {
 // ─── Bad-Word Filter ─────────────────────────────────────────────────────────
 // Curated English + common transliteration list (extend as needed)
 const BAD_WORDS = [
-    // English
+    // English Hard Profanity
     'fuck', 'shit', 'bitch', 'asshole', 'bastard', 'cunt', 'dick', 'pussy', 'whore',
-    'slut', 'rape', 'nigger', 'faggot', 'retard', 'idiot', 'stupid', 'dumb',
-    // Common Tamil transliteration
+    'slut', 'rape', 'nigger', 'faggot', 'retard', 'cum', 'cock', 'bra', 'panties',
+    // Sexual / Body Parts / Harassment
+    'sex', 'sexy', 'naked', 'nude', 'boobs', 'breast', 'balls', 'vagina', 'penis',
+    'condom', 'porn', 'xxx', 'horny', 'orgasm', 'threesome', 'strip', 'lingerie',
+    'chest', 'butt', 'hips', 'thighs', 'ass', 'lip', 'kiss', 'bed', 'room',
+    // Common Tamil Transliteration
     'punda', 'otha', 'naaye', 'thevidiya', 'koothi', 'sunni', 'lavada', 'baadu',
-    'poolay', 'pakoda', 'vennai', 'sootha', 'kaanom'
+    'poolay', 'pakoda', 'vennai', 'sootha', 'kaanom', 'manda', 'omala', 'poolu',
+    'vaaya', 'kirukku', 'kena', 'komatti'
 ];
 
 export function filterMessage(text) {
     if (!text) return { isClean: true, flaggedWords: [], sanitized: '' };
-    const lower = text.toLowerCase();
-    const found = BAD_WORDS.filter(w => lower.includes(w));
+
+    const lowerText = text.toLowerCase();
+
+    // DEEP SCAN: Normalize text to find hidden words (e.g., "f.u.c.k" or "sh i t")
+    // 1. Remove non-alphanumeric characters
+    // 2. Remove extra spaces
+    // 3. Remove repeated characters (e.g., "shiiiit" -> "shit") - careful with legitimate double letters
+    const normalizedText = lowerText.replace(/[^a-z0-9]/g, '').replace(/\s/g, '');
+
+    const found = BAD_WORDS.filter(word => {
+        // Standard check
+        if (lowerText.includes(word)) return true;
+
+        // Check normalized text (catches "f.u.c.k")
+        if (normalizedText.includes(word)) return true;
+
+        // Smart check for repeated letters (catches "shiiiit")
+        const deRepeated = normalizedText.replace(/(.)\1+/g, '$1');
+        if (deRepeated.includes(word)) return true;
+
+        return false;
+    });
+
     const sanitized = found.reduce(
         (t, w) => t.replace(new RegExp(w, 'gi'), '⬛'.repeat(w.length)), text
     );
-    return { isClean: found.length === 0, flaggedWords: found, sanitized };
+
+    return {
+        isClean: found.length === 0,
+        flaggedWords: [...new Set(found)], // unique found words
+        sanitized
+    };
 }

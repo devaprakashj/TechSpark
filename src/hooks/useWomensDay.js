@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
     doc, getDoc, setDoc, addDoc, updateDoc,
     collection, query, where, getDocs,
-    serverTimestamp, increment, onSnapshot, orderBy
+    serverTimestamp, increment, onSnapshot, orderBy, limit
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { filterMessage, isOptInWindowOpen, isSendWindowOpen, isMessagesReleased } from '../utils/wdUtils';
@@ -406,7 +406,8 @@ export function useWomensDayAdmin() {
     }, []);
 
     useEffect(() => {
-        const q = query(collection(db, 'wdMessages'), orderBy('timestamp', 'desc'));
+        // Optimization: Limit to latest 100 messages to reduce read costs
+        const q = query(collection(db, 'wdMessages'), orderBy('timestamp', 'desc'), limit(100));
         const unsub = onSnapshot(q, snap => {
             setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
             setLoading(false);
@@ -415,19 +416,24 @@ export function useWomensDayAdmin() {
     }, []);
 
     useEffect(() => {
-        const unsub = onSnapshot(collection(db, 'wdParticipants'), snap => {
+        // Optimization: Filter for optedIn only to reduce reads
+        const q = query(collection(db, 'wdParticipants'), where('optedIn', '==', true));
+        const unsub = onSnapshot(q, snap => {
             setParticipants(snap.docs.map(d => ({ id: d.id, ...d.data() })));
         });
         return unsub;
     }, []);
 
-    useEffect(() => {
-        const q = query(collection(db, 'wdLogs'), orderBy('timestamp', 'desc'));
-        const unsub = onSnapshot(q, snap => {
-            setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-        });
-        return unsub;
+    // Logs are expensive to watch in real-time. Switching to one-time fetch with limit.
+    const fetchLogs = useCallback(async () => {
+        const q = query(collection(db, 'wdLogs'), orderBy('timestamp', 'desc'), limit(50));
+        const snap = await getDocs(q);
+        setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, []);
+
+    useEffect(() => {
+        fetchLogs();
+    }, [fetchLogs]);
 
     const approveMessage = useCallback(async (msgId, adminNote = '') => {
         await updateDoc(doc(db, 'wdMessages', msgId), {
@@ -442,6 +448,14 @@ export function useWomensDayAdmin() {
             status: 'rejected',
             adminNote,
             rejectedAt: serverTimestamp(),
+        });
+    }, []);
+
+    const resetToPending = useCallback(async (msgId) => {
+        await updateDoc(doc(db, 'wdMessages', msgId), {
+            status: 'pending',
+            adminNote: 'Reset by admin',
+            resetAt: serverTimestamp(),
         });
     }, []);
 
@@ -463,7 +477,8 @@ export function useWomensDayAdmin() {
 
     return {
         messages, participants, logs, loading,
-        approveMessage, rejectMessage, toggleManualRelease,
+        approveMessage, rejectMessage, resetToPending, toggleManualRelease,
+        refreshLogs: fetchLogs,
         settings, stats
     };
 }

@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search, Send, CheckCircle, AlertCircle,
-    Loader2, Lock, User, Building, Calendar, X, Info
+    Loader2, Lock, User, Building, Calendar, X, Info, Sparkles,
+    ShieldCheck, AlertTriangle
 } from 'lucide-react';
-import { isSendWindowOpen, isFeatureActive } from '../../utils/wdUtils';
+import { isSendWindowOpen, isFeatureActive, filterMessage } from '../../utils/wdUtils';
 
 const MAX_CHARS = 200;
 
@@ -18,6 +19,7 @@ export default function WomensDayMessage({ user, sentMessages = [], sentCount, m
     const [searching, setSearching] = useState(false);
     const [sending, setSending] = useState(false);
     const [lastResult, setLastResult] = useState(null);   // { status: 'pending'|'flagged' }
+    const [liveSafetyInfo, setLiveSafetyInfo] = useState({ isClean: true, flaggedWords: [] });
 
     const canSend = isSendWindowOpen() && isFeatureActive();
 
@@ -37,6 +39,14 @@ export default function WomensDayMessage({ user, sentMessages = [], sentCount, m
 
     const handleSend = async () => {
         if (!msgText.trim() || !receiver) return;
+
+        // Final safety check before dispatch
+        const safety = filterMessage(msgText);
+        if (!safety.isClean) {
+            setError(`Safety Block: This message contains restricted terms (${safety.flaggedWords.join(', ')}). Please revise.`);
+            return;
+        }
+
         setSending(true); setError('');
         const result = await sendMessage(receiver, msgText.trim());
         setSending(false);
@@ -200,22 +210,72 @@ export default function WomensDayMessage({ user, sentMessages = [], sentCount, m
                                 </div>
                             </div>
 
-                            {/* Message box */}
-                            <textarea
-                                value={msgText}
-                                onChange={e => { if (e.target.value.length <= MAX_CHARS) { setMsgText(e.target.value); setError(''); } }}
-                                placeholder="Write a warm Women's Day message... 🌸"
-                                rows={4}
-                                className="w-full px-3 py-2.5 rounded-xl text-sm border border-pink-200 focus:border-pink-400 focus:ring-2 focus:ring-pink-100 outline-none resize-none transition-all"
-                            />
-                            <div className="flex items-center justify-between mt-1 mb-3">
-                                <div className="flex items-center gap-1 text-[10px] text-gray-400">
-                                    <Info className="w-3 h-3" />
-                                    Auto bad-word filter active · Admin review before release
+                            {/* Quick Messages */}
+                            <div className="mb-4">
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+                                    <Sparkles className="w-3 h-3 text-pink-400" /> Quick Messages
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                    {[
+                                        "Happy Women's Day! Your strength inspires us all. 🌸",
+                                        "Wishing you a day filled with love and appreciation! ✨",
+                                        "To an amazing peer: Happy Women's Day! Keep shining. 💜",
+                                        "Thank you for all the incredible work you do. 💐"
+                                    ].map((tmpl, idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={() => { setMsgText(tmpl); setError(''); }}
+                                            className="px-3 py-1.5 rounded-lg bg-pink-50 border border-pink-100 text-[10px] font-bold text-pink-700 hover:bg-pink-100 transition-all text-left"
+                                        >
+                                            {tmpl}
+                                        </button>
+                                    ))}
                                 </div>
-                                <span className={`text-[10px] font-bold ${msgText.length > MAX_CHARS * 0.9 ? 'text-red-500' : 'text-gray-400'}`}>
-                                    {msgText.length}/{MAX_CHARS}
-                                </span>
+                            </div>
+
+                            {/* Message box */}
+                            <div className="relative">
+                                <textarea
+                                    value={msgText}
+                                    onChange={e => {
+                                        const val = e.target.value;
+                                        if (val.length <= MAX_CHARS) {
+                                            setMsgText(val);
+                                            setError('');
+                                            // Live detection
+                                            const safety = filterMessage(val);
+                                            setLiveSafetyInfo(safety);
+                                        }
+                                    }}
+                                    placeholder="Or write your own custom message here... 🌸"
+                                    rows={4}
+                                    className={`w-full px-3 py-2.5 rounded-xl text-sm border-2 outline-none resize-none transition-all shadow-inner ${!liveSafetyInfo.isClean ? 'border-red-300 bg-red-50/50 focus:border-red-500' : 'border-pink-200 focus:border-pink-400 focus:ring-2 focus:ring-pink-100'}`}
+                                />
+                                {!liveSafetyInfo.isClean && (
+                                    <div className="absolute top-2 right-2 px-2 py-1 bg-red-600 text-white text-[9px] font-black rounded-lg animate-pulse uppercase tracking-widest shadow-lg">
+                                        Safety Violation Found
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex flex-col gap-1 mt-1 mb-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-1 text-[10px] text-gray-400">
+                                        <ShieldCheck className={`w-3 h-3 ${!liveSafetyInfo.isClean ? 'text-red-500' : 'text-emerald-500'}`} />
+                                        {liveSafetyInfo.isClean ? 'Auto Safety Filter active' : 'Safety Filter: Unsafe Content Detected'}
+                                    </div>
+                                    <span className={`text-[10px] font-bold ${msgText.length > MAX_CHARS * 0.9 ? 'text-red-500' : 'text-gray-400'}`}>
+                                        {msgText.length}/{MAX_CHARS}
+                                    </span>
+                                </div>
+                                {!liveSafetyInfo.isClean && (
+                                    <div className="mt-1 p-2 rounded-lg bg-red-100 border border-red-200 flex flex-wrap gap-1.5 items-center">
+                                        <AlertTriangle className="w-3 h-3 text-red-600" />
+                                        <span className="text-[9px] font-black text-red-700 uppercase">Violations Found:</span>
+                                        {liveSafetyInfo.flaggedWords.map(w => (
+                                            <span key={w} className="bg-white text-red-600 text-[8px] font-black px-1.5 py-0.5 rounded border border-red-200 uppercase">{w}</span>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             {error && (
@@ -236,11 +296,11 @@ export default function WomensDayMessage({ user, sentMessages = [], sentCount, m
                                     <X className="w-3 h-3" /> Back
                                 </button>
                                 <button onClick={handleSend}
-                                    disabled={sending || msgText.trim().length < 3}
-                                    className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase text-white flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-95 hover:scale-[1.01]"
-                                    style={{ background: 'linear-gradient(90deg,#ec4899,#a855f7)' }}>
+                                    disabled={sending || msgText.trim().length < 3 || !liveSafetyInfo.isClean}
+                                    className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase text-white flex items-center justify-center gap-2 transition-all active:scale-95 hover:scale-[1.01] ${!liveSafetyInfo.isClean ? 'opacity-50 cursor-not-allowed bg-slate-400' : ''}`}
+                                    style={{ background: !liveSafetyInfo.isClean ? '#94a3b8' : 'linear-gradient(90deg,#ec4899,#a855f7)' }}>
                                     {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                    {sending ? 'Sending…' : 'Send Message'}
+                                    {sending ? 'Sending…' : !liveSafetyInfo.isClean ? 'Safety Blocked' : 'Send Message'}
                                 </button>
                             </div>
                         </motion.div>
@@ -257,8 +317,8 @@ export default function WomensDayMessage({ user, sentMessages = [], sentCount, m
                             <p className="font-black text-gray-800 mb-1">Message Sent! 💐</p>
                             <p className="text-xs text-gray-500 mb-1">
                                 {lastResult?.status === 'flagged'
-                                    ? 'Your message was flagged for review. Admin will review before release.'
-                                    : 'Pending admin approval. Will release on March 8 at 9 AM.'}
+                                    ? 'Your message was flagged for review. AI Verification in progress.'
+                                    : 'Pending AI Verification. Will release on March 8 at 9 AM.'}
                             </p>
                             <p className="text-[10px] text-gray-400 mb-4">
                                 {sentCount}/{maxMessages} messages used
