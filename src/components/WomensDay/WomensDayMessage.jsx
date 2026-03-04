@@ -317,8 +317,8 @@ export default function WomensDayMessage({ user, sentMessages = [], sentCount, m
                             <p className="font-black text-gray-800 mb-1">Message Sent! 💐</p>
                             <p className="text-xs text-gray-500 mb-1">
                                 {lastResult?.status === 'flagged'
-                                    ? 'Your message was flagged for review. AI Verification in progress.'
-                                    : 'Pending AI Verification. Will release on March 8 at 9 AM.'}
+                                    ? 'Your message was flagged for review. Official Verification in progress.'
+                                    : 'Pending Official Verification. Will release on March 8 at 9 AM.'}
                             </p>
                             <p className="text-[10px] text-gray-400 mb-4">
                                 {sentCount}/{maxMessages} messages used

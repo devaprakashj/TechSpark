@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Mail, Clock, Lock, Sparkles } from 'lucide-react';
+import { Heart, Mail, Clock, Lock, Sparkles, ShieldCheck } from 'lucide-react';
 import { isMessagesReleased, timeToRelease, isFeatureActive, WD_RELEASE_TIME } from '../../utils/wdUtils';
 import { useState, useEffect } from 'react';
 
@@ -46,7 +46,7 @@ export default function WomensDayInbox({ participation, inbox, released }) {
                     </div>
                     <p className="font-black text-sm text-gray-700 mb-1">Messages unlock on March 8! 🌸</p>
                     <p className="text-xs text-gray-500 mb-4">
-                        Members have sent you messages. Our <strong>TechSpark AI</strong> is currently processing and verifying them for the big reveal.
+                        Members have sent you messages. Our <strong>Spark Official System</strong> is currently processing and verifying them for the big reveal.
                         They'll be revealed at <strong>9:00 AM on March 8, 2026.</strong>
                     </p>
 
@@ -96,7 +96,7 @@ export default function WomensDayInbox({ participation, inbox, released }) {
                     <div className="text-center py-6">
                         <Sparkles className="w-10 h-10 text-pink-200 mx-auto mb-2" />
                         <p className="text-sm font-bold text-gray-600">No messages yet</p>
-                        <p className="text-xs text-gray-400 mt-1">Messages appear here once verified by TechSpark AI.</p>
+                        <p className="text-xs text-gray-400 mt-1">Messages appear here once vetted by Spark Official System.</p>
                     </div>
                 ) : (
                     <>
@@ -124,10 +124,10 @@ export default function WomensDayInbox({ participation, inbox, released }) {
                                         <div className="flex items-center gap-1.5 mb-2">
                                             <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
                                                 style={{ background: 'linear-gradient(135deg,#ec4899,#a855f7)' }}>
-                                                <Sparkles className="w-2.5 h-2.5 text-white fill-white" />
+                                                <ShieldCheck className="w-2.5 h-2.5 text-white" />
                                             </div>
                                             <span className="text-[10px] font-black text-pink-600 uppercase tracking-widest flex items-center gap-1">
-                                                TechSpark AI <span className="text-[8px] bg-pink-100 px-1 rounded">VERIFIED</span>
+                                                Spark Official <span className="text-[8px] bg-pink-100 px-1 rounded">SECURE</span>
                                             </span>
                                         </div>
 
