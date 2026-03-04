@@ -103,7 +103,7 @@ export default function WomensDayInbox({ participation, inbox, released }) {
                         <div className="mb-3 p-3 rounded-xl text-center"
                             style={{ background: 'linear-gradient(135deg,#fff0f8,#f3e8ff)' }}>
                             <p className="text-sm font-black text-pink-700">
-                                Appreciation — meant for you
+                                Appreciation — meant for you 💜
                             </p>
                         </div>
 
