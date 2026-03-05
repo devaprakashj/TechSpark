@@ -47,7 +47,7 @@ import {
     Lock,
     Unlock
 } from 'lucide-react';
-import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, where, updateDoc, doc, increment, deleteDoc, getDoc, onSnapshot, limit, getCountFromServer } from 'firebase/firestore';
+import { collection, getDocs, getDocsFromServer, query, orderBy, addDoc, serverTimestamp, where, updateDoc, doc, increment, deleteDoc, getDoc, onSnapshot, limit, getCountFromServer } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useWomensDayAdmin } from '../../hooks/useWomensDay';
 import { Scanner } from '@yudiel/react-qr-scanner';
@@ -160,7 +160,7 @@ const AdminDashboard = () => {
 
     const fetchDashboardData = () => {
         console.log("Strategic Refresh Triggered");
-        // Real-time sync is active via initDashboardSync, no manual fetch required
+        initDashboardSync();
     };
 
     // Dynamic extraction helper for missing student data
@@ -661,11 +661,12 @@ const AdminDashboard = () => {
 
         try {
             // 1. Optimized Totals using getCountFromServer (Cost: 1 read per 1000 docs)
-            const [studentsCount, eventsCount, regsCount, feedbackCount] = await Promise.all([
+            const [studentsCount, eventsCount, regsCount, feedbackCount, organicCount] = await Promise.all([
                 getCountFromServer(collection(db, 'users')),
                 getCountFromServer(collection(db, 'events')),
                 getCountFromServer(collection(db, 'registrations')),
-                getCountFromServer(collection(db, 'feedback'))
+                getCountFromServer(collection(db, 'feedback')),
+                getCountFromServer(collection(db, 'organizers'))
             ]);
 
             setStats({
@@ -675,22 +676,24 @@ const AdminDashboard = () => {
                 totalBadges: 0
             });
 
-            // 2. Fetch Limited Students (Latest/Search-based)
-            const studentsQuery = query(collection(db, 'users'), orderBy('fullName', 'asc'), limit(100));
-            const studentsSnap = await getDocs(studentsQuery);
-            setAllStudents(studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            // 2. Fetch ALL Students from SERVER (bypass cache to avoid stale/partial cached data)
+            const studentsSnap = await getDocsFromServer(collection(db, 'users'));
+            const allStudentsData = studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // Sort client-side by fullName
+            allStudentsData.sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
+            setAllStudents(allStudentsData);
 
-            // 3. Fetch Events (All events are usually fewer than students, but let's limit if needed)
-            const eventsSnap = await getDocs(collection(db, 'events'));
+            // 3. Fetch Events from SERVER
+            const eventsSnap = await getDocsFromServer(collection(db, 'events'));
             setEvents(eventsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-            // 4. Fetch Recent Registrations only (Last 100)
-            const regsQuery = query(collection(db, 'registrations'), orderBy('registeredAt', 'desc'), limit(100));
+            // 4. Fetch Recent Registrations only (Last 200)
+            const regsQuery = query(collection(db, 'registrations'), orderBy('registeredAt', 'desc'), limit(200));
             const regsSnap = await getDocs(regsQuery);
             setRegistrations(regsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
             // 5. Fetch Recent Feedback only
-            const feedbackQuery = query(collection(db, 'feedback'), orderBy('timestamp', 'desc'), limit(50));
+            const feedbackQuery = query(collection(db, 'feedback'), orderBy('timestamp', 'desc'), limit(100));
             const feedbackSnap = await getDocs(feedbackQuery);
             setFeedbackBase(feedbackSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
@@ -702,6 +705,10 @@ const AdminDashboard = () => {
             const submissionsQuery = query(collection(db, 'quizSubmissions'), orderBy('timestamp', 'desc'), limit(100));
             const submissionsSnap = await getDocs(submissionsQuery);
             setSubmissions(submissionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+            // 7. Fetch Organizers from SERVER
+            const organizersSnap = await getDocsFromServer(collection(db, 'organizers'));
+            setOrganizers(organizersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
             console.log("Strategic Intel Synchronized.");
             setLoadingData(false);
@@ -2323,7 +2330,7 @@ const AdminDashboard = () => {
                             </div>
                             <div className="flex items-center gap-3">
                                 <span className="px-4 py-2 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-100">
-                                    {filteredStudents.length} Verified Members
+                                    {stats.totalMembers} Verified Members
                                 </span>
                             </div>
                         </div>
@@ -2538,7 +2545,7 @@ const AdminDashboard = () => {
                             <div className="p-8 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
                                 <div>
                                     <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight italic">Global Direct Membership</h3>
-                                    <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Live Directory of {allStudents.length} Verified Users</p>
+                                    <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Live Directory of {stats.totalMembers} Verified Users</p>
                                 </div>
                                 <div className="flex items-center gap-3 w-full md:w-auto">
                                     <div className="relative flex-1 md:w-80">
