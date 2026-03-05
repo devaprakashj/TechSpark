@@ -47,7 +47,7 @@ import {
     Lock,
     Unlock
 } from 'lucide-react';
-import { collection, getDocs, getDocsFromServer, query, orderBy, addDoc, serverTimestamp, where, updateDoc, doc, increment, deleteDoc, getDoc, onSnapshot, limit, getCountFromServer } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, where, updateDoc, doc, increment, deleteDoc, getDoc, onSnapshot, limit, getCountFromServer } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useWomensDayAdmin } from '../../hooks/useWomensDay';
 import { Scanner } from '@yudiel/react-qr-scanner';
@@ -676,28 +676,27 @@ const AdminDashboard = () => {
                 totalBadges: 0
             });
 
-            // 2. Fetch ALL Students from SERVER (bypass cache to avoid stale/partial cached data)
-            const studentsSnap = await getDocsFromServer(collection(db, 'users'));
+            // 2. Fetch ALL Students (no orderBy - new query shape auto-fetches fresh, client-side sort)
+            const studentsSnap = await getDocs(collection(db, 'users'));
             const allStudentsData = studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            // Sort client-side by fullName
             allStudentsData.sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
             setAllStudents(allStudentsData);
 
-            // 3. Fetch Events from SERVER
-            const eventsSnap = await getDocsFromServer(collection(db, 'events'));
+            // 3. Fetch ALL Events
+            const eventsSnap = await getDocs(collection(db, 'events'));
             setEvents(eventsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-            // 4. Fetch Recent Registrations only (Last 200)
+            // 4. Fetch Recent Registrations (Last 200)
             const regsQuery = query(collection(db, 'registrations'), orderBy('registeredAt', 'desc'), limit(200));
             const regsSnap = await getDocs(regsQuery);
             setRegistrations(regsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-            // 5. Fetch Recent Feedback only
+            // 5. Fetch Recent Feedback
             const feedbackQuery = query(collection(db, 'feedback'), orderBy('timestamp', 'desc'), limit(100));
             const feedbackSnap = await getDocs(feedbackQuery);
             setFeedbackBase(feedbackSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-            // 6. Security & Submissions (Already limited)
+            // 6. Security & Submissions
             const securityQuery = query(collection(db, 'security_logs'), orderBy('timestamp', 'desc'), limit(50));
             const securitySnap = await getDocs(securityQuery);
             setSecurityLogs(securitySnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -706,8 +705,8 @@ const AdminDashboard = () => {
             const submissionsSnap = await getDocs(submissionsQuery);
             setSubmissions(submissionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-            // 7. Fetch Organizers from SERVER
-            const organizersSnap = await getDocsFromServer(collection(db, 'organizers'));
+            // 7. Fetch Organizers
+            const organizersSnap = await getDocs(collection(db, 'organizers'));
             setOrganizers(organizersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
             console.log("Strategic Intel Synchronized.");
