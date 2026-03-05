@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-    doc, getDoc, setDoc, addDoc, updateDoc,
+    doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc,
     collection, query, where, getDocs,
     serverTimestamp, increment, onSnapshot, orderBy, limit
 } from 'firebase/firestore';
@@ -390,6 +390,69 @@ export function useWomensDay(user) {
     };
 }
 
+// ─── 30 Custom Women's Day Wish Messages Pool ────────────────────────────────
+export const WD_WISH_POOL = [
+    "The way you carry yourself every day is admirable.\nIt reflects quiet strength and determination.\nWishing you continued confidence in everything you do.",
+
+    "Some people quietly make spaces better.\nYou might not always notice it yourself.\nBut it's there.",
+
+    "Not everything people do gets recognized.\nBut the effort you put into things matters.\nJust thought it should be said today.",
+
+    "There's a calm strength in the way you handle things.\nIt doesn't always get spoken about.\nBut it's respected.",
+
+    "You might think it's just another normal day.\nBut the way you keep going forward is meaningful.\nYou are seen. You are inspiring.",
+
+    "Just a small note today.\nYour presence and effort matter.\nThey make more difference than you may realize.",
+
+    "The way you show up for life every day\nwith patience and effort\nis something worth appreciating.",
+
+    "You probably don't realize it often.\nBut your presence leaves a positive mark\nin the spaces you're part of.",
+
+    "Life asks a lot from people every day.\nThe strength with which you handle it\ndeserves respect.",
+
+    "Just a small reminder today.\nWhat you do and who you are\nmatters more than you think.",
+
+    "There is something strong about consistency.\nThe way you keep moving forward\nis quietly inspiring.",
+
+    "Even simple things take effort sometimes.\nThe way you handle them every day\nis appreciated.",
+
+    "Even on ordinary days\nthe way you show up\nmakes a difference.",
+
+    "You add something valuable\nto the environment around you.\nEven if it's not always said out loud.",
+
+    "Today is just a small pause\nto acknowledge the strength\nyou bring into everyday life.",
+
+    "The world moves fast most days.\nStill, the way you keep up with it\nis something to appreciate.",
+
+    "Sometimes people forget to say thank you.\nToday is just a reminder\nthat your effort matters.",
+
+    "There's dignity in simply showing up\nand doing your best every day.\nThat deserves recognition.",
+
+    "Not all strength looks the same.\nBut the strength you carry\nis meaningful in its own way.",
+
+    "A moment today to acknowledge this:\nthe way you keep going forward\nis admirable.",
+
+    "People often underestimate themselves.\nBut the way you carry your responsibilities\nshows real strength.",
+
+    "Just a quiet appreciation today.\nFor the person you are\nand the effort you bring.",
+
+    "The world notices loud achievements.\nBut quiet determination matters too.\nThat deserves appreciation.",
+
+    "There's something admirable\nabout the way you continue forward\nno matter how ordinary the day seems.",
+
+    "You bring something meaningful\nto the people and spaces around you.\nThat is worth recognizing.",
+
+    "Some contributions are subtle.\nBut they still shape the world around them.\nYours is one of those.",
+
+    "A simple thought today:\nthe way you carry yourself\ndeserves respect.",
+
+    "Your efforts and impact are seen.\nThey matter more than you might realize.\nJust a note of appreciation today.",
+
+    "The person you are today\nis worth appreciating.",
+
+    "Today is a moment to acknowledge strength.\nThe way you move through life with resilience matters.\nIt deserves appreciation.",
+];
+
 // ─── Admin hook ───────────────────────────────────────────────────────────────
 export function useWomensDayAdmin() {
     const [messages, setMessages] = useState([]);
@@ -459,6 +522,11 @@ export function useWomensDayAdmin() {
         });
     }, []);
 
+    const deleteMessage = useCallback(async (msgId) => {
+        await deleteDoc(doc(db, 'wdMessages', msgId));
+        await logAction('ADMIN', 'DELETE_MESSAGE', { msgId });
+    }, []);
+
     const stats = {
         total: messages.length,
         pending: messages.filter(m => m.status === 'pending').length,
@@ -475,11 +543,92 @@ export function useWomensDayAdmin() {
         }, { merge: true });
     }, []);
 
+    // ── Send random wishes to participants with zero approved messages ──────────
+    // customMessages: string[] — admin's own messages (from textarea, split by newline)
+    // Falls back to WD_WISH_POOL if not provided or empty
+    const sendRandomWishes = useCallback(async (customMessages = []) => {
+        // Decide which pool to use
+        const pool = (customMessages && customMessages.length > 0)
+            ? customMessages
+            : WD_WISH_POOL;
+
+        // Get all opted-in participants
+        const participantsSnap = await getDocs(
+            query(collection(db, 'wdParticipants'), where('optedIn', '==', true))
+        );
+        const allParticipants = participantsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        if (allParticipants.length === 0) {
+            return { sent: 0, skipped: 0, reason: 'No opted-in participants found.' };
+        }
+
+        // Get all approved messages — find who already has one
+        const approvedSnap = await getDocs(
+            query(collection(db, 'wdMessages'), where('status', '==', 'approved'))
+        );
+        const alreadyHasMessage = new Set();
+        approvedSnap.docs.forEach(d => {
+            const data = d.data();
+            if (data.receiverRegNo) alreadyHasMessage.add(data.receiverRegNo.toString().trim());
+            if (data.receiverUid) alreadyHasMessage.add(data.receiverUid);
+        });
+
+        // Only skip if they already have an approved message
+        const needsWish = allParticipants.filter(p => {
+            const regNo = (p.rollNumber || p.id || '').toString().trim();
+            const uid = p.uid || '';
+            return !alreadyHasMessage.has(regNo) && !alreadyHasMessage.has(uid);
+        });
+
+        if (needsWish.length === 0) {
+            return { sent: 0, skipped: allParticipants.length, reason: 'All participants already have messages!' };
+        }
+
+        const releaseAt = new Date('2026-03-08T03:30:00Z'); // 9AM IST
+        let sentCount = 0;
+
+        // Shuffle the pool so distribution is extra-random
+        const shuffledPool = [...pool].sort(() => Math.random() - 0.5);
+
+        // Send a random wish to each participant who has none
+        for (let i = 0; i < needsWish.length; i++) {
+            const participant = needsWish[i];
+            const regNo = (participant.rollNumber || participant.id || '').toString().trim();
+            // Cycle through shuffled pool so all messages get used fairly
+            const randomMsg = shuffledPool[i % shuffledPool.length];
+
+            try {
+                await addDoc(collection(db, 'wdMessages'), {
+                    senderRegNo: 'TECHSPARK_OFFICIAL',
+                    senderName: 'TechSpark Official',
+                    receiverRegNo: regNo,
+                    receiverUid: participant.uid || null,
+                    messageText: randomMsg,
+                    sanitizedText: randomMsg,
+                    status: 'approved',           // auto-approved — no moderation needed
+                    flaggedWords: [],
+                    timestamp: serverTimestamp(),
+                    releaseAt,
+                    adminNote: 'Auto-sent by admin: Random Women\'s Day Wish',
+                    isSystemMessage: true,
+                });
+                sentCount++;
+            } catch (e) {
+                console.error('WD_RANDOM_WISH_ERR:', regNo, e);
+            }
+        }
+
+        await logAction('ADMIN', 'SEND_RANDOM_WISHES', { sent: sentCount, total: needsWish.length, customPool: pool.length });
+        return { sent: sentCount, skipped: allParticipants.length - needsWish.length };
+    }, []);
+
     return {
         messages, participants, logs, loading,
-        approveMessage, rejectMessage, resetToPending, toggleManualRelease,
+        approveMessage, rejectMessage, resetToPending, deleteMessage, toggleManualRelease,
+        sendRandomWishes,
         refreshLogs: fetchLogs,
-        settings, stats
+        settings, stats,
+        wishPool: WD_WISH_POOL
     };
 }
 

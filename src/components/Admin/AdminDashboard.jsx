@@ -71,6 +71,8 @@ const AdminDashboard = () => {
     const [loadingData, setLoadingData] = useState(true);
     const [activeTab, setActiveTab] = useState('overview');
     const wdAdmin = useWomensDayAdmin();
+    const [wdWishSending, setWdWishSending] = useState(false);
+    const [wdWishResult, setWdWishResult] = useState(null); // { sent, skipped, reason? }
     const [searchQuery, setSearchQuery] = useState('');
     const [isScanning, setIsScanning] = useState(true);
     const [scanFeedback, setScanFeedback] = useState(null); // { type: 'success' | 'error' | 'loading', message: string, student?: object }
@@ -3567,6 +3569,17 @@ const AdminDashboard = () => {
                                                                     <X className="w-4 h-4" />
                                                                 </button>
                                                             )}
+                                                            <button
+                                                                onClick={async () => {
+                                                                    if (confirm('Permanently delete this message? This cannot be undone.')) {
+                                                                        await wdAdmin.deleteMessage(msg.id);
+                                                                    }
+                                                                }}
+                                                                title="Delete Permanently"
+                                                                className="p-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-900 hover:text-white transition-all active:scale-90"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
                                                             {msg.status === 'approved' && <span className="text-[10px] font-black text-emerald-500 uppercase ml-2 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100 italic">Live State</span>}
                                                             {msg.status === 'rejected' && <span className="text-[10px] font-black text-red-400 uppercase ml-2 bg-red-50 px-2 py-1 rounded-lg border border-red-50">Rejected</span>}
                                                         </div>
@@ -3594,6 +3607,125 @@ const AdminDashboard = () => {
                                 {wdAdmin.participants.length === 0 && (
                                     <p className="text-xs text-slate-400 font-bold col-span-4">No participants found</p>
                                 )}
+                            </div>
+                        </div>
+
+                        {/* ── Random Wish Sender Card ── */}
+                        <div className="bg-gradient-to-br from-pink-50 to-purple-50 rounded-[2.5rem] border-2 border-pink-200 p-8">
+                            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-4 bg-gradient-to-br from-pink-500 to-purple-600 rounded-2xl text-white shadow-lg shadow-pink-300/40">
+                                        <Heart className="w-7 h-7" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Random Wish Sender</h3>
+                                        <p className="text-xs text-slate-500 font-bold mt-0.5">
+                                            Opted-in students with <span className="text-pink-600">zero approved messages</span> will receive a surprise wish from TechSpark Official 🌸
+                                        </p>
+                                        <div className="flex items-center gap-4 mt-3">
+                                            {(() => {
+                                                // Unique reg numbers that have at least 1 approved message
+                                                const approvedReceivers = new Set(
+                                                    wdAdmin.messages
+                                                        .filter(m => m.status === 'approved')
+                                                        .map(m => m.receiverRegNo?.toString().trim())
+                                                        .filter(Boolean)
+                                                );
+                                                // Count opted-in participants who have received at least one approved msg
+                                                const alreadyHasMsg = wdAdmin.participants.filter(p => {
+                                                    const regNo = (p.rollNumber || p.id || '').toString().trim();
+                                                    return approvedReceivers.has(regNo);
+                                                }).length;
+                                                const needsWish = Math.max(0, wdAdmin.stats.participants - alreadyHasMsg);
+                                                return (
+                                                    <>
+                                                        <div className="flex items-center gap-1.5 text-xs font-black text-slate-600">
+                                                            <span className="w-2 h-2 rounded-full bg-pink-400 inline-block"></span>
+                                                            {wdAdmin.stats.participants} Opted-in
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5 text-xs font-black text-slate-600">
+                                                            <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
+                                                            {alreadyHasMsg} Already have messages
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5 text-xs font-black text-pink-600">
+                                                            <span className="w-2 h-2 rounded-full bg-purple-400 inline-block animate-pulse"></span>
+                                                            {needsWish} Need a wish
+                                                        </div>
+                                                    </>
+                                                );
+                                            })()}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col items-end gap-3 min-w-[200px]">
+                                    <button
+                                        onClick={async () => {
+                                            if (wdWishSending) return;
+                                            if (!confirm(`Send random wishes to opted-in students who have not received any messages yet? This cannot be undone.`)) return;
+                                            setWdWishSending(true);
+                                            setWdWishResult(null);
+                                            try {
+                                                const result = await wdAdmin.sendRandomWishes();
+                                                setWdWishResult(result);
+                                            } catch (e) {
+                                                setWdWishResult({ sent: 0, skipped: 0, reason: e.message });
+                                            } finally {
+                                                setWdWishSending(false);
+                                            }
+                                        }}
+                                        disabled={wdWishSending}
+                                        className={`px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 shadow-lg ${wdWishSending
+                                            ? 'bg-pink-200 text-pink-400 cursor-not-allowed'
+                                            : 'bg-gradient-to-r from-pink-500 to-purple-600 text-white hover:scale-[1.02] shadow-pink-300/50'
+                                            }`}
+                                    >
+                                        {wdWishSending ? (
+                                            <><div className="w-4 h-4 border-2 border-pink-300 border-t-transparent rounded-full animate-spin" /> Sending...</>
+                                        ) : (
+                                            <><Heart className="w-4 h-4" /> Send Random Wishes</>
+                                        )}
+                                    </button>
+
+                                    {wdWishResult && (
+                                        <div className={`px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider ${wdWishResult.sent > 0
+                                            ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                            : 'bg-orange-100 text-orange-700 border border-orange-200'
+                                            }`}>
+                                            {wdWishResult.reason
+                                                ? `⚠ ${wdWishResult.reason}`
+                                                : `✓ Sent ${wdWishResult.sent} wishes · ${wdWishResult.skipped} already had messages`
+                                            }
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Info note */}
+                            <div className="mt-5 p-4 bg-white/60 rounded-2xl border border-pink-100 flex items-start gap-3">
+                                <span className="text-base">🌸</span>
+                                <p className="text-[11px] text-slate-500 leading-relaxed">
+                                    <strong className="text-slate-600">How it works:</strong> Clicks scan all opted-in students. Anyone without an approved message gets one of the 30 curated wishes, randomly assigned from TechSpark Official. Students who already have a message are safely skipped.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* ── Wish Pool Display Section ── */}
+                        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-8">
+                            <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight mb-6 flex items-center gap-2">
+                                <Heart className="w-5 h-5 text-pink-500 fill-pink-500" /> Curated Wish Pool ({wdAdmin.wishPool?.length || 0})
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[500px] overflow-y-auto pr-3 custom-scrollbar">
+                                {(wdAdmin.wishPool || []).map((msg, idx) => (
+                                    <div key={idx} className="p-5 bg-pink-50/50 rounded-2xl border border-pink-100 relative group transition-all hover:bg-white hover:shadow-md">
+                                        <span className="absolute -top-2 -right-2 w-6 h-6 bg-pink-500 text-white rounded-full text-[10px] font-black flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
+                                            {idx + 1}
+                                        </span>
+                                        <p className="text-xs text-slate-600 font-bold whitespace-pre-wrap leading-relaxed italic">
+                                            "{msg}"
+                                        </p>
+                                    </div>
+                                ))}
                             </div>
                         </div>
 
