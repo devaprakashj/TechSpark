@@ -159,6 +159,19 @@ const AdminDashboard = () => {
     });
     const [isSavingLiveEventEdit, setIsSavingLiveEventEdit] = useState(false);
 
+    // OD Generator State
+    const [odLetterData, setOdLetterData] = useState({
+        from: `THE COORDINATOR,\nTechSpark Club,\nRajalakshmi Institute of Technology,\nChennai.`,
+        to: `THE HEAD OF DEPARTMENT,\n[Department Name],\nRajalakshmi Institute of Technology,\nChennai.`,
+        salutation: 'Respected Mam/Sir,',
+        subject: 'Requisition for On-Duty (OD) for TechSpark Club Members - Reg.',
+        body: 'We are writing to bring to your kind notice that the following students, who are active members of the TechSpark Club, are required to attend and organize an upcoming event. We kindly request you to grant them On-Duty (OD) for the same.',
+        students: [], // { name, rollNumber, dept, year }
+        signatures: ['Club Coordinator', 'Class Incharge', 'HOD']
+    });
+    const [odInputRoll, setOdInputRoll] = useState('');
+    const [isSearchingOdStudent, setIsSearchingOdStudent] = useState(false);
+
 
     const fetchDashboardData = () => {
         console.log("Strategic Refresh Triggered");
@@ -502,32 +515,35 @@ const AdminDashboard = () => {
             };
 
             // --- PAGE 1: EXECUTIVE SUMMARY ---
-            // Header Section (Corrected Layout)
+            // Header Section — Clean Layout, no overlaps
             doc.setFillColor(255, 255, 255);
-            doc.rect(0, 0, 210, 60, 'F');
-            doc.addImage(rit, 'PNG', 15, 12, 45, 38);
-            doc.addImage(ts, 'PNG', 155, 12, 40, 40);
+            doc.rect(0, 0, 210, 65, 'F');
 
+            // Logos — smaller, pinned to corners
+            doc.addImage(rit, 'PNG', 10, 8, 30, 22);       // left corner — smaller
+            doc.addImage(ts, 'PNG', 168, 6, 32, 26);        // right corner — smaller
+
+            // Title block — centered, safely below logos
             doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-            doc.setFontSize(24);
+            doc.setFontSize(18);
             doc.setFont('helvetica', 'bold');
-            doc.text("STRATEGIC EVENT REPORT", 105, 32, { align: 'center' });
+            doc.text("STRATEGIC EVENT REPORT", 105, 20, { align: 'center' });
 
-            doc.setFontSize(14);
+            doc.setFontSize(12);
             doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.text("WOMEN'S DAY 2026: CONNECTING VOICES", 105, 42, { align: 'center' });
+            doc.text("WOMEN'S DAY 2026: CONNECTING VOICES", 105, 30, { align: 'center' });
 
-            doc.setFontSize(9);
+            doc.setFontSize(8);
             doc.setFont('helvetica', 'normal');
             doc.setTextColor(100, 116, 139);
-            doc.text(`REPORT GENERATED: ${new Date().toLocaleString().toUpperCase()}`, 105, 52, { align: 'center' });
+            doc.text(`REPORT GENERATED: ${new Date().toLocaleString().toUpperCase()}`, 105, 40, { align: 'center' });
 
             doc.setDrawColor(226, 232, 240);
-            doc.line(15, 60, 195, 60);
+            doc.line(15, 48, 195, 48);
 
             // Impact Metrics
             doc.setFontSize(16).setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]).setFont('helvetica', 'bold');
-            doc.text('I. EXECUTIVE IMPACT METRICS', 15, 75);
+            doc.text('I. EXECUTIVE IMPACT METRICS', 15, 62);
 
             const summaryData = [
                 ['Unique Student Participations', wdAdmin.stats.participants.toString()],
@@ -539,7 +555,7 @@ const AdminDashboard = () => {
             ];
 
             autoTable(doc, {
-                startY: 85,
+                startY: 70,
                 body: summaryData,
                 theme: 'plain',
                 styles: { fontSize: 11, cellPadding: 6 },
@@ -572,32 +588,96 @@ const AdminDashboard = () => {
                 alternateRowStyles: { fillColor: [255, 241, 242] }
             });
 
-            // --- PAGE 2: MESSAGE AUDIT ---
-            doc.addPage();
-            doc.setFontSize(16).setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]).setFont('helvetica', 'bold');
-            doc.text('III. OPERATIONAL MESSAGE AUDIT', 15, 25);
-            doc.setFontSize(10).setFont('helvetica', 'normal').setTextColor(100);
-            doc.text('A comprehensive log of all sentiment interactions processed by the moderation engine.', 15, 32);
+            // --- PAGE 2: MESSAGE AUDIT (Landscape A4) ---
+            doc.addPage('a4', 'landscape'); // Proper landscape — jsPDF correctly sets pageSize.width = 277
+            const pageW = doc.internal.pageSize.width;   // should be 297
+            const margin = 10;
+            const tableW = pageW - margin * 2; // 277mm
+
+            // Build student lookup from allStudents state
+            const studentMap = {};
+            allStudents.forEach(s => {
+                const key = (s.rollNumber || '').trim().toUpperCase();
+                if (key) {
+                    studentMap[key] = {
+                        name: (s.fullName || s.name || 'N/A').toUpperCase(),
+                        dept: (s.department || 'N/A').toUpperCase(),
+                        section: s.section || '-',
+                        mobile: s.phone || 'N/A'
+                    };
+                }
+            });
+
+            doc.setFontSize(14).setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]).setFont('helvetica', 'bold');
+            doc.text('III. OPERATIONAL MESSAGE AUDIT', margin, 18);
+            doc.setFontSize(9).setFont('helvetica', 'normal').setTextColor(100);
+            doc.text('Full sender & receiver details for all sentiment interactions processed by the moderation engine.', margin, 25);
 
             autoTable(doc, {
-                startY: 40,
-                head: [['TIMESTAMP', 'SENDER ID', 'RECEIVER ID', 'STATUS', 'CONTENT OVERVIEW']],
-                body: wdAdmin.messages.map(m => [
-                    m.timestamp?.toDate ? m.timestamp.toDate().toLocaleDateString() : 'REALTIME',
-                    m.senderRegNo || 'ANON',
-                    m.receiverRegNo || 'SYSTEM',
-                    m.status?.toUpperCase(),
-                    m.messageText?.substring(0, 50) + (m.messageText?.length > 50 ? '...' : '')
-                ]),
-                headStyles: { fillColor: secondaryColor, fontSize: 8 },
-                bodyStyles: { fontSize: 7 },
-                columnStyles: {
-                    3: { fontStyle: 'bold' },
-                    4: { cellWidth: 70 }
+                startY: 32,
+                startX: margin,
+                tableWidth: tableW,
+                head: [[
+                    'DATE',
+                    'SENDER NAME', 'SENDER REG', 'S.DEPT/SEC', 'S.MOBILE',
+                    'RECEIVER NAME', 'RECEIVER REG', 'R.DEPT/SEC', 'R.MOBILE',
+                    'STATUS', 'MESSAGE CONTENT'
+                ]],
+                body: wdAdmin.messages.map(m => {
+                    const sKey = (m.senderRegNo || '').trim().toUpperCase();
+                    const rKey = (m.receiverRegNo || '').trim().toUpperCase();
+                    const sender = studentMap[sKey] || {};
+                    const receiver = studentMap[rKey] || {};
+
+                    // Strip emojis — jsPDF cannot render them
+                    const cleanText = (m.messageText || '')
+                        .replace(/[\u{1F300}-\u{1FFFF}]/gu, '')
+                        .replace(/[\u2600-\u27FF]/g, '')
+                        .trim();
+                    const preview = cleanText.substring(0, 55) + (cleanText.length > 55 ? '...' : '') || '[Emoji only]';
+
+                    return [
+                        m.timestamp?.toDate ? m.timestamp.toDate().toLocaleDateString() : 'N/A',
+                        sender.name || (m.senderName || 'N/A').toUpperCase(),
+                        m.senderRegNo || 'N/A',
+                        `${sender.dept || 'N/A'} / ${sender.section || '-'}`,
+                        sender.mobile || 'N/A',
+                        receiver.name || 'N/A',
+                        m.receiverRegNo || 'N/A',
+                        `${receiver.dept || 'N/A'} / ${receiver.section || '-'}`,
+                        receiver.mobile || 'N/A',
+                        m.status?.toUpperCase() || 'N/A',
+                        preview
+                    ];
+                }),
+                headStyles: {
+                    fillColor: secondaryColor,
+                    fontSize: 7,
+                    fontStyle: 'bold',
+                    textColor: 255,
+                    cellPadding: 3,
+                    halign: 'left'
                 },
+                bodyStyles: { fontSize: 7, cellPadding: 2.5 },
+                margin: { left: margin, right: margin },
+                columnStyles: {
+                    0: { cellWidth: 16 },  // DATE
+                    1: { cellWidth: 28 },  // SENDER NAME
+                    2: { cellWidth: 26 },  // SENDER REG
+                    3: { cellWidth: 18 },  // S.DEPT/SEC
+                    4: { cellWidth: 24 },  // S.MOBILE
+                    5: { cellWidth: 28 },  // RECEIVER NAME
+                    6: { cellWidth: 26 },  // RECEIVER REG
+                    7: { cellWidth: 18 },  // R.DEPT/SEC
+                    8: { cellWidth: 24 },  // R.MOBILE
+                    9: { cellWidth: 16, fontStyle: 'bold' }, // STATUS
+                    10: { cellWidth: 53 }   // MESSAGE (tableW - 224 = 53mm)
+                },
+                alternateRowStyles: { fillColor: [248, 250, 252] },
                 didParseCell: (data) => {
-                    if (data.column.index === 3) {
+                    if (data.column.index === 9) {
                         if (data.cell.raw === 'APPROVED') data.cell.styles.textColor = [16, 185, 129];
+                        if (data.cell.raw === 'PENDING') data.cell.styles.textColor = [245, 158, 11];
                         if (data.cell.raw === 'FLAGGED' || data.cell.raw === 'REJECTED') data.cell.styles.textColor = [239, 68, 68];
                     }
                 }
@@ -654,6 +734,170 @@ const AdminDashboard = () => {
             setApiTestMessage({ type: 'error', text: `Connection Failed: ${err.message}` });
         } finally {
             setIsTestingApi(false);
+        }
+    };
+
+    const handleAddOdStudent = async () => {
+        if (!odInputRoll.trim()) return;
+        setIsSearchingOdStudent(true);
+        try {
+            // Check local allStudents first
+            let student = allStudents.find(s => s.rollNumber?.toLowerCase() === odInputRoll.toLowerCase() || s.id?.toLowerCase() === odInputRoll.toLowerCase());
+
+            if (!student) {
+                // If not found locally, try Firestore (though allStudents should have it)
+                const q = query(collection(db, 'users'), where('rollNumber', '==', odInputRoll));
+                const snap = await getDocs(q);
+                if (!snap.empty) {
+                    student = { id: snap.docs[0].id, ...snap.docs[0].data() };
+                }
+            }
+
+            if (student) {
+                const alreadyExists = odLetterData.students.find(s => s.rollNumber === student.rollNumber);
+                if (alreadyExists) {
+                    alert('Student already added to the list.');
+                } else {
+                    const { year, dept } = getStudentExtendedData(student);
+                    setOdLetterData(prev => ({
+                        ...prev,
+                        students: [...prev.students, {
+                            name: student.fullName,
+                            rollNumber: student.rollNumber || student.id,
+                            dept: dept,
+                            year: year,
+                            section: student.section || '-'
+                        }]
+                    }));
+                    setOdInputRoll('');
+                }
+            } else {
+                alert('Student not found. Please verify the Register Number.');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Error fetching student data.');
+        } finally {
+            setIsSearchingOdStudent(false);
+        }
+    };
+
+    const handleRemoveOdStudent = (roll) => {
+        setOdLetterData(prev => ({
+            ...prev,
+            students: prev.students.filter(s => s.rollNumber !== roll)
+        }));
+    };
+
+    const downloadManualODLetter = async () => {
+        try {
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.width;
+            const pageHeight = doc.internal.pageSize.height;
+
+            // Load Logos
+            const loadImg = (path) => new Promise(res => {
+                const img = new Image();
+                img.onload = () => res(img);
+                img.onerror = () => res(null);
+                img.src = path;
+            });
+
+            const [rit, ts] = await Promise.all([loadImg(ritLogo), loadImg(techsparkLogo)]);
+
+            // Header Section
+            if (rit) doc.addImage(rit, 'PNG', 15, 12, 45, 11);
+            if (ts) doc.addImage(ts, 'PNG', pageWidth - 55, 10, 40, 15);
+
+            doc.setDrawColor(200);
+            doc.line(15, 30, pageWidth - 15, 30);
+
+            // Title
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.text('ON-DUTY REQUISITION LETTER', pageWidth / 2, 42, { align: 'center' });
+            doc.setLineWidth(0.5);
+            doc.line(pageWidth / 2 - 40, 44, pageWidth / 2 + 40, 44);
+
+            // Date
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Date: ${new Date().toLocaleDateString()}`, pageWidth - 15, 52, { align: 'right' });
+
+            // From & To
+            doc.setFont('helvetica', 'bold');
+            doc.text('FROM:', 15, 60);
+            doc.setFont('helvetica', 'normal');
+            const fromLines = doc.splitTextToSize(odLetterData.from, 80);
+            doc.text(fromLines, 15, 65);
+
+            const toY = 65 + (fromLines.length * 5) + 5;
+            doc.setFont('helvetica', 'bold');
+            doc.text('TO:', 15, toY);
+            doc.setFont('helvetica', 'normal');
+            const toLines = doc.splitTextToSize(odLetterData.to, 80);
+            doc.text(toLines, 15, toY + 5);
+
+            // Salutation
+            const salutationY = toY + 5 + (toLines.length * 5) + 10;
+            doc.setFont('helvetica', 'normal');
+            doc.text(odLetterData.salutation, 15, salutationY);
+
+            // Subject — wrap if long
+            doc.setFont('helvetica', 'bold');
+            const subjectText = 'SUB: ' + odLetterData.subject;
+            const subjectLines = doc.splitTextToSize(subjectText, pageWidth - 30);
+            doc.text(subjectLines, 15, salutationY + 8);
+
+            // Body — left-aligned with correct safe width
+            const bodyStartY = salutationY + 8 + (subjectLines.length * 6) + 6;
+            doc.setFont('helvetica', 'normal');
+            const safeWidth = pageWidth - 30; // 15mm margin on each side
+            const bodyLines = doc.splitTextToSize(odLetterData.body, safeWidth);
+            doc.text(bodyLines, 15, bodyStartY);
+
+            // Students Table
+            let tableY = bodyStartY + (bodyLines.length * 5) + 10;
+
+            if (odLetterData.students.length > 0) {
+                autoTable(doc, {
+                    startY: tableY,
+                    head: [['S.No', 'Name', 'Register No', 'Dept', 'Sec', 'Year']],
+                    body: odLetterData.students.map((s, i) => [i + 1, s.name.toUpperCase(), s.rollNumber, s.dept, s.section || '-', s.year]),
+                    headStyles: { fillColor: [40, 40, 40], textColor: 255 },
+                    styles: { fontSize: 9 },
+                    margin: { left: 15, right: 15 }
+                });
+                tableY = doc.lastAutoTable.finalY + 15;
+            } else {
+                doc.setFont('helvetica', 'italic');
+                doc.setTextColor(150);
+                doc.text('(No students added to this requisition)', 15, tableY);
+                doc.setTextColor(0);
+                tableY += 15;
+            }
+
+            // Signatures
+            const sigWidth = (pageWidth - 30) / odLetterData.signatures.length;
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+
+            // Check if room for signatures, if not add page
+            if (tableY > pageHeight - 40) {
+                doc.addPage();
+                tableY = 40;
+            }
+
+            odLetterData.signatures.forEach((sig, i) => {
+                const x = 15 + (i * sigWidth) + (sigWidth / 2);
+                doc.line(15 + (i * sigWidth) + 5, tableY + 20, 15 + ((i + 1) * sigWidth) - 5, tableY + 20);
+                doc.text(sig, x, tableY + 25, { align: 'center' });
+            });
+
+            doc.save(`OD_Requisition_${new Date().getTime()}.pdf`);
+        } catch (error) {
+            console.error("OD PDF Error:", error);
+            alert("Failed to generate OD PDF.");
         }
     };
 
@@ -3526,8 +3770,8 @@ const AdminDashboard = () => {
                                                         <p className="text-[10px] text-slate-400 font-mono">{msg.senderRegNo}</p>
                                                     </td>
                                                     <td className="px-6 py-5 font-mono text-xs font-bold text-slate-600">{msg.receiverRegNo}</td>
-                                                    <td className="px-6 py-5 max-w-xs">
-                                                        <p className="text-sm text-slate-700 line-clamp-2">{msg.messageText}</p>
+                                                    <td className="px-6 py-5 max-w-sm">
+                                                        <p className="text-sm text-slate-700 whitespace-pre-wrap break-words leading-relaxed">{msg.messageText}</p>
                                                     </td>
                                                     <td className="px-6 py-5">
                                                         <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${msg.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
@@ -3778,6 +4022,175 @@ const AdminDashboard = () => {
                         </div>
                     </div>
                 );
+            case 'od_generator':
+                return (
+                    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500 text-left">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="text-3xl font-black text-slate-800 uppercase italic">OD <span className="text-blue-600">Generator</span></h3>
+                                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Create official requisition letters for club members</p>
+                            </div>
+                            <button
+                                onClick={downloadManualODLetter}
+                                className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-slate-200 hover:bg-black transition-all flex items-center gap-3"
+                            >
+                                <Download className="w-4 h-4" /> Download Official PDF
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            {/* Left: Input Form */}
+                            <div className="space-y-6">
+                                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">From</label>
+                                            <textarea
+                                                rows="4"
+                                                value={odLetterData.from}
+                                                onChange={(e) => setOdLetterData({ ...odLetterData, from: e.target.value })}
+                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-bold uppercase outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
+                                                placeholder="Sender Details..."
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">To</label>
+                                            <textarea
+                                                rows="4"
+                                                value={odLetterData.to}
+                                                onChange={(e) => setOdLetterData({ ...odLetterData, to: e.target.value })}
+                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-bold uppercase outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
+                                                placeholder="Recipient Details..."
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Salutation</label>
+                                            <input
+                                                type="text"
+                                                value={odLetterData.salutation}
+                                                onChange={(e) => setOdLetterData({ ...odLetterData, salutation: e.target.value })}
+                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-bold outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
+                                                placeholder="Respected Mam/Sir,"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Subject Line</label>
+                                            <input
+                                                type="text"
+                                                value={odLetterData.subject}
+                                                onChange={(e) => setOdLetterData({ ...odLetterData, subject: e.target.value })}
+                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-bold outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
+                                                placeholder="Requisition for..."
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Contents / Body</label>
+                                        <textarea
+                                            rows="5"
+                                            value={odLetterData.body}
+                                            onChange={(e) => setOdLetterData({ ...odLetterData, body: e.target.value })}
+                                            className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-bold leading-relaxed outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
+                                            placeholder="Write the letter body here..."
+                                        />
+                                    </div>
+
+                                    <div className="pt-6 border-t border-slate-100">
+                                        <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-4">Authorized Signatures</h4>
+                                        <div className="grid grid-cols-3 gap-3">
+                                            {odLetterData.signatures.map((sig, idx) => (
+                                                <div key={idx} className="relative group">
+                                                    <input
+                                                        type="text"
+                                                        value={sig}
+                                                        onChange={(e) => {
+                                                            const newSigs = [...odLetterData.signatures];
+                                                            newSigs[idx] = e.target.value;
+                                                            setOdLetterData({ ...odLetterData, signatures: newSigs });
+                                                        }}
+                                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[9px] font-black uppercase outline-none focus:ring-2 focus:ring-blue-500/20"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Right: Student Management */}
+                            <div className="space-y-6">
+                                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+                                    <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2">
+                                        <Users className="w-4 h-4 text-blue-600" /> Member Selection
+                                    </h4>
+
+                                    <div className="flex gap-2 mb-8">
+                                        <input
+                                            type="text"
+                                            value={odInputRoll}
+                                            onChange={(e) => setOdInputRoll(e.target.value)}
+                                            onKeyPress={(e) => e.key === 'Enter' && handleAddOdStudent()}
+                                            placeholder="Enter Register Number..."
+                                            className="flex-1 px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
+                                        />
+                                        <button
+                                            onClick={handleAddOdStudent}
+                                            disabled={isSearchingOdStudent}
+                                            className="px-6 py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase transition-all hover:bg-blue-700 active:scale-95 disabled:opacity-50"
+                                        >
+                                            {isSearchingOdStudent ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Add Member'}
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                                        {odLetterData.students.length > 0 ? odLetterData.students.map((student, idx) => (
+                                            <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl group hover:border-blue-200 transition-all">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center font-black text-xs">
+                                                        {student.name.charAt(0)}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[11px] font-black text-slate-800 uppercase">{student.name}</p>
+                                                        <p className="text-[10px] font-bold text-slate-400">{student.rollNumber} • {student.dept} • Sec {student.section || '-'} • {student.year} Year</p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleRemoveOdStudent(student.rollNumber)}
+                                                    className="p-2 text-slate-300 hover:text-red-500 transition-colors"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        )) : (
+                                            <div className="py-20 text-center">
+                                                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-dashed border-slate-200">
+                                                    <Users className="w-8 h-8 text-slate-200" />
+                                                </div>
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No members added to requisition</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="p-6 bg-blue-600 rounded-[2.5rem] text-white shadow-xl shadow-blue-500/20">
+                                    <div className="flex items-start gap-4">
+                                        <Info className="w-6 h-6 shrink-0 mt-1" />
+                                        <div>
+                                            <h5 className="font-black uppercase tracking-tight">Pro-Tip: Selective OD</h5>
+                                            <p className="text-xs text-blue-100 mt-1 leading-relaxed">
+                                                Letters generated here follow the official TechSpark and RIT branding protocols. Ensure all register numbers are verified before export.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
         }
     };
 
@@ -3847,6 +4260,7 @@ const AdminDashboard = () => {
                             { id: 'all_events', icon: <Calendar className="w-5 h-5" />, label: 'All Events', desc: 'Complete Registry' },
                             { id: 'registrations', icon: <ClipboardList className="w-5 h-5" />, label: 'Registrations', desc: 'Participant Data' },
                             { id: 'reports', icon: <PieChart className="w-5 h-5" />, label: 'Reports', desc: 'PDF Intelligence' },
+                            { id: 'od_generator', icon: <FileText className="w-5 h-5" />, label: 'OD Generator', desc: 'Official Requisitions' },
                             { id: 'submissions', icon: <Activity className="w-5 h-5" />, label: 'Quiz Scores', desc: 'Live Performance', isLive: true },
                             { id: 'settings', icon: <Settings className="w-5 h-5" />, label: 'Settings', desc: 'System Config' },
                             { id: 'logs', icon: <ShieldAlert className="w-5 h-5" />, label: 'Security', desc: 'Audit Trail' },
