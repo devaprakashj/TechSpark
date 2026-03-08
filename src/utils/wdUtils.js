@@ -5,11 +5,11 @@ export const WD_RELEASE_TIME = new Date('2026-03-08T03:30:00Z');
 
 /** Opt-in window: Unlocked for testing (March 1–6) */
 export const WD_OPTIN_START = new Date('2026-03-01T00:00:00+05:30');
-export const WD_OPTIN_END = new Date('2026-03-06T23:59:59+05:30');
+export const WD_OPTIN_END = new Date('2026-03-08T23:59:59+05:30');
 
-/** Message sending window: Unlocked for testing (March 1–7) */
+/** Message sending window: Unlocked for testing (March 1–8) */
 export const WD_SEND_START = new Date('2026-03-01T00:00:00+05:30');
-export const WD_SEND_END = new Date('2026-03-07T23:59:59+05:30');
+export const WD_SEND_END = new Date('2026-03-08T23:59:59+05:30');
 
 /** Auto-deactivate participants after March 9 */
 export const WD_DEACTIVATE = new Date('2026-03-09T00:00:00+05:30');

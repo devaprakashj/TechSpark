@@ -133,7 +133,7 @@ export default function WomensDayOptIn({ user, participation, onOptIn, onOptOut,
                     /* ── Window closed ── */
                     <div className="flex items-center gap-2 text-xs text-gray-500">
                         <AlertCircle className="w-4 h-4 text-pink-400" />
-                        The opt-in window (March 5–6) has closed. Messages release March 8 at 9 AM.
+                        The opt-in window has been extended! Messages release March 8 at 9 AM.
                     </div>
                 )}
 

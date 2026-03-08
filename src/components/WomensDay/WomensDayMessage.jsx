@@ -21,7 +21,9 @@ export default function WomensDayMessage({ user, sentMessages = [], sentCount, m
     const [lastResult, setLastResult] = useState(null);   // { status: 'pending'|'flagged' }
     const [liveSafetyInfo, setLiveSafetyInfo] = useState({ isClean: true, flaggedWords: [] });
 
-    const canSend = isSendWindowOpen() && isFeatureActive();
+    // Force open for TODAY (March 8, 2026) per user request
+    const isToday = new Date().toDateString() === new Date('2026-03-08').toDateString();
+    const canSend = (isSendWindowOpen() && isFeatureActive()) || isToday;
 
     const handleSearch = async (e) => {
         e.preventDefault();
@@ -68,7 +70,7 @@ export default function WomensDayMessage({ user, sentMessages = [], sentCount, m
             <div className="rounded-2xl p-5 text-center"
                 style={{ background: '#fff8fe', border: '1px solid #f9c8e8' }}>
                 <p className="text-sm font-bold text-gray-600">
-                    Message sending opens March 5 and closes March 7 at midnight.
+                    Message sending is open today, March 8!
                 </p>
             </div>
         );
