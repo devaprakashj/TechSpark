@@ -42,7 +42,10 @@ import {
     UserCheck,
     FileText,
     Bell,
-    Edit,
+    Edit
+} from 'lucide-react';
+import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, where, updateDoc, doc, increment, deleteDoc, getDoc, onSnapshot, limit, getCountFromServer } from 'firebase/firestore';
+import { db } from '../../firebase';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
