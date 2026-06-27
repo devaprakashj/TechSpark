@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Calendar, MapPin, Clock, Filter, Tag, Users, Rocket, X, ShieldCheck, Smartphone, Hash, Building2, GraduationCap, CheckCircle, Users as UsersIcon, Trophy, Plus, LogIn, Zap, Lock } from 'lucide-react';
+import { Search, Calendar, MapPin, Clock, Filter, Tag, Users, Rocket, X, ShieldCheck, Smartphone, Hash, Building2, GraduationCap, CheckCircle, Users as UsersIcon, Trophy, Plus, LogIn, Zap, Lock, ArrowUpRight, Brain, Shield, Info, FileText, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { doc, getDoc, setDoc, serverTimestamp, collection, onSnapshot, query, orderBy, updateDoc, increment, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -200,6 +200,9 @@ const Events = () => {
 
     // Filter events based on type AND department restrictions
     const filteredEvents = liveEvents.filter(event => {
+        // Exclude completed events from live opportunities
+        if (event.status === 'COMPLETED') return false;
+
         // Filter by event type
         const matchesType = filter === 'All' || event.type === filter;
 
@@ -339,6 +342,91 @@ const Events = () => {
                         <p className="text-slate-400 font-medium text-sm mt-2">We're planning something big! Stay tuned for upcoming {filter.toLowerCase()} events.</p>
                     </div>
                 )}
+
+                {/* Completed Events Section */}
+                {liveEvents.filter(event => event.status === 'COMPLETED').length > 0 && (
+                    <div className="mt-24 border-t border-slate-200/60 pt-20">
+                        <div className="text-center mb-16">
+                            <h2 className="text-4xl lg:text-5xl font-black mb-4 text-slate-900 tracking-tight uppercase italic">
+                                Completed <span className="text-emerald-600">Events</span>
+                            </h2>
+                            <p className="text-lg text-slate-500 max-w-2xl mx-auto font-medium">
+                                Take a look at our past achievements, workshops, and hackathons, featuring key stats and turnout metrics.
+                            </p>
+                        </div>
+
+                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            {liveEvents.filter(event => event.status === 'COMPLETED').map((event) => (
+                                <div
+                                    key={event.id}
+                                    className="bg-slate-50/50 rounded-[2.5rem] border border-slate-200/60 overflow-hidden shadow-sm hover:shadow-2xl hover:border-emerald-100 transition-all duration-500 relative flex flex-col h-full"
+                                >
+                                    <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-[4rem] flex items-center justify-center -mr-4 -mt-4">
+                                        <CheckCircle className="w-8 h-8 text-emerald-200" />
+                                    </div>
+
+                                    <div className="p-8 pb-4 flex-1">
+                                        <div className="flex items-center gap-2 mb-4 flex-wrap">
+                                            <span className={`px-3 py-1 rounded-lg text-[9px] font-black tracking-widest uppercase bg-slate-200 text-slate-700`}>
+                                                {event.type}
+                                            </span>
+                                            <span className="flex items-center gap-1.5 text-slate-400 text-[10px] font-bold">
+                                                <Clock className="w-3.5 h-3.5" />
+                                                {event.date}
+                                            </span>
+                                        </div>
+
+                                        <h3 className="text-2xl font-black text-slate-700 mb-4 uppercase leading-tight">
+                                            {event.title}
+                                        </h3>
+
+                                        <p className="text-slate-500 text-sm font-medium mb-6 line-clamp-3 leading-relaxed">
+                                            {event.description}
+                                        </p>
+
+                                        <div className="space-y-3 mb-6">
+                                            <div className="flex items-center gap-3 text-xs font-bold text-slate-500">
+                                                <MapPin className="w-4 h-4" />
+                                                <span>{event.venue}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-8 pt-0 mt-auto">
+                                        <div className="bg-white border border-slate-200/80 rounded-3xl p-5 space-y-4 shadow-sm">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Turnout Stats</span>
+                                                <span className="text-[9px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-black uppercase">Success</span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4 text-center">
+                                                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                                                    <p className="text-[9px] text-slate-400 font-black uppercase tracking-wider">Attendance</p>
+                                                    <p className="text-xl font-black text-slate-800 mt-1">{event.attendeesCount || 0}</p>
+                                                    <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Participants</p>
+                                                </div>
+                                                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex flex-col justify-center items-center">
+                                                    {event.type === 'HACKATHON' && event.judges && event.judges.length > 0 ? (
+                                                        <>
+                                                            <p className="text-[9px] text-slate-400 font-black uppercase tracking-wider">Judges Panel</p>
+                                                            <p className="text-xl font-black text-purple-600 mt-1">{event.judges.length}</p>
+                                                            <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Evaluators</p>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <p className="text-[9px] text-slate-400 font-black uppercase tracking-wider">Category</p>
+                                                            <p className="text-xs font-black text-blue-600 mt-2.5 uppercase truncate max-w-full">{event.type}</p>
+                                                            <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">Platform</p>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
 
             <AnimatePresence>
@@ -374,41 +462,170 @@ const Events = () => {
                                 </button>
                             </div>
 
-                            <div className="p-8 space-y-6">
-                                <div>
-                                    <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-3">About This Event</h3>
-                                    <p className="text-slate-700 leading-relaxed">
-                                        {eventToRegister.detailedDescription || eventToRegister.description}
-                                    </p>
-                                </div>
+                             <div className="p-8 space-y-6 text-left">
+                                 <div>
+                                     <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-2">About This Event</h3>
+                                     <p className="text-slate-700 leading-relaxed text-sm">
+                                         {eventToRegister.description || eventToRegister.shortDescription}
+                                     </p>
+                                     {eventToRegister.detailedDescription && (
+                                         <p className="text-slate-600 leading-relaxed text-sm mt-3 pt-3 border-t border-slate-100 whitespace-pre-wrap">
+                                             {eventToRegister.detailedDescription}
+                                         </p>
+                                     )}
+                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="bg-blue-50 rounded-2xl p-4">
-                                        <div className="flex items-center gap-2 text-blue-600 mb-2">
-                                            <Calendar className="w-4 h-4" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest">Date & Time</span>
-                                        </div>
-                                        <p className="text-slate-800 font-bold text-sm">{eventToRegister.date}</p>
-                                        <p className="text-slate-600 text-xs">{eventToRegister.time}</p>
-                                    </div>
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                     {/* Schedule */}
+                                     <div className="bg-blue-50/75 rounded-2xl p-4 border border-blue-100/50">
+                                         <div className="flex items-center gap-2 text-blue-600 mb-2">
+                                             <Calendar className="w-4 h-4" />
+                                             <span className="text-[10px] font-black uppercase tracking-widest">Date & Time Schedule</span>
+                                         </div>
+                                         <div className="space-y-2 text-xs">
+                                             <div>
+                                                 <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Start</span>
+                                                 <p className="text-slate-800 font-bold">{eventToRegister.startDate ? `${eventToRegister.startDate} @ ${eventToRegister.startTime || 'TBA'}` : eventToRegister.date}</p>
+                                             </div>
+                                             {eventToRegister.endDate && (
+                                                 <div>
+                                                     <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">End</span>
+                                                     <p className="text-slate-800 font-bold">{eventToRegister.endDate} @ {eventToRegister.endTime || 'TBA'}</p>
+                                                 </div>
+                                             )}
+                                             {eventToRegister.regEndDateTime && (
+                                                 <div className="pt-1.5 border-t border-blue-200/50">
+                                                     <span className="text-[9px] text-blue-600 font-black uppercase tracking-wider block">Reg Deadline</span>
+                                                     <p className="text-slate-700 font-bold">{new Date(eventToRegister.regEndDateTime).toLocaleString()}</p>
+                                                 </div>
+                                             )}
+                                         </div>
+                                     </div>
 
-                                    <div className="bg-purple-50 rounded-2xl p-4">
-                                        <div className="flex items-center gap-2 text-purple-600 mb-2">
-                                            <MapPin className="w-4 h-4" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest">Venue</span>
-                                        </div>
-                                        <p className="text-slate-800 font-bold text-sm">{eventToRegister.venue}</p>
-                                    </div>
-                                </div>
+                                     {/* Venue */}
+                                     <div className="bg-purple-50/75 rounded-2xl p-4 border border-purple-100/50 flex flex-col justify-between">
+                                         <div>
+                                             <div className="flex items-center gap-2 text-purple-600 mb-2">
+                                                 <MapPin className="w-4 h-4" />
+                                                 <span className="text-[10px] font-black uppercase tracking-widest">Venue & Base</span>
+                                             </div>
+                                             <div className="space-y-1 text-xs">
+                                                 <div className="flex justify-between">
+                                                     <span className="text-slate-400 font-medium">Type:</span>
+                                                     <span className="font-bold text-slate-800 uppercase">{eventToRegister.venueType || 'Offline'}</span>
+                                                 </div>
+                                                 <div className="flex justify-between">
+                                                     <span className="text-slate-400 font-medium">Location:</span>
+                                                     <span className="font-bold text-slate-800 uppercase">{eventToRegister.venueName || eventToRegister.venue}</span>
+                                                 </div>
+                                             </div>
+                                         </div>
+                                         {eventToRegister.googleMapLink && (
+                                             <div className="mt-3 pt-2.5 border-t border-purple-200/50">
+                                                 <a 
+                                                     href={eventToRegister.googleMapLink} 
+                                                     target="_blank" 
+                                                     rel="noopener noreferrer" 
+                                                     className="text-purple-600 hover:text-purple-800 font-black flex items-center gap-1 uppercase tracking-wider text-[9px]"
+                                                 >
+                                                     View Google Maps <ArrowUpRight className="w-3.5 h-3.5" />
+                                                 </a>
+                                             </div>
+                                         )}
+                                     </div>
+                                 </div>
 
-                                <button
-                                    onClick={proceedToRegistration}
-                                    className="w-full py-5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all duration-300 flex items-center justify-center gap-3"
-                                >
-                                    <Rocket className="w-5 h-5" />
-                                    Register for This Event
-                                </button>
-                            </div>
+                                 {/* Targeted Eligibility */}
+                                 {eventToRegister.audienceType === 'Targeted' && (
+                                     <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-2">
+                                         <div className="flex items-center gap-2 text-slate-600">
+                                             <Shield className="w-4 h-4 text-orange-500" />
+                                             <span className="text-[10px] font-black uppercase tracking-widest">Audience Eligibility Limits</span>
+                                         </div>
+                                         <div className="grid grid-cols-2 gap-4 text-xs">
+                                             <div>
+                                                 <span className="text-[9px] text-slate-400 font-bold uppercase block">Departments</span>
+                                                 <p className="text-slate-800 font-bold uppercase truncate">{eventToRegister.departments && eventToRegister.departments.length > 0 ? eventToRegister.departments.join(', ') : 'All'}</p>
+                                             </div>
+                                             <div>
+                                                 <span className="text-[9px] text-slate-400 font-bold uppercase block">Years</span>
+                                                 <p className="text-slate-800 font-bold uppercase">{eventToRegister.years && eventToRegister.years.length > 0 ? eventToRegister.years.map(y => `${y} Yr`).join(', ') : 'All'}</p>
+                                             </div>
+                                         </div>
+                                     </div>
+                                 )}
+
+                                 {/* Team Configuration */}
+                                 {eventToRegister.isTeamEvent && (
+                                     <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
+                                         <div className="flex items-center gap-2 text-slate-600 mb-2">
+                                             <Users className="w-4 h-4 text-indigo-500" />
+                                             <span className="text-[10px] font-black uppercase tracking-widest">Squad Parameters</span>
+                                         </div>
+                                         <p className="text-xs text-slate-700 font-bold">
+                                             Tactical Squad Event. Requires teams of <span className="text-indigo-600 font-black">{eventToRegister.minTeamSize || 1} to {eventToRegister.maxTeamSize || 4} members</span>.
+                                         </p>
+                                     </div>
+                                 )}
+
+                                 {/* Problem Statements (Hackathon Preview) */}
+                                 {eventToRegister.type === 'Hackathon' && (
+                                     <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-2.5">
+                                         <div className="flex items-center gap-2 text-slate-600">
+                                             <Brain className="w-4 h-4 text-blue-600" />
+                                             <span className="text-[10px] font-black uppercase tracking-widest">Problem Statements Overview</span>
+                                         </div>
+                                         <p className="text-xs text-slate-600">
+                                             {eventToRegister.isOnSpotPS 
+                                                 ? 'Problem statements will be allocated on-spot at the venue.' 
+                                                 : eventToRegister.problemStatements && eventToRegister.problemStatements.length > 0 
+                                                     ? `This hackathon has ${eventToRegister.problemStatements.length} pre-configured challenges.` 
+                                                     : 'Problem statements will be announced during kickoff.'}
+                                         </p>
+                                         {eventToRegister.problemStatements && eventToRegister.problemStatements.length > 0 && !eventToRegister.isOnSpotPS && (
+                                             <div className="max-h-28 overflow-y-auto space-y-1.5 pt-1.5 border-t border-slate-200">
+                                                 {eventToRegister.problemStatements.map((ps, idx) => (
+                                                     <div key={idx} className="p-2 bg-white rounded-lg border border-slate-100 text-xs font-medium text-slate-700 truncate">
+                                                         {idx + 1}. {ps}
+                                                     </div>
+                                                 ))}
+                                             </div>
+                                         )}
+                                     </div>
+                                 )}
+
+                                 {/* Coordinator (if enabled) */}
+                                 {(eventToRegister.displayCoordinator !== false) && (eventToRegister.coordinatorName || eventToRegister.coord1Name) && (
+                                     <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-2">
+                                         <div className="flex items-center gap-2 text-slate-600">
+                                             <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                                             <span className="text-[10px] font-black uppercase tracking-widest">Event Coordinator Contact</span>
+                                         </div>
+                                         <div className="text-xs font-bold text-slate-800 flex justify-between items-center">
+                                             <div>
+                                                 <p className="uppercase">{eventToRegister.coordinatorName || eventToRegister.coord1Name}</p>
+                                                 <p className="text-[10px] text-slate-400 font-mono font-medium">{eventToRegister.coordinatorPhone || eventToRegister.coord1Phone}</p>
+                                             </div>
+                                             {(eventToRegister.coordinatorEmail || eventToRegister.coord1Email) && (
+                                                 <a 
+                                                     href={`mailto:${eventToRegister.coordinatorEmail || eventToRegister.coord1Email}`} 
+                                                     className="text-blue-600 hover:text-blue-800 text-[10px] font-mono lowercase font-medium"
+                                                 >
+                                                     {eventToRegister.coordinatorEmail || eventToRegister.coord1Email}
+                                                 </a>
+                                             )}
+                                         </div>
+                                     </div>
+                                 )}
+
+                                 <button
+                                     onClick={proceedToRegistration}
+                                     className="w-full py-5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all duration-300 flex items-center justify-center gap-3"
+                                 >
+                                     <Rocket className="w-5 h-5" />
+                                     Register for This Event
+                                 </button>
+                             </div>
                         </motion.div>
                     </div>
                 )}

@@ -56,8 +56,8 @@
 }
 
 .pc-card {
-    height: 80svh;
-    max-height: 540px;
+    width: 100%;
+    max-width: 320px;
     display: grid;
     aspect-ratio: 0.718;
     border-radius: var(--card-radius);
@@ -100,6 +100,20 @@
     background-image: var(--inner-gradient);
     background-color: rgba(0, 0, 0, 0.9);
     transform: none;
+}
+
+.pc-inside::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 140px;
+    background: linear-gradient(to bottom, rgba(15, 23, 42, 0.95) 0%, rgba(15, 23, 42, 0.5) 60%, rgba(15, 23, 42, 0) 100%);
+    pointer-events: none;
+    z-index: 1;
+    border-top-left-radius: var(--card-radius);
+    border-top-right-radius: var(--card-radius);
 }
 
 .pc-shine {
@@ -229,7 +243,6 @@
 }
 
 .pc-avatar-content {
-    mix-blend-mode: luminosity;
     overflow: visible;
     transform: translateZ(2);
     backface-visibility: hidden;
@@ -244,7 +257,13 @@
     bottom: -1px;
     backface-visibility: hidden;
     will-change: transform;
-    transition: transform 120ms ease-out;
+    transition: transform 120ms ease-out, filter 0.3s ease;
+    filter: grayscale(0.85);
+}
+
+.pc-card:hover .pc-avatar-content .avatar,
+.pc-card.active .pc-avatar-content .avatar {
+    filter: grayscale(0);
 }
 
 .pc-avatar-content::before {
@@ -263,13 +282,13 @@
     bottom: var(--ui-inset);
     left: var(--ui-inset);
     right: var(--ui-inset);
-    z-index: 2;
+    z-index: 10;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(30px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: calc(max(0px, var(--card-radius) - var(--ui-inset) + var(--ui-radius-bias)));
     padding: 12px 14px;
     pointer-events: auto;
@@ -318,7 +337,7 @@
 }
 
 .pc-contact-btn {
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 8px;
     padding: 12px 16px;
     font-size: 12px;
@@ -344,42 +363,42 @@
             calc(var(--pointer-from-top) * -6px + 3px),
             0.1px);
     z-index: 5;
-    mix-blend-mode: luminosity;
 }
 
 .pc-details {
     width: 100%;
     position: absolute;
-    top: 3em;
+    top: 1.5rem;
     display: flex;
     flex-direction: column;
+    z-index: 10;
 }
 
 .pc-details h3 {
-    font-weight: 600;
+    font-weight: 800;
     margin: 0;
-    font-size: min(5svh, 3em);
-    margin: 0;
-    background-image: linear-gradient(to bottom, #fff, #6f6fbe);
-    background-size: 1em 1.5em;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    -webkit-background-clip: text;
+    font-size: 1.5rem;
+    color: #ffffff;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    -webkit-text-fill-color: initial;
+    background-clip: initial;
+    -webkit-background-clip: initial;
 }
 
 .pc-details p {
     font-weight: 600;
     position: relative;
-    top: -12px;
-    white-space: nowrap;
-    font-size: 16px;
-    margin: 0 auto;
-    width: min-content;
-    background-image: linear-gradient(to bottom, #fff, #4a4ac0);
-    background-size: 1em 1.5em;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    -webkit-background-clip: text;
+    top: 0;
+    font-size: 0.9rem;
+    margin: 4px auto 0;
+    width: max-content;
+    color: #38bdf8;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+    -webkit-text-fill-color: initial;
+    background-clip: initial;
+    -webkit-background-clip: initial;
 }
 
 @keyframes glow-bg {
@@ -409,21 +428,16 @@
 }
 
 @media (max-width: 768px) {
-    .pc-card {
-        height: 70svh;
-        max-height: 450px;
-    }
-
     .pc-details {
-        top: 2em;
+        top: 1.25rem;
     }
 
     .pc-details h3 {
-        font-size: min(4svh, 2.5em);
+        font-size: 1.25rem;
     }
 
     .pc-details p {
-        font-size: 14px;
+        font-size: 0.8rem;
     }
 
     .pc-user-info {
@@ -432,8 +446,8 @@
     }
 
     .pc-mini-avatar {
-        width: 28px;
-        height: 28px;
+        width: 36px;
+        height: 36px;
     }
 
     .pc-user-details {
@@ -441,36 +455,30 @@
     }
 
     .pc-handle {
-        font-size: 13px;
+        font-size: 12px;
     }
 
     .pc-status {
-        font-size: 10px;
+        font-size: 12px;
     }
 
     .pc-contact-btn {
-        padding: 6px 12px;
+        padding: 8px 12px;
         font-size: 11px;
     }
 }
 
 @media (max-width: 480px) {
-    .pc-card {
-        height: 60svh;
-        max-height: 380px;
-    }
-
     .pc-details {
-        top: 1.5em;
+        top: 1rem;
     }
 
     .pc-details h3 {
-        font-size: min(3.5svh, 2em);
+        font-size: 1.1rem;
     }
 
     .pc-details p {
-        font-size: 12px;
-        top: -8px;
+        font-size: 0.75rem;
     }
 
     .pc-user-info {
@@ -479,8 +487,8 @@
     }
 
     .pc-mini-avatar {
-        width: 24px;
-        height: 24px;
+        width: 32px;
+        height: 32px;
     }
 
     .pc-user-details {
@@ -488,58 +496,16 @@
     }
 
     .pc-handle {
-        font-size: 12px;
+        font-size: 11px;
     }
 
     .pc-status {
-        font-size: 9px;
-    }
-
-    .pc-contact-btn {
-        padding: 5px 10px;
         font-size: 10px;
-        border-radius: 50px;
-    }
-}
-
-@media (max-width: 320px) {
-    .pc-card {
-        height: 55svh;
-        max-height: 320px;
-    }
-
-    .pc-details h3 {
-        font-size: min(3svh, 1.5em);
-    }
-
-    .pc-details p {
-        font-size: 11px;
-    }
-
-    .pc-user-info {
-        padding: 6px 8px;
-    }
-
-    .pc-mini-avatar {
-        width: 20px;
-        height: 20px;
-    }
-
-    .pc-user-details {
-        gap: 6px;
-    }
-
-    .pc-handle {
-        font-size: 11px;
-    }
-
-    .pc-status {
-        font-size: 8px;
     }
 
     .pc-contact-btn {
-        padding: 4px 8px;
-        font-size: 9px;
-        border-radius: 50px;
+        padding: 6px 10px;
+        font-size: 10px;
+        border-radius: 6px;
     }
 }

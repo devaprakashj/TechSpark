@@ -166,9 +166,9 @@ const AdminDashboard = () => {
     const [isSearchingOdStudent, setIsSearchingOdStudent] = useState(false);
 
 
-    const fetchDashboardData = () => {
-        console.log("Strategic Refresh Triggered");
-        initDashboardSync();
+    const fetchDashboardData = (silent = false) => {
+        console.log("Strategic Refresh Triggered", silent ? "(silent)" : "");
+        initDashboardSync(silent);
     };
 
     // Dynamic extraction helper for missing student data
@@ -672,8 +672,8 @@ const AdminDashboard = () => {
         }
     };
 
-    const initDashboardSync = async () => {
-        setLoadingData(true);
+    const initDashboardSync = async (silent = false) => {
+        if (!silent) setLoadingData(true);
         console.log("Initializing Strategic Data Engine (Optimized)...");
 
         try {
@@ -2708,13 +2708,25 @@ const AdminDashboard = () => {
                                                 onClick={async () => {
                                                     const remarks = prompt("Enter rejection/revert remarks (MANDATORY):");
                                                     if (!remarks) return alert("Remarks are mandatory for rejection.");
-                                                    await updateDoc(doc(db, 'events', event.id), {
-                                                        status: event.status === 'PENDING' ? 'REJECTED' : 'LIVE',
-                                                        remarks,
-                                                        lastActionBy: admin.username,
-                                                        lastActionAt: serverTimestamp()
-                                                    });
-                                                    fetchDashboardData();
+                                                    
+                                                    const targetStatus = event.status === 'PENDING' ? 'REJECTED' : 'LIVE';
+                                                    
+                                                    // Optimistic UI state transition
+                                                    setEvents(prev => prev.map(e => e.id === event.id ? { ...e, status: targetStatus } : e));
+                                                    
+                                                    try {
+                                                        await updateDoc(doc(db, 'events', event.id), {
+                                                            status: targetStatus,
+                                                            remarks,
+                                                            lastActionBy: admin.username,
+                                                            lastActionAt: serverTimestamp()
+                                                        });
+                                                        fetchDashboardData(true); // silent refresh
+                                                    } catch (err) {
+                                                        console.error(err);
+                                                        alert("Database update failed. Reverting state...");
+                                                        fetchDashboardData(); // fallback full sync
+                                                    }
                                                 }}
                                                 className="py-3 bg-red-50 text-red-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-100 transition-colors"
                                             >
@@ -4181,48 +4193,201 @@ const AdminDashboard = () => {
                                             </div>
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Description</label>
-                                            <p className="text-sm text-slate-600 leading-relaxed font-medium">{eventToApprove.description}</p>
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Short Description</label>
+                                            <p className="text-sm text-slate-600 leading-relaxed font-medium">{eventToApprove.description || eventToApprove.shortDescription || 'N/A'}</p>
                                         </div>
+                                        {eventToApprove.detailedDescription && (
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Detailed Description</label>
+                                                <p className="text-sm text-slate-600 leading-relaxed font-medium whitespace-pre-wrap">{eventToApprove.detailedDescription}</p>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Logistics & Constraints */}
                                     <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 space-y-6">
-                                        <div className="grid grid-cols-2 gap-6">
-                                            <div className="space-y-2">
-                                                <div className="flex items-center gap-2 text-blue-600">
-                                                    <Calendar className="w-4 h-4" />
-                                                    <label className="text-[10px] font-black uppercase tracking-widest">Date</label>
+                                        <div className="space-y-4">
+                                            <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                                                <Calendar className="w-4 h-4 text-blue-600" /> Date & Time Schedule
+                                            </h4>
+                                            <div className="grid grid-cols-2 gap-4 bg-white p-4 rounded-2xl border border-slate-100 text-xs">
+                                                <div>
+                                                    <p className="text-[9px] text-slate-400 font-bold uppercase font-black tracking-wider">Start Time</p>
+                                                    <p className="font-bold text-slate-800">{eventToApprove.startDate ? `${eventToApprove.startDate} @ ${eventToApprove.startTime || 'TBA'}` : eventToApprove.date || 'N/A'}</p>
                                                 </div>
-                                                <p className="text-sm font-black text-slate-800">{eventToApprove.date}</p>
+                                                <div>
+                                                    <p className="text-[9px] text-slate-400 font-bold uppercase font-black tracking-wider">End Time</p>
+                                                    <p className="font-bold text-slate-800">{eventToApprove.endDate ? `${eventToApprove.endDate} @ ${eventToApprove.endTime || 'TBA'}` : 'N/A'}</p>
+                                                </div>
                                             </div>
-                                            <div className="space-y-2">
-                                                <div className="flex items-center gap-2 text-indigo-600">
-                                                    <Clock className="w-4 h-4" />
-                                                    <label className="text-[10px] font-black uppercase tracking-widest">Time</label>
+                                            {eventToApprove.registrationRequired && (eventToApprove.regStartDateTime || eventToApprove.regEndDateTime) && (
+                                                <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100/50 text-xs">
+                                                    <p className="text-[9px] text-blue-600 font-black uppercase tracking-widest mb-1">Registration Window</p>
+                                                    <p className="text-slate-700 font-medium">
+                                                        {eventToApprove.regStartDateTime ? new Date(eventToApprove.regStartDateTime).toLocaleString() : 'Open'} ➔ {eventToApprove.regEndDateTime ? new Date(eventToApprove.regEndDateTime).toLocaleString() : 'Close'}
+                                                    </p>
                                                 </div>
-                                                <p className="text-sm font-black text-slate-800">{eventToApprove.time || 'N/A'}</p>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-4 pt-4 border-t border-slate-200">
+                                            <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                                                <MapPin className="w-4 h-4 text-emerald-600" /> Venue / Base
+                                            </h4>
+                                            <div className="bg-white p-4 rounded-2xl border border-slate-100 text-xs space-y-2">
+                                                <div className="flex justify-between">
+                                                    <span className="text-slate-400 font-medium">Venue Type</span>
+                                                    <span className="font-bold text-slate-800 uppercase">{eventToApprove.venueType || 'Offline'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-slate-400 font-medium">Location</span>
+                                                    <span className="font-bold text-slate-800 uppercase">{eventToApprove.venueName || eventToApprove.venue || 'Block-B, Lab 402'}</span>
+                                                </div>
+                                                {eventToApprove.googleMapLink && (
+                                                    <div className="pt-2 border-t border-slate-100">
+                                                        <a 
+                                                            href={eventToApprove.googleMapLink} 
+                                                            target="_blank" 
+                                                            rel="noopener noreferrer" 
+                                                            className="text-blue-600 hover:text-blue-800 font-black flex items-center gap-1 uppercase tracking-wider text-[10px]"
+                                                        >
+                                                            View Google Map Location <ArrowUpRight className="w-3.5 h-3.5" />
+                                                        </a>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2 text-emerald-600">
-                                                <MapPin className="w-4 h-4" />
-                                                <label className="text-[10px] font-black uppercase tracking-widest">Venue / Base</label>
-                                            </div>
-                                            <p className="text-sm font-black text-slate-800 uppercase">{eventToApprove.venue || 'Block-B, Lab 402'}</p>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
+
+                                        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200">
                                             <div className="space-y-2">
                                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Max Capacity</label>
-                                                <p className="text-sm font-black text-slate-800">{eventToApprove.maxNo || 100} Members</p>
+                                                <p className="text-sm font-black text-slate-800">{(eventToApprove.maxParticipants || eventToApprove.maxNo || 100)} Members</p>
                                             </div>
                                             <div className="space-y-2">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Audience</label>
-                                                <p className="text-sm font-black text-slate-800 uppercase">{eventToApprove.targetAudience || 'All Departments'}</p>
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Audience Scope</label>
+                                                <p className="text-sm font-black text-slate-800 uppercase">{eventToApprove.audienceType || 'Whole College'}</p>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* Eligibility Targets */}
+                                {(eventToApprove.audienceType === 'Targeted' || (eventToApprove.departments && eventToApprove.departments.length > 0)) && (
+                                    <div className="p-6 bg-white border border-slate-100 rounded-3xl space-y-4">
+                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                            <Shield className="w-4 h-4 text-orange-500" /> Target Demographic Eligibility
+                                        </h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                            <div>
+                                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-1 font-black">Departments</p>
+                                                <p className="font-bold text-slate-800 uppercase">{eventToApprove.departments && eventToApprove.departments.length > 0 ? eventToApprove.departments.join(', ') : 'All Departments'}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-1 font-black">Years of Study</p>
+                                                <p className="font-bold text-slate-800 uppercase">{eventToApprove.years && eventToApprove.years.length > 0 ? eventToApprove.years.map(y => `${y} Year`).join(', ') : 'All Years'}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-1 font-black">Sections</p>
+                                                <p className="font-bold text-slate-800 uppercase">{eventToApprove.sections && eventToApprove.sections.length > 0 ? eventToApprove.sections.join(', ') : 'All Sections'}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Team Event Configurations */}
+                                {eventToApprove.isTeamEvent && (
+                                    <div className="p-6 bg-white border border-slate-100 rounded-3xl space-y-4">
+                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                            <Users className="w-4 h-4 text-indigo-500" /> Squad / Team Event Parameters
+                                        </h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                            <div>
+                                                <p className="text-[9px] text-slate-400 font-bold uppercase font-black">Team Registration</p>
+                                                <p className="font-bold text-slate-800 uppercase">Required (Squad Entry Only)</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[9px] text-slate-400 font-bold uppercase font-black">Team Size Range</p>
+                                                <p className="font-bold text-slate-800 uppercase">{eventToApprove.minTeamSize || 1} to {eventToApprove.maxTeamSize || 4} Members</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Quiz-Specific Info */}
+                                {(eventToApprove.type === 'Quiz' || eventToApprove.quizFormUrl) && (
+                                    <div className="p-6 bg-white border border-slate-100 rounded-3xl space-y-4">
+                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                            <FileText className="w-4 h-4 text-purple-600" /> Quiz Integration Settings
+                                        </h4>
+                                        <div className="bg-purple-50/50 p-4 rounded-2xl border border-purple-100/50 space-y-3 text-xs">
+                                            <div>
+                                                <p className="text-[9px] text-purple-600 font-black uppercase tracking-wider mb-1">External Quiz Form Link</p>
+                                                {eventToApprove.quizFormUrl ? (
+                                                    <a 
+                                                        href={eventToApprove.quizFormUrl} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer" 
+                                                        className="text-purple-700 hover:text-purple-900 font-bold flex items-center gap-1 truncate"
+                                                    >
+                                                        {eventToApprove.quizFormUrl} <ArrowUpRight className="w-3.5 h-3.5" />
+                                                    </a>
+                                                ) : (
+                                                    <p className="text-slate-500 italic">No URL provided</p>
+                                                )}
+                                            </div>
+                                            <div className="pt-2 border-t border-purple-100">
+                                                <p className="text-[9px] text-purple-600 font-black uppercase tracking-wider mb-1.5">Collected Student Demographics</p>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {['quizEntryName', 'quizEntryRoll', 'quizEntryDept', 'quizEntryYear', 'quizEntrySection', 'quizEntryMobile'].map(field => {
+                                                        const isCollected = eventToApprove[field];
+                                                        const label = field.replace('quizEntry', '').toUpperCase();
+                                                        return (
+                                                            <span 
+                                                                key={field} 
+                                                                className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${isCollected ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-slate-100 text-slate-400 line-through'}`}
+                                                            >
+                                                                {label}
+                                                            </span>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Problem Statements (Hackathon) */}
+                                {(eventToApprove.type === 'Hackathon' || (eventToApprove.problemStatements && eventToApprove.problemStatements.length > 0)) && (
+                                    <div className="p-6 bg-white border border-slate-100 rounded-3xl space-y-4">
+                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                            <Brain className="w-4 h-4 text-blue-600" /> Hackathon Problem Statements
+                                        </h4>
+                                        <div className="space-y-4 text-xs">
+                                            <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                                <div>
+                                                    <p className="text-[9px] text-slate-400 font-bold uppercase font-black">Open Statement Creation</p>
+                                                    <p className="font-bold text-slate-800 uppercase">{eventToApprove.allowOpenStatement ? 'Allowed' : 'Prohibited'}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[9px] text-slate-400 font-bold uppercase font-black">On-Spot PS Allocation</p>
+                                                    <p className="font-bold text-slate-800 uppercase">{eventToApprove.isOnSpotPS ? 'Yes' : 'No'}</p>
+                                                </div>
+                                            </div>
+                                            {eventToApprove.problemStatements && eventToApprove.problemStatements.length > 0 && (
+                                                <div className="space-y-2">
+                                                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider font-black">Configured Problem Statements ({eventToApprove.problemStatements.length})</p>
+                                                    <div className="space-y-2">
+                                                        {eventToApprove.problemStatements.map((ps, idx) => (
+                                                            <div key={idx} className="p-3 bg-blue-50/50 border border-blue-100 rounded-xl font-medium text-slate-700">
+                                                                {idx + 1}. {ps}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Coordinator Details */}
                                 <div className="p-6 bg-white border border-slate-100 rounded-3xl">
@@ -4233,19 +4398,45 @@ const AdminDashboard = () => {
                                         <div className="flex items-center gap-4">
                                             <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-blue-600 font-black">C1</div>
                                             <div>
-                                                <p className="text-sm font-bold text-slate-800 uppercase">{eventToApprove.coord1Name || 'Not Specified'}</p>
-                                                <p className="text-[10px] text-slate-400 font-mono font-medium">{eventToApprove.coord1Phone || 'No Trace'}</p>
+                                                <p className="text-sm font-bold text-slate-800 uppercase">{eventToApprove.coordinatorName || eventToApprove.coord1Name || 'Not Specified'}</p>
+                                                <p className="text-[10px] text-slate-500 font-mono font-medium">{eventToApprove.coordinatorPhone || eventToApprove.coord1Phone || 'No Phone Record'}</p>
+                                                {(eventToApprove.coordinatorEmail || eventToApprove.coord1Email) && (
+                                                    <p className="text-[9px] text-slate-400 font-mono">{eventToApprove.coordinatorEmail || eventToApprove.coord1Email}</p>
+                                                )}
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-blue-600 font-black">C2</div>
-                                            <div>
-                                                <p className="text-sm font-bold text-slate-800 uppercase">{eventToApprove.coord2Name || 'Not Specified'}</p>
-                                                <p className="text-[10px] text-slate-400 font-mono font-medium">{eventToApprove.coord2Phone || 'No Trace'}</p>
+                                        {eventToApprove.coord2Name && (
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-blue-600 font-black">C2</div>
+                                                <div>
+                                                    <p className="text-sm font-bold text-slate-800 uppercase">{eventToApprove.coord2Name}</p>
+                                                    <p className="text-[10px] text-slate-500 font-mono font-medium">{eventToApprove.coord2Phone || 'No Phone Record'}</p>
+                                                    {eventToApprove.coord2Email && (
+                                                        <p className="text-[9px] text-slate-400 font-mono">{eventToApprove.coord2Email}</p>
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
+                                        )}
                                     </div>
                                 </div>
+
+                                {/* Terms & Conditions */}
+                                {eventToApprove.terms && (
+                                    <div className="p-6 bg-white border border-slate-100 rounded-3xl space-y-2">
+                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Terms & Conditions</h4>
+                                        <p className="text-xs text-slate-500 leading-relaxed italic">{eventToApprove.terms}</p>
+                                    </div>
+                                )}
+
+                                {/* Internal Notes (Super Admin View Only) */}
+                                {eventToApprove.internalNotes && (
+                                    <div className="p-6 bg-amber-50 border border-amber-100 rounded-3xl space-y-2 text-left">
+                                        <h4 className="text-[10px] font-black text-amber-600 uppercase tracking-widest flex items-center gap-1.5 font-black">
+                                            <Info className="w-3.5 h-3.5" /> Internal Notes from Organizer
+                                        </h4>
+                                        <p className="text-xs text-slate-700 leading-relaxed font-medium">{eventToApprove.internalNotes}</p>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Action Footer */}
@@ -4254,14 +4445,26 @@ const AdminDashboard = () => {
                                     onClick={async () => {
                                         const remarks = prompt("Enter rejection/revert remarks (MANDATORY):");
                                         if (!remarks) return alert("Remarks are mandatory for rejection.");
-                                        await updateDoc(doc(db, 'events', eventToApprove.id), {
-                                            status: 'REJECTED',
-                                            remarks,
-                                            lastActionBy: admin.username,
-                                            lastActionAt: serverTimestamp()
-                                        });
+                                        
+                                        const eventId = eventToApprove.id;
+                                        
+                                        // Optimistic state change
+                                        setEvents(prev => prev.map(e => e.id === eventId ? { ...e, status: 'REJECTED' } : e));
                                         setShowApproveModal(false);
-                                        fetchDashboardData();
+                                        
+                                        try {
+                                            await updateDoc(doc(db, 'events', eventId), {
+                                                status: 'REJECTED',
+                                                remarks,
+                                                lastActionBy: admin.username,
+                                                lastActionAt: serverTimestamp()
+                                            });
+                                            fetchDashboardData(true); // silent refresh
+                                        } catch (err) {
+                                            console.error(err);
+                                            alert("Database update failed. Reverting state...");
+                                            fetchDashboardData(); // full refresh fallback
+                                        }
                                     }}
                                     className="px-8 py-4 bg-red-50 text-red-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-all flex items-center gap-2"
                                 >
@@ -4270,14 +4473,26 @@ const AdminDashboard = () => {
                                 <button
                                     onClick={async () => {
                                         if (!window.confirm("Authorize this event for LIVE broadcast? This will make it visible to all students.")) return;
-                                        await updateDoc(doc(db, 'events', eventToApprove.id), {
-                                            status: 'LIVE',
-                                            remarks: 'Approved by Super Admin after technical review',
-                                            lastActionBy: admin.username,
-                                            lastActionAt: serverTimestamp()
-                                        });
+                                        
+                                        const eventId = eventToApprove.id;
+                                        
+                                        // Optimistic state change
+                                        setEvents(prev => prev.map(e => e.id === eventId ? { ...e, status: 'LIVE' } : e));
                                         setShowApproveModal(false);
-                                        fetchDashboardData();
+                                        
+                                        try {
+                                            await updateDoc(doc(db, 'events', eventId), {
+                                                status: 'LIVE',
+                                                remarks: 'Approved by Super Admin after technical review',
+                                                lastActionBy: admin.username,
+                                                lastActionAt: serverTimestamp()
+                                            });
+                                            fetchDashboardData(true); // silent refresh
+                                        } catch (err) {
+                                            console.error(err);
+                                            alert("Database update failed. Reverting state...");
+                                            fetchDashboardData(); // full refresh fallback
+                                        }
                                     }}
                                     className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-emerald-500/20 hover:scale-[1.02] transition-all flex items-center justify-center gap-3"
                                 >

@@ -38,11 +38,88 @@ import {
     CalendarPlus,
     Linkedin,
     Share2,
+    MapPin,
+    ArrowUpRight,
+    Shield,
+    Info,
+    FileText,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, onSnapshot, orderBy, doc, getDoc, setDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
+
+const parseEventDate = (dateStr, timeStr, fullDateStr) => {
+    if (dateStr && timeStr && dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const d = new Date(`${dateStr}T${timeStr}:00`);
+        if (!isNaN(d.getTime())) return d;
+    }
+    
+    if (fullDateStr && fullDateStr.includes('|')) {
+        const parts = fullDateStr.split('|');
+        const datePart = parts[0].trim();
+        const timePart = parts[1]?.trim() || '00:00';
+        if (datePart.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            const d = new Date(`${datePart}T${timePart}:00`);
+            if (!isNaN(d.getTime())) return d;
+        }
+    }
+    
+    if (dateStr) {
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) return d;
+    }
+    
+    return null;
+};
+
+const EventCountdown = ({ targetDate }) => {
+    const [timeLeft, setTimeLeft] = useState(null);
+
+    useEffect(() => {
+        if (!targetDate) return;
+
+        const calculateTimeLeft = () => {
+            const difference = targetDate.getTime() - Date.now();
+            if (difference <= 0) {
+                return { isOver: true };
+            }
+
+            const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+            const minutes = Math.floor((difference / 1000 / 60) % 60);
+            const seconds = Math.floor((difference / 1000) % 60);
+
+            return { days, hours, minutes, seconds, isOver: false };
+        };
+
+        setTimeLeft(calculateTimeLeft());
+
+        const timer = setInterval(() => {
+            setTimeLeft(calculateTimeLeft());
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [targetDate]);
+
+    if (!timeLeft) return null;
+    if (timeLeft.isOver) {
+        return (
+            <span className="text-[9px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 font-black uppercase tracking-wider animate-pulse">
+                Live Now
+            </span>
+        );
+    }
+
+    return (
+        <span className="text-[9px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 font-mono font-black uppercase tracking-wider">
+            {timeLeft.days > 0 ? `${timeLeft.days}d ` : ''}
+            {timeLeft.hours.toString().padStart(2, '0')}h:
+            {timeLeft.minutes.toString().padStart(2, '0')}m:
+            {timeLeft.seconds.toString().padStart(2, '0')}s
+        </span>
+    );
+};
 
 const StudentDashboard = () => {
     const { user, logout } = useAuth();
@@ -1416,6 +1493,9 @@ const StudentDashboard = () => {
                                                                         <CheckCircle className="w-2 h-2" /> Verified Entry
                                                                     </span>
                                                                 )}
+                                                                {!isCheckedIn && currentStatus === 'Upcoming' && eventActualData && (
+                                                                    <EventCountdown targetDate={parseEventDate(eventActualData.startDate, eventActualData.startTime, eventActualData.date)} />
+                                                                )}
                                                                 {!isCheckedIn && currentStatus === 'Upcoming' && (
                                                                     <button
                                                                         onClick={(e) => {
@@ -2415,42 +2495,158 @@ const StudentDashboard = () => {
                             </div>
 
                             <div className="p-8 space-y-8 overflow-y-auto custom-scrollbar bg-slate-50/50">
-                                {/* Operational Summary */}
-                                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                        <div>
-                                            <p className="text-[10px] text-blue-600 font-black uppercase tracking-widest mb-1">Target Mission</p>
-                                            <h4 className="text-xl font-black text-slate-800 uppercase tracking-tight leading-none">{selectedRegDetails.eventTitle}</h4>
-                                        </div>
-                                        <div className="flex items-center gap-2 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100">
-                                            <Calendar className="w-4 h-4 text-blue-600" />
-                                            <span className="text-xs font-black text-blue-600 uppercase italic">{selectedRegDetails.eventDate}</span>
-                                        </div>
-                                    </div>
+                                {(() => {
+                                    const event = allEvents.find(e => e.id === selectedRegDetails.eventId);
+                                    const isCheckedIn = selectedRegDetails.status === 'Present' || selectedRegDetails.isAttended;
+                                    const targetDate = event ? parseEventDate(event.startDate, event.startTime, event.date) : null;
+                                    
+                                    return (
+                                        <>
+                                            {/* Countdown Banner if active */}
+                                            {event && !isCheckedIn && event.status !== 'COMPLETED' && event.status !== 'CLOSED' && targetDate && (
+                                                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-[2.5rem] flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl shadow-blue-500/10">
+                                                    <div className="flex items-center gap-3">
+                                                        <Clock className="w-6 h-6 animate-pulse text-blue-200" />
+                                                        <div className="text-left">
+                                                            <p className="text-[9px] text-blue-200 font-black uppercase tracking-widest leading-none mb-1">Time Remaining until Mission Start</p>
+                                                            <p className="text-sm font-bold uppercase tracking-tight">Active Countdown Protocol</p>
+                                                        </div>
+                                                    </div>
+                                                    <EventCountdown targetDate={targetDate} />
+                                                </div>
+                                            )}
 
-                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-6 pt-6 border-t border-slate-100">
-                                        <div className="space-y-1">
-                                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
-                                                <Clock className="w-3 h-3" /> Scheduled Time
-                                            </p>
-                                            <p className="text-xs font-black text-slate-700 uppercase">{selectedRegDetails.eventTime}</p>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
-                                                <Building2 className="w-3 h-3" /> Tactical Venue
-                                            </p>
-                                            <p className="text-xs font-black text-slate-700 uppercase">{allEvents.find(e => e.id === selectedRegDetails.eventId)?.venue || 'CAMPUS HUB'}</p>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
-                                                <Award className="w-3 h-3" /> Status Link
-                                            </p>
-                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg uppercase italic ${selectedRegDetails.isAttended || selectedRegDetails.status === 'Present' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>
-                                                {selectedRegDetails.isAttended || selectedRegDetails.status === 'Present' ? 'VERIFIED' : 'UPCOMING'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
+                                            {/* Operational Summary */}
+                                            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
+                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                                    <div>
+                                                        <p className="text-[10px] text-blue-600 font-black uppercase tracking-widest mb-1">Target Mission</p>
+                                                        <h4 className="text-xl font-black text-slate-800 uppercase tracking-tight leading-none">{selectedRegDetails.eventTitle}</h4>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100">
+                                                        <Calendar className="w-4 h-4 text-blue-600" />
+                                                        <span className="text-xs font-black text-blue-600 uppercase italic">{selectedRegDetails.eventDate}</span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 md:grid-cols-3 gap-6 pt-6 border-t border-slate-100">
+                                                    <div className="space-y-1">
+                                                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
+                                                            <Clock className="w-3 h-3" /> Scheduled Time
+                                                        </p>
+                                                        <p className="text-xs font-black text-slate-700 uppercase">{selectedRegDetails.eventTime}</p>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
+                                                            <Building2 className="w-3 h-3" /> Tactical Venue
+                                                        </p>
+                                                        <p className="text-xs font-black text-slate-700 uppercase">{event?.venueName || event?.venue || 'CAMPUS HUB'}</p>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
+                                                            <Award className="w-3 h-3" /> Status Link
+                                                        </p>
+                                                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg uppercase italic ${isCheckedIn ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>
+                                                            {isCheckedIn ? 'VERIFIED' : 'UPCOMING'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Detailed Location & Maps Link */}
+                                                {event && (event.venueType || event.googleMapLink) && (
+                                                    <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4 text-xs">
+                                                        <div>
+                                                            <span className="text-slate-400 font-medium">Venue Type: </span>
+                                                            <span className="font-bold text-slate-800 uppercase">{event.venueType || 'Offline'}</span>
+                                                        </div>
+                                                        {event.googleMapLink && (
+                                                            <a 
+                                                                href={event.googleMapLink} 
+                                                                target="_blank" 
+                                                                rel="noopener noreferrer" 
+                                                                className="text-blue-600 hover:text-blue-800 font-black flex items-center gap-1 uppercase tracking-wider text-[10px]"
+                                                            >
+                                                                View Google Maps <ArrowUpRight className="w-4.5 h-4.5" />
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Mission Objectives / Descriptions */}
+                                            {event && (
+                                                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
+                                                    <div>
+                                                        <p className="text-[10px] text-blue-600 font-black uppercase tracking-widest mb-1">Mission Details</p>
+                                                        <p className="text-slate-700 leading-relaxed text-sm">{event.description || event.shortDescription}</p>
+                                                    </div>
+                                                    {event.detailedDescription && (
+                                                        <div className="pt-4 border-t border-slate-100">
+                                                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-2">Detailed Briefing</p>
+                                                            <p className="text-slate-600 leading-relaxed text-sm whitespace-pre-wrap">{event.detailedDescription}</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Quiz Integration Option */}
+                                            {event && (event.type === 'Quiz' || event.quizFormUrl) && (
+                                                <div className="bg-purple-900 text-white p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden group shadow-purple-500/10">
+                                                    <div className="absolute top-0 right-0 w-32 h-32 bg-purple-600/20 blur-[50px]" />
+                                                    <div className="relative z-10 space-y-4">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center">
+                                                                <FileText className="w-6 h-6 text-purple-300" />
+                                                            </div>
+                                                            <div className="text-left">
+                                                                <p className="text-[9px] text-purple-300 font-black uppercase tracking-widest">Active Quiz Form Portal</p>
+                                                                <h4 className="text-lg font-black uppercase italic tracking-tighter">Authorized Quiz Link</h4>
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-xs text-purple-200 leading-relaxed">
+                                                            Use this direct link to complete the quiz objectives. Pre-populated fields may apply depending on credentials.
+                                                        </p>
+                                                        {event.quizFormUrl ? (
+                                                            <a 
+                                                                href={event.quizFormUrl} 
+                                                                target="_blank" 
+                                                                rel="noopener noreferrer" 
+                                                                className="w-full py-4 bg-white text-purple-900 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 hover:scale-[1.02] transition-all"
+                                                            >
+                                                                Launch Quiz Portal <ArrowUpRight className="w-4 h-4" />
+                                                            </a>
+                                                        ) : (
+                                                            <p className="text-xs text-purple-300 italic">No URL provided by organizer yet.</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Event Coordinator Contact */}
+                                            {event && (event.coordinatorName || event.coord1Name) && (
+                                                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-3">
+                                                    <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                                        <User className="w-4 h-4 text-emerald-500" /> Operational Support / Contact
+                                                    </h5>
+                                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                                                        <div>
+                                                            <p className="font-bold text-slate-800 uppercase">{event.coordinatorName || event.coord1Name}</p>
+                                                            <p className="text-[10px] text-slate-400 font-mono font-medium">{event.coordinatorPhone || event.coord1Phone}</p>
+                                                        </div>
+                                                        {(event.coordinatorEmail || event.coord1Email) && (
+                                                            <a 
+                                                                href={`mailto:${event.coordinatorEmail || event.coord1Email}`} 
+                                                                className="text-blue-600 hover:text-blue-800 font-mono font-medium"
+                                                            >
+                                                                {event.coordinatorEmail || event.coord1Email}
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    );
+                                })()}
 
                                 {/* Squad Infrastructure */}
                                 {selectedRegDetails.isTeamRegistration && (
