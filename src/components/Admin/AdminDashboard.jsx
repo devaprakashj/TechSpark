@@ -14,6 +14,7 @@ import {
     Award,
     CheckCircle,
     X,
+    Menu,
     LayoutDashboard,
     UserCog,
     Shield,
@@ -71,6 +72,7 @@ const AdminDashboard = () => {
     const [scanFeedback, setScanFeedback] = useState(null); // { type: 'success' | 'error' | 'loading', message: string, student?: object }
     const [manualRollNumber, setManualRollNumber] = useState('');
     const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     // Organizer Management State
     const [organizers, setOrganizers] = useState([]);
@@ -79,6 +81,7 @@ const AdminDashboard = () => {
     const [selectedEventDetails, setSelectedEventDetails] = useState(null);
     const [showEventDetailModal, setShowEventDetailModal] = useState(false);
     const [securityLogs, setSecurityLogs] = useState([]);
+    const [isCollapsed, setIsCollapsed] = useState(false);
     const [isOrgModalOpen, setIsOrgModalOpen] = useState(false);
     const [newOrg, setNewOrg] = useState({
         fullName: '',
@@ -123,6 +126,7 @@ const AdminDashboard = () => {
     const [studentFilterDept, setStudentFilterDept] = useState('ALL');
     const [studentFilterYear, setStudentFilterYear] = useState('ALL');
     const [studentFilterBatch, setStudentFilterBatch] = useState('ALL');
+    const [deptFilterBatch, setDeptFilterBatch] = useState('ALL');
 
     // Quiz Settings Modal State
     const [showQuizSettingsModal, setShowQuizSettingsModal] = useState(false);
@@ -238,6 +242,20 @@ const AdminDashboard = () => {
     };
 
     const navigate = useNavigate();
+
+    // Scroll to top when changing tabs
+    useEffect(() => {
+        // A small timeout ensures the DOM has updated the new tab's content before scrolling
+        const timer = setTimeout(() => {
+            const mainContainer = document.getElementById('main-scroll-container');
+            if (mainContainer) {
+                // Using instant scroll (scrollTop = 0) is more reliable for tab switching than smooth scrolling
+                mainContainer.scrollTop = 0;
+            }
+        }, 10);
+        
+        return () => clearTimeout(timer);
+    }, [activeTab]);
 
     useEffect(() => {
         try {
@@ -1959,7 +1977,7 @@ const AdminDashboard = () => {
                 return (
                     <div className="space-y-8 animate-in fade-in duration-500">
                         {/* Premium Stat Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5">
+                        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 lg:gap-4">
                             {[
                                 { label: 'Total Students', value: stats.totalMembers, icon: <Users className="w-5 h-5" />, gradient: 'from-blue-500 to-cyan-400', bgGlow: 'bg-blue-500/10', change: '+12%', changeUp: true },
                                 { label: 'Organizers', value: organizers.length, icon: <UserCog className="w-5 h-5" />, gradient: 'from-indigo-500 to-purple-500', bgGlow: 'bg-indigo-500/10', change: '+2', changeUp: true },
@@ -1974,34 +1992,40 @@ const AdminDashboard = () => {
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: i * 0.1 }}
                                     whileHover={{ y: -4, scale: 1.02 }}
-                                    className={`relative overflow-hidden bg-white p-6 rounded-3xl border border-slate-200/60 shadow-lg shadow-slate-200/50 group cursor-pointer`}
+                                    className={`relative overflow-hidden bg-white p-4 lg:p-5 rounded-3xl border border-slate-200/60 shadow-lg shadow-slate-200/50 group cursor-pointer flex flex-col justify-between min-h-[130px] lg:min-h-[150px]`}
                                 >
                                     {/* Glow Effect */}
                                     <div className={`absolute -top-12 -right-12 w-32 h-32 ${stat.bgGlow} rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-all duration-500`} />
 
-                                    {/* Icon with Gradient */}
-                                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center mb-4 bg-gradient-to-br ${stat.gradient} text-white shadow-lg relative`}>
-                                        {stat.icon}
-                                        {stat.live && (
-                                            <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white animate-ping" />
-                                        )}
-                                        {stat.pulse && stat.value > 0 && (
-                                            <span className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full border-2 border-white animate-bounce" />
-                                        )}
-                                    </div>
-
-                                    {/* Value */}
-                                    <div className="flex items-end gap-2 mb-1">
-                                        <span className="text-3xl font-black text-slate-900 tracking-tight">{stat.value.toLocaleString()}</span>
+                                    {/* Top Row: Icon and Badge */}
+                                    <div className="flex justify-between items-start w-full mb-3">
+                                        <div className={`w-9 h-9 lg:w-10 lg:h-10 rounded-xl flex items-center justify-center bg-gradient-to-br ${stat.gradient} text-white shadow-md relative shrink-0`}>
+                                            <div className="scale-90">
+                                                {stat.icon}
+                                            </div>
+                                            {stat.live && (
+                                                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-white animate-ping" />
+                                            )}
+                                            {stat.pulse && stat.value > 0 && (
+                                                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-orange-500 rounded-full border-2 border-white animate-bounce" />
+                                            )}
+                                        </div>
                                         {stat.changeUp !== null && (
-                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full mb-1 ${stat.changeUp ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                                            <span className={`text-[9px] lg:text-[10px] font-bold px-2 py-1 rounded-md shrink-0 whitespace-nowrap ${stat.changeUp ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
                                                 {stat.changeUp ? '↑' : '↓'} {stat.change}
                                             </span>
                                         )}
                                     </div>
 
-                                    {/* Label */}
-                                    <div className="text-[11px] text-slate-500 font-bold uppercase tracking-widest">{stat.label}</div>
+                                    {/* Bottom Row: Value and Label */}
+                                    <div className="mt-auto">
+                                        <div className="text-2xl lg:text-3xl font-black text-slate-900 tracking-tight leading-none mb-1">
+                                            {stat.value.toLocaleString()}
+                                        </div>
+                                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider leading-tight break-words">
+                                            {stat.label}
+                                        </div>
+                                    </div>
 
                                     {/* Sparkline Visual */}
                                     <div className="absolute bottom-0 left-0 right-0 h-1 opacity-50">
@@ -2012,18 +2036,18 @@ const AdminDashboard = () => {
                         </div>
 
                         {/* Analytics Grid */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="flex flex-col gap-8">
                             {/* Department Distribution - Premium Card */}
                             <motion.div
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: 0.3 }}
-                                className="bg-white p-8 rounded-[2rem] border border-slate-200/60 shadow-xl shadow-slate-200/30 relative overflow-hidden"
+                                className="bg-white p-8 rounded-[2rem] border border-slate-200/60 shadow-xl shadow-slate-200/30 relative overflow-hidden w-full"
                             >
                                 {/* Decorative Element */}
                                 <div className="absolute -top-24 -right-24 w-48 h-48 bg-gradient-to-br from-blue-500/5 to-indigo-500/5 rounded-full blur-2xl" />
 
-                                <div className="flex items-center justify-between mb-8 relative">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 relative gap-4">
                                     <div className="flex items-center gap-3">
                                         <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl text-white shadow-lg shadow-blue-500/20">
                                             <Briefcase className="w-5 h-5" />
@@ -2033,36 +2057,101 @@ const AdminDashboard = () => {
                                             <p className="text-xs text-slate-400 font-medium">Student distribution analysis</p>
                                         </div>
                                     </div>
-                                    <span className="text-[10px] font-black text-blue-500 bg-blue-50 px-3 py-1.5 rounded-full uppercase tracking-widest">{Object.keys(analytics.deptWise).length} Depts</span>
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                        <select 
+                                            value={deptFilterBatch} 
+                                            onChange={(e) => setDeptFilterBatch(e.target.value)}
+                                            className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 uppercase focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                                        >
+                                            <option value="ALL">All Batches</option>
+                                            {Object.keys(analytics.batchWise || {}).sort().map(batch => (
+                                                <option key={batch} value={batch}>Batch {batch}</option>
+                                            ))}
+                                        </select>
+                                        
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-black text-indigo-500 bg-indigo-50 px-3 py-1.5 rounded-full uppercase tracking-widest">
+                                                {
+                                                    (() => {
+                                                        const filtered = deptFilterBatch === 'ALL' ? allStudents : allStudents.filter(s => getStudentExtendedData(s).batch === deptFilterBatch);
+                                                        return filtered.length;
+                                                    })()
+                                                } Students
+                                            </span>
+                                            <span className="text-[10px] font-black text-blue-500 bg-blue-50 px-3 py-1.5 rounded-full uppercase tracking-widest">
+                                                {
+                                                    (() => {
+                                                        const filtered = deptFilterBatch === 'ALL' ? allStudents : allStudents.filter(s => getStudentExtendedData(s).batch === deptFilterBatch);
+                                                        const map = {};
+                                                        filtered.forEach(s => map[getStudentExtendedData(s).dept] = true);
+                                                        return Object.keys(map).length;
+                                                    })()
+                                                } Depts
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div className="space-y-5 relative max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                                    {Object.entries(analytics.deptWise).sort((a, b) => b[1] - a[1]).map(([dept, count], idx) => (
-                                        <motion.div
-                                            key={dept}
-                                            initial={{ opacity: 0, x: -20 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            transition={{ delay: 0.4 + idx * 0.1 }}
-                                        >
-                                            <div className="flex justify-between text-xs font-bold uppercase mb-2">
-                                                <span className="text-slate-700 flex items-center gap-2">
-                                                    <span className="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500">{idx + 1}</span>
-                                                    {dept}
-                                                </span>
-                                                <span className="text-blue-600 font-black">{count} <span className="text-slate-400 font-medium">({((count / stats.totalMembers) * 100).toFixed(1)}%)</span></span>
-                                            </div>
-                                            <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
-                                                <motion.div
-                                                    initial={{ width: 0 }}
-                                                    animate={{ width: `${(count / stats.totalMembers) * 100}%` }}
-                                                    transition={{ duration: 1, delay: 0.5 + idx * 0.1, ease: "easeOut" }}
-                                                    className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full relative"
-                                                >
-                                                    <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 animate-shimmer" />
-                                                </motion.div>
-                                            </div>
-                                        </motion.div>
-                                    ))}
+                                <div className="relative h-64 w-full mt-2 flex">
+                                    {(() => {
+                                        const filteredDeptStudents = deptFilterBatch === 'ALL' 
+                                            ? allStudents 
+                                            : allStudents.filter(s => getStudentExtendedData(s).batch === deptFilterBatch);
+                                        
+                                        const localDeptMap = {};
+                                        filteredDeptStudents.forEach(s => {
+                                            const { dept } = getStudentExtendedData(s);
+                                            localDeptMap[dept] = (localDeptMap[dept] || 0) + 1;
+                                        });
+                                        
+                                        const maxCount = Math.max(...Object.values(localDeptMap), 1);
+                                        const sortedDepts = Object.entries(localDeptMap).sort((a, b) => b[1] - a[1]);
+
+                                        return (
+                                            <>
+                                                {/* Y-Axis Grid */}
+                                                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none pt-10 pb-6">
+                                                    {[4, 3, 2, 1, 0].map(i => (
+                                                        <div key={i} className="flex items-center w-full h-0">
+                                                            <span className="w-8 text-[9px] text-slate-400 font-bold text-right pr-2 shrink-0">
+                                                                {Math.round((maxCount / 4) * i)}
+                                                            </span>
+                                                            <div className="flex-1 border-t border-slate-100" />
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {/* X-Axis and Bars */}
+                                                <div className="relative z-10 flex-1 flex justify-around items-end h-full pl-8 pt-10 pb-6 overflow-x-auto custom-scrollbar">
+                                                    {sortedDepts.map(([dept, count], idx) => {
+                                                        const heightPct = (count / maxCount) * 100;
+                                                        
+                                                        return (
+                                                            <div key={dept} className="flex flex-col items-center justify-end h-full group relative min-w-[32px] px-1">
+                                                                {/* Tooltip */}
+                                                                <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-8 bg-slate-800 text-white text-[9px] font-bold px-3 py-1.5 rounded-lg whitespace-nowrap pointer-events-none z-20 shadow-lg">
+                                                                    {count} Students
+                                                                </div>
+                                                                
+                                                                {/* Gradient Bar */}
+                                                                <motion.div 
+                                                                    initial={{ height: 0 }}
+                                                                    animate={{ height: `${heightPct}%` }}
+                                                                    transition={{ duration: 1, delay: 0.1 * idx, ease: "easeOut" }}
+                                                                    className="w-full max-w-[20px] sm:max-w-[28px] bg-gradient-to-t from-blue-600 to-blue-400 rounded-t-md relative cursor-pointer hover:brightness-110 transition-all overflow-hidden shadow-sm"
+                                                                />
+                                                                
+                                                                {/* X-Axis Label */}
+                                                                <span className="absolute bottom-0 translate-y-5 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">
+                                                                    {dept}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
                                 </div>
                             </motion.div>
 
@@ -2071,12 +2160,12 @@ const AdminDashboard = () => {
                                 initial={{ opacity: 0, x: 20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: 0.4 }}
-                                className="bg-white p-8 rounded-[2rem] border border-slate-200/60 shadow-xl shadow-slate-200/30 relative overflow-hidden"
+                                className="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-200/60 shadow-xl shadow-slate-200/30 relative overflow-hidden"
                             >
                                 {/* Decorative Element */}
                                 <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 rounded-full blur-2xl" />
 
-                                <div className="flex items-center justify-between mb-8 relative">
+                                <div className="flex items-center justify-between mb-6 relative">
                                     <div className="flex items-center gap-3">
                                         <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl text-white shadow-lg shadow-indigo-500/20">
                                             <Award className="w-5 h-5" />
@@ -2089,7 +2178,7 @@ const AdminDashboard = () => {
                                     <span className="text-[10px] font-black text-indigo-500 bg-indigo-50 px-3 py-1.5 rounded-full uppercase tracking-widest">{Object.keys(analytics.yearWise).length} Years</span>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4 relative">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative">
                                     {Object.entries(analytics.yearWise).map(([year, count], idx) => (
                                         <motion.div
                                             key={year}
@@ -2097,12 +2186,12 @@ const AdminDashboard = () => {
                                             animate={{ opacity: 1, scale: 1 }}
                                             transition={{ delay: 0.5 + idx * 0.1 }}
                                             whileHover={{ scale: 1.03 }}
-                                            className="p-5 bg-gradient-to-br from-slate-50 to-white rounded-2xl border border-slate-100 text-center group cursor-pointer relative overflow-hidden"
+                                            className="p-4 bg-gradient-to-br from-slate-50 to-white rounded-2xl border border-slate-100 text-center group cursor-pointer relative overflow-hidden flex flex-col justify-center"
                                         >
                                             <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/0 via-indigo-500/0 to-indigo-500/0 group-hover:from-indigo-500/5 group-hover:via-indigo-500/3 group-hover:to-purple-500/5 transition-all duration-500" />
-                                            <div className="text-3xl font-black bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent relative">{count}</div>
-                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 relative">{year} Year</div>
-                                            <div className="text-[9px] text-slate-300 font-medium mt-1 relative">{((count / stats.totalMembers) * 100).toFixed(1)}% of total</div>
+                                            <div className="text-2xl font-black text-indigo-600 relative">{count}</div>
+                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5 relative">{year} Year</div>
+                                            <div className="text-[8px] text-slate-400 font-bold mt-1 relative">{((count / stats.totalMembers) * 100).toFixed(1)}% of total</div>
                                         </motion.div>
                                     ))}
                                 </div>
@@ -3618,151 +3707,179 @@ const AdminDashboard = () => {
 
     if (!admin) return null;
 
+    const navItems = [
+        { id: 'overview', icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', desc: 'Overview & Analytics' },
+        { id: 'analytics', icon: <BarChart3 className="w-5 h-5" />, label: 'Student Intel', desc: 'Demographics & Insights' },
+        { id: 'organizers', icon: <UserCog className="w-5 h-5" />, label: 'Organizers', desc: 'Team Management', badge: organizers.length },
+        { id: 'approvals', icon: <CalendarCheck className="w-5 h-5" />, label: 'Approvals', desc: 'Event Authorization', badge: events.filter(e => e.status === 'PENDING').length, badgeColor: 'orange' },
+        { id: 'all_events', icon: <Calendar className="w-5 h-5" />, label: 'All Events', desc: 'Complete Registry' },
+        { id: 'registrations', icon: <ClipboardList className="w-5 h-5" />, label: 'Registrations', desc: 'Participant Data' },
+        { id: 'reports', icon: <PieChart className="w-5 h-5" />, label: 'Reports', desc: 'PDF Intelligence' },
+        { id: 'od_generator', icon: <FileText className="w-5 h-5" />, label: 'OD Generator', desc: 'Official Requisitions' },
+        { id: 'submissions', icon: <Activity className="w-5 h-5" />, label: 'Quiz Scores', desc: 'Live Performance', isLive: true },
+        { id: 'settings', icon: <Settings className="w-5 h-5" />, label: 'Settings', desc: 'System Config' },
+        { id: 'logs', icon: <ShieldAlert className="w-5 h-5" />, label: 'Security', desc: 'Audit Trail' }
+    ];
+
     return (
         <div className="min-h-screen bg-[#f8fafc] flex">
-            {/* Premium Glassmorphic Sidebar - Fixed */}
-            <aside className="w-80 h-screen sticky top-0 bg-gradient-to-b from-[#0a0f1a] via-[#0f172a] to-[#0a0f1a] text-white hidden lg:flex flex-col border-r border-white/5 relative overflow-hidden">
-                {/* Animated Background Effects */}
-                <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                    <div className="absolute -top-32 -left-32 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl animate-pulse" />
-                    <div className="absolute -bottom-32 -right-32 w-64 h-64 bg-indigo-600/10 rounded-full blur-3xl animate-pulse delay-1000" />
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
+            {/* Mobile Sidebar Overlay */}
+            <AnimatePresence>
+                {isMobileMenuOpen && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+                        />
+                        <motion.aside
+                            initial={{ x: '-100%' }}
+                            animate={{ x: 0 }}
+                            exit={{ x: '-100%' }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                            className="fixed top-0 left-0 w-[260px] h-[100dvh] bg-white border-r border-slate-200 z-50 flex flex-col overflow-hidden shadow-2xl lg:hidden"
+                        >
+                            {/* Brand Header */}
+                            <div className="h-24 px-6 border-b border-slate-100 flex items-center justify-between shrink-0">
+                                <div className="flex-1 flex items-center justify-center border border-amber-200/50 py-3 rounded-xl shadow-sm bg-gradient-to-br from-amber-50/50 to-orange-50/30 mr-4">
+                                    <img src={techsparkLogo} alt="TechSpark" className="h-10 w-auto object-contain pr-1" />
+                                </div>
+                                <button 
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                    className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-all"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            {/* Navigation */}
+                            <div className="flex-1 overflow-y-auto py-6 pl-4 pr-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                                <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Main Menu</p>
+                                <nav className="space-y-1">
+                                    {navItems.map((item) => (
+                                        <button
+                                            key={item.id}
+                                            onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
+                                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${activeTab === item.id
+                                                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                                                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                                                }`}
+                                        >
+                                            <div className={`${activeTab === item.id ? 'text-white' : 'text-slate-400'}`}>
+                                                {item.icon}
+                                            </div>
+                                            <span className="flex-1 text-left">{item.label}</span>
+                                            {item.badge > 0 && (
+                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${activeTab === item.id
+                                                    ? 'bg-white/20 text-white'
+                                                    : 'bg-slate-100 text-slate-600'
+                                                    }`}>
+                                                    {item.badge}
+                                                </span>
+                                            )}
+                                        </button>
+                                    ))}
+                                </nav>
+                            </div>
+
+                            {/* Bottom Action */}
+                            <div className="p-4 pl-5 pr-2 border-t border-slate-100 shrink-0">
+                                <button
+                                    onClick={handleLogout}
+                                    className="w-full flex items-center justify-center gap-2 py-3 border border-slate-200 text-slate-600 font-medium text-sm rounded-xl hover:bg-slate-50 hover:text-red-600 transition-all"
+                                >
+                                    <LogOut className="w-4 h-4" />
+                                    Logout
+                                </button>
+                            </div>
+                        </motion.aside>
+                    </>
+                )}
+            </AnimatePresence>
+
+            {/* Minimalist Light Sidebar (Desktop) */}
+            <aside className={`h-screen sticky top-0 bg-white border-r border-slate-200 hidden lg:flex flex-col z-50 transition-all duration-300 ${isCollapsed ? 'w-[88px]' : 'w-[260px]'}`}>
+                {/* Brand Header */}
+                <div className={`h-24 px-4 border-b border-slate-100 flex items-center shrink-0 transition-all ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
+                    {!isCollapsed && (
+                        <div className="flex-1 flex items-center justify-center border border-amber-200/50 py-3 rounded-xl shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)] bg-gradient-to-br from-amber-50/50 to-orange-50/30 mr-3">
+                            <img src={techsparkLogo} alt="TechSpark" className="h-10 w-auto object-contain pr-1" />
+                        </div>
+                    )}
+                    <button 
+                        onClick={() => setIsCollapsed(!isCollapsed)}
+                        className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
+                    >
+                        <ChevronRight className={`w-5 h-5 transition-transform duration-300 ${isCollapsed ? '' : 'rotate-180'}`} />
+                    </button>
                 </div>
 
-                <div className="relative z-10 p-8 flex-1 overflow-y-auto custom-scrollbar">
-                    {/* Brand Header with Live Status */}
-                    <div className="flex items-center justify-between mb-8">
-                        <div className="flex items-center gap-3">
-                            <img src={techsparkLogo} alt="TechSpark" className="h-9 w-auto object-contain" />
-                            <div className="w-px h-8 bg-gradient-to-b from-transparent via-white/20 to-transparent" />
-                            <div>
-                                <span className="text-xs font-black tracking-widest text-blue-400 uppercase block">Super Admin</span>
-                                <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Control Panel</span>
-                            </div>
-                        </div>
-                        {/* Live Status Indicator */}
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 rounded-full border border-emerald-500/20">
-                            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                            <span className="text-[9px] font-black text-emerald-400 uppercase tracking-wider">Live</span>
-                        </div>
-                    </div>
-
-                    {/* System Health Banner */}
-                    <div className="mb-8 p-4 bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-purple-600/10 rounded-2xl border border-white/5 backdrop-blur-sm">
-                        <div className="flex items-center justify-between mb-3">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">System Health</span>
-                            <span className="text-[10px] font-black text-emerald-400 uppercase">Optimal</span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2">
-                            <div className="p-2 bg-white/5 rounded-xl text-center">
-                                <div className="text-lg font-black text-white">{stats.totalMembers}</div>
-                                <div className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">Users</div>
-                            </div>
-                            <div className="p-2 bg-white/5 rounded-xl text-center">
-                                <div className="text-lg font-black text-emerald-400">{events.filter(e => e.status === 'LIVE').length}</div>
-                                <div className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">Active</div>
-                            </div>
-                            <div className="p-2 bg-white/5 rounded-xl text-center relative">
-                                <div className="text-lg font-black text-orange-400">{events.filter(e => e.status === 'PENDING').length}</div>
-                                <div className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">Pending</div>
-                                {events.filter(e => e.status === 'PENDING').length > 0 && (
-                                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full animate-ping" />
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Advanced Navigation */}
-                    <nav className="space-y-1.5">
-                        {[
-                            { id: 'overview', icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', desc: 'Overview & Analytics' },
-                            { id: 'analytics', icon: <BarChart3 className="w-5 h-5" />, label: 'Student Intel', desc: 'Demographics & Insights' },
-                            { id: 'organizers', icon: <UserCog className="w-5 h-5" />, label: 'Organizers', desc: 'Team Management', badge: organizers.length },
-                            { id: 'approvals', icon: <CalendarCheck className="w-5 h-5" />, label: 'Approvals', desc: 'Event Authorization', badge: events.filter(e => e.status === 'PENDING').length, badgeColor: 'orange' },
-                            { id: 'all_events', icon: <Calendar className="w-5 h-5" />, label: 'All Events', desc: 'Complete Registry' },
-                            { id: 'registrations', icon: <ClipboardList className="w-5 h-5" />, label: 'Registrations', desc: 'Participant Data' },
-                            { id: 'reports', icon: <PieChart className="w-5 h-5" />, label: 'Reports', desc: 'PDF Intelligence' },
-                            { id: 'od_generator', icon: <FileText className="w-5 h-5" />, label: 'OD Generator', desc: 'Official Requisitions' },
-                            { id: 'submissions', icon: <Activity className="w-5 h-5" />, label: 'Quiz Scores', desc: 'Live Performance', isLive: true },
-                            { id: 'settings', icon: <Settings className="w-5 h-5" />, label: 'Settings', desc: 'System Config' },
-                            { id: 'logs', icon: <ShieldAlert className="w-5 h-5" />, label: 'Security', desc: 'Audit Trail' }
-                        ].map((item) => (
-                            <motion.button
+                {/* Navigation */}
+                <div className="flex-1 overflow-y-auto py-6 pl-4 pr-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] overflow-x-hidden">
+                    <p className={`text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 transition-all whitespace-nowrap ${isCollapsed ? 'px-1 text-center' : 'px-3'}`}>
+                        {isCollapsed ? '•••' : 'Main Menu'}
+                    </p>
+                    <nav className="space-y-1 pr-3">
+                        {navItems.map((item) => (
+                            <button
                                 key={item.id}
                                 onClick={() => setActiveTab(item.id)}
-                                whileHover={{ x: 4 }}
-                                whileTap={{ scale: 0.98 }}
-                                className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold text-sm transition-all group relative overflow-hidden ${activeTab === item.id
-                                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xl shadow-blue-500/25'
-                                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                                className={`flex items-center gap-3 py-3 rounded-xl font-medium text-sm transition-all overflow-hidden ${
+                                    isCollapsed ? 'justify-center px-0 w-12 mx-auto' : 'w-full px-4'
+                                } ${activeTab === item.id
+                                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                                     }`}
+                                title={isCollapsed ? item.label : ""}
                             >
-                                {activeTab === item.id && (
-                                    <motion.div
-                                        layoutId="activeNavBg"
-                                        className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-600 -z-10"
-                                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                                    />
-                                )}
-                                <div className={`p-2 rounded-xl ${activeTab === item.id ? 'bg-white/20' : 'bg-white/5 group-hover:bg-white/10'} transition-all`}>
+                                <div className={`shrink-0 ${activeTab === item.id ? 'text-white' : 'text-slate-400'}`}>
                                     {item.icon}
                                 </div>
-                                <div className="flex-1 text-left">
-                                    <div className="flex items-center gap-2">
-                                        <span>{item.label}</span>
-                                        {item.isLive && (
-                                            <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                                {!isCollapsed && (
+                                    <>
+                                        <span className="flex-1 text-left whitespace-nowrap">{item.label}</span>
+                                        {item.badge > 0 && (
+                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${activeTab === item.id
+                                                ? 'bg-white/20 text-white'
+                                                : 'bg-slate-100 text-slate-600'
+                                                }`}>
+                                                {item.badge}
+                                            </span>
                                         )}
-                                    </div>
-                                    <span className={`text-[9px] font-medium ${activeTab === item.id ? 'text-white/70' : 'text-slate-600'}`}>
-                                        {item.desc}
-                                    </span>
-                                </div>
-                                {item.badge > 0 && (
-                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${item.badgeColor === 'orange'
-                                        ? 'bg-orange-500 text-white animate-pulse'
-                                        : 'bg-blue-500/20 text-blue-400'
-                                        }`}>
-                                        {item.badge}
-                                    </span>
+                                    </>
                                 )}
-                            </motion.button>
+                            </button>
                         ))}
                     </nav>
                 </div>
 
-                {/* Admin Profile Section */}
-                <div className="mt-auto relative z-10 p-6 border-t border-white/5 bg-gradient-to-t from-black/20 to-transparent">
-                    <div className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl mb-4 text-left backdrop-blur-sm border border-white/5">
-                        <div className="w-12 h-12 bg-gradient-to-tr from-blue-500 via-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center font-black text-lg shadow-lg shadow-blue-500/20 relative">
-                            {admin.username?.charAt(0).toUpperCase()}
-                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-[#0f172a] flex items-center justify-center">
-                                <ShieldCheck className="w-2.5 h-2.5 text-white" />
-                            </div>
-                        </div>
-                        <div className="flex-1 overflow-hidden">
-                            <p className="text-sm font-black truncate uppercase text-white">{admin.username}</p>
-                            <p className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">Super Administrator</p>
-                            <p className="text-[9px] text-slate-600 font-medium mt-1">Last login: {new Date().toLocaleDateString()}</p>
-                        </div>
-                    </div>
-                    <motion.button
+                {/* Bottom Action */}
+                <div className="p-4 pl-5 pr-2 border-t border-slate-100 shrink-0">
+                    <button
                         onClick={handleLogout}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        className="w-full flex items-center justify-center gap-3 px-4 py-4 bg-gradient-to-r from-red-500/10 to-red-600/10 text-red-400 rounded-2xl font-black text-xs uppercase tracking-widest hover:from-red-500/20 hover:to-red-600/20 transition-all border border-red-500/10"
+                        className={`flex items-center justify-center gap-2 py-3 border border-slate-200 text-slate-600 font-medium text-sm rounded-xl hover:bg-slate-50 hover:text-red-600 transition-all ${isCollapsed ? 'px-0 w-12 mx-auto' : 'w-full'}`}
+                        title={isCollapsed ? "Logout" : ""}
                     >
-                        <LogOut className="w-4 h-4" />
-                        Terminate Session
-                    </motion.button>
+                        <LogOut className="w-4 h-4 shrink-0" />
+                        {!isCollapsed && <span className="whitespace-nowrap">Logout</span>}
+                    </button>
                 </div>
             </aside>
 
-            {/* Main Content */}
-            <main className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
+            {/* Main Content Area */}
+            <main id="main-scroll-container" className="flex-1 overflow-y-auto bg-slate-100">
                 {/* Premium Header */}
-                <header className="h-24 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 px-8 flex items-center justify-between sticky top-0 z-10">
-                    <div className="text-left">
+                <header className="h-24 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 px-4 lg:px-8 flex items-center justify-between sticky top-0 z-10">
+                    <div className="flex items-center gap-4">
+                        <button 
+                            className="lg:hidden p-2.5 bg-slate-100/80 hover:bg-slate-200 rounded-xl text-slate-700 transition-all border border-slate-200/50"
+                            onClick={() => setIsMobileMenuOpen(true)}
+                        >
+                            <Menu className="w-5 h-5" />
+                        </button>
+                        <div className="text-left hidden sm:block">
                         <div className="flex items-center gap-3">
                             <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg shadow-blue-500/20">
                                 {activeTab === 'overview' && <LayoutDashboard className="w-5 h-5 text-white" />}
@@ -3777,10 +3894,8 @@ const AdminDashboard = () => {
                                 {activeTab === 'logs' && <ShieldAlert className="w-5 h-5 text-white" />}
                             </div>
                             <div>
-                                <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
+                                <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-baseline gap-2">
                                     {activeTab.replace('_', ' ')}
-                                    <span className="text-slate-300 mx-1">/</span>
-                                    <span className="text-blue-600 text-sm font-bold normal-case tracking-normal">Control Center</span>
                                 </h2>
                                 <p className="text-xs text-slate-500 font-medium mt-0.5">
                                     {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
@@ -3788,33 +3903,10 @@ const AdminDashboard = () => {
                             </div>
                         </div>
                     </div>
+                    </div>
 
                     {/* Header Actions */}
                     <div className="flex items-center gap-4">
-                        {/* Search Bar */}
-                        <div className="relative hidden xl:block">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                            <input
-                                type="text"
-                                placeholder="Search anything..."
-                                className="w-64 pl-11 pr-4 py-3 bg-slate-100/80 border border-slate-200/50 rounded-2xl text-sm font-medium text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/50 transition-all"
-                            />
-                            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 px-2 py-1 bg-white rounded-lg text-[10px] font-bold text-slate-400 border border-slate-200">⌘K</kbd>
-                        </div>
-
-                        {/* Notification Bell */}
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="relative p-3 bg-slate-100/80 hover:bg-slate-200/80 rounded-2xl transition-all group"
-                        >
-                            <Bell className="w-5 h-5 text-slate-600 group-hover:text-slate-800" />
-                            {events.filter(e => e.status === 'PENDING').length > 0 && (
-                                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center animate-pulse">
-                                    {events.filter(e => e.status === 'PENDING').length}
-                                </span>
-                            )}
-                        </motion.button>
 
                         {/* Quick Stats */}
                         <div className="hidden lg:flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl border border-emerald-200/50">
