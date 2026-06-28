@@ -190,6 +190,7 @@ const StudentDashboard = () => {
     const [isUpdatingGender, setIsUpdatingGender] = useState(false);
     const [showGenderModal, setShowGenderModal] = useState(false);
     const genderPromptShown = useRef(false);
+    const [coreTeamRole, setCoreTeamRole] = useState(null); // Stores role if student is a core member
 
     useEffect(() => {
         if (user && !user.gender && !genderPromptShown.current && !loading) {
@@ -864,6 +865,29 @@ const StudentDashboard = () => {
         };
     }, [user]);
 
+    // Fetch Core Team Role for this student
+    useEffect(() => {
+        if (!user?.uid) return;
+        const q = query(collection(db, 'coordinators'), where('studentId', '==', user.uid));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            // Only accept docs that have BOTH role AND academicYear (filters out stale/old docs)
+            const validRoles = snapshot.docs
+                .map(d => d.data())
+                .filter(d => d.role && d.academicYear && d.role !== 'FACULTY COORDINATOR');
+            if (validRoles.length > 0) {
+                // Pick the most recent academic year
+                validRoles.sort((a, b) => (b.academicYear || '').localeCompare(a.academicYear || ''));
+                setCoreTeamRole(validRoles[0]);
+            } else {
+                setCoreTeamRole(null);
+            }
+        }, (err) => {
+            console.error('Core team role fetch error:', err);
+            setCoreTeamRole(null);
+        });
+        return () => unsubscribe();
+    }, [user]);
+
     // Fetch Certificates from GAS API
     useEffect(() => {
         if (!user?.rollNumber) return;
@@ -1372,6 +1396,15 @@ const StudentDashboard = () => {
                             <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400">
                                 <Phone className="w-3.5 h-3.5" /> +91 {user.phone || 'XXXXXXXXXX'}
                             </span>
+                            {coreTeamRole && (
+                                <>
+                                    <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" />
+                                    <span className="flex items-center gap-1.5 text-[11px] font-black text-amber-700 bg-amber-50 px-3 py-1 rounded-lg uppercase tracking-wider border border-amber-200 shadow-sm animate-pulse">
+                                        <Award className="w-3.5 h-3.5 text-amber-500" />
+                                        {coreTeamRole.role} &bull; {coreTeamRole.academicYear}
+                                    </span>
+                                </>
+                            )}
                         </div>
                     </div>
 
@@ -1389,6 +1422,38 @@ const StudentDashboard = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Left Column */}
                     <div className="lg:col-span-2 space-y-8">
+
+                        {/* Core Team Member Banner */}
+                        {coreTeamRole && (
+                            <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="relative overflow-hidden rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-yellow-50 to-orange-50 shadow-md"
+                            >
+                                {/* Glow blobs */}
+                                <div className="absolute -top-8 -right-8 w-32 h-32 bg-amber-300/20 rounded-full blur-2xl pointer-events-none" />
+                                <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-orange-300/20 rounded-full blur-2xl pointer-events-none" />
+
+                                <div className="relative z-10 flex items-center gap-4 p-4 md:p-5">
+                                    <div className="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-300/40">
+                                        <Award className="w-6 h-6 text-white" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-0.5">TechSpark Core Team — {coreTeamRole.academicYear}</p>
+                                        <p className="text-base font-black text-amber-900 uppercase tracking-tight leading-tight">{coreTeamRole.role}</p>
+                                        <p className="text-[11px] text-amber-700 mt-0.5">Congratulations! You are an official member of the TechSpark Core Team.</p>
+                                    </div>
+                                    <div className="shrink-0 hidden sm:flex flex-col items-center justify-center px-4 py-2 bg-amber-400/20 rounded-xl border border-amber-300/50">
+                                        <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Status</span>
+                                        <span className="text-xs font-black text-amber-800 uppercase flex items-center gap-1 mt-0.5">
+                                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse inline-block" />
+                                            Active
+                                        </span>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+
                         {/* Stats Grid */}
                         <div id="student-overview" className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             {stats.map((stat, idx) => (

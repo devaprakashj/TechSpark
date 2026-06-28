@@ -43,9 +43,10 @@ import {
     UserCheck,
     FileText,
     Bell,
-    Edit
+    Edit,
+    FileDown
 } from 'lucide-react';
-import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, where, updateDoc, doc, increment, deleteDoc, getDoc, onSnapshot, limit, getCountFromServer } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, where, updateDoc, doc, increment, deleteDoc, getDoc, onSnapshot, limit, getCountFromServer, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import jsPDF from 'jspdf';
@@ -58,6 +59,36 @@ const AdminDashboard = () => {
     const [admin, setAdmin] = useState(null);
     const [students, setStudents] = useState([]);
     const [allStudents, setAllStudents] = useState([]);
+    const [coordinators, setCoordinators] = useState([]);
+    const [isAssigningRole, setIsAssigningRole] = useState(null);
+    const [coreSearchQuery, setCoreSearchQuery] = useState('');
+    const [isAssigningFaculty, setIsAssigningFaculty] = useState(false);
+    const [facultyForm, setFacultyForm] = useState({ name: 'Mr T.Pandiarajan', designation: 'Assistant Professor', department: 'CSE' });
+    const [activeCoreTeamYear, setActiveCoreTeamYear] = useState(null);
+    const [showNewYearModal, setShowNewYearModal] = useState(false);
+    const [newYearInput, setNewYearInput] = useState('');
+    const [expandedRole, setExpandedRole] = useState(null);
+
+    // Combine years from database + default current year to ensure it's never empty
+    const availableYears = [...new Set([...coordinators.map(c => c.academicYear), '2025-2026'])].filter(Boolean).sort().reverse();
+
+
+    
+    const CORE_ROLES = [
+        "PRESIDENT",
+        "VICE-PRESIDENT",
+        "SECRETARY",
+        "PRO",
+        "EVENT ORGANISER",
+        "EVENT CO-ORDINATOR",
+        "PHOTOGRAPHY HEAD",
+        "GRAPHIC DESIGNER",
+        "REPORT HEAD",
+        "SOCIAL MEDIA HEAD",
+        "VOLUNTEER MANAGEMENT",
+        "CREATIVE HEAD",
+        "CONTENT WRITER"
+    ];
     const [events, setEvents] = useState([]);
     const [stats, setStats] = useState({
         totalMembers: 0,
@@ -713,7 +744,19 @@ const AdminDashboard = () => {
 
             // 2. Fetch ALL Students (no orderBy - new query shape auto-fetches fresh, client-side sort)
             const studentsSnap = await getDocs(collection(db, 'users'));
-            const allStudentsData = studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const now = new Date();
+            const academicYearRef = (now.getMonth() + 1) < 6 ? now.getFullYear() - 1 : now.getFullYear();
+            const allStudentsData = studentsSnap.docs.map(docSnap => {
+                const data = docSnap.data();
+                // Compute yearOfStudy dynamically from admissionYear if not stored or outdated
+                let yearOfStudy = data.yearOfStudy;
+                if (data.admissionYear) {
+                    const calculated = academicYearRef - parseInt(data.admissionYear) + 1;
+                    if (calculated > 0 && calculated <= 4) yearOfStudy = calculated;
+                    else if (calculated > 4) yearOfStudy = 'Alumni';
+                }
+                return { id: docSnap.id, ...data, yearOfStudy };
+            });
             allStudentsData.sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
             setAllStudents(allStudentsData);
 
@@ -743,6 +786,10 @@ const AdminDashboard = () => {
             // 7. Fetch Organizers
             const organizersSnap = await getDocs(collection(db, 'organizers'));
             setOrganizers(organizersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+            // 8. Fetch Coordinators (Core Team)
+            const coordsSnap = await getDocs(collection(db, 'coordinators'));
+            setCoordinators(coordsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
             console.log("Strategic Intel Synchronized.");
             setLoadingData(false);
@@ -1959,6 +2006,18 @@ const AdminDashboard = () => {
         } catch (error) {
             console.error("PDF Export Error:", error);
             alert("Strategic extraction failed.");
+        }
+    };
+
+    const renderContentWrapper = () => {
+        try {
+            return renderContent();
+        } catch (error) {
+            return <div className="text-red-500 p-10 bg-white m-10 rounded-xl overflow-auto text-left shadow-2xl relative z-[9999]">
+                <h1 className="text-2xl font-bold">Dashboard Crash</h1>
+                <p className="font-bold my-4">{error.message}</p>
+                <pre className="text-xs bg-red-50 p-4 rounded-xl">{error.stack}</pre>
+            </div>;
         }
     };
 
@@ -3608,7 +3667,497 @@ const AdminDashboard = () => {
                         </div>
                     </div>
                 );
+            case 'core-team':
+                return (
+                    <>
+                        {activeTab === 'core-team' && !activeCoreTeamYear && (
+                            <div className="space-y-8 animate-fade-in pb-20 max-w-4xl mx-auto mt-10">
+                                <div className="text-center space-y-4">
+                                    <div className="w-20 h-20 bg-indigo-50 rounded-3xl mx-auto flex items-center justify-center shadow-inner">
+                                        <Award className="w-10 h-10 text-indigo-600" />
+                                    </div>
+                                    <h2 className="text-4xl font-black text-slate-800 tracking-tight">Core Team Assignments</h2>
+                                    <p className="text-slate-500 font-medium">Select an academic year to view or manage the TechSpark club coordinators.</p>
+                                </div>
+            
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mt-12">
+                                    <button 
+                                        onClick={() => setShowNewYearModal(true)}
+                                        className="bg-white rounded-3xl p-8 border-2 border-dashed border-slate-200 hover:border-indigo-500 flex flex-col items-center justify-center gap-4 group transition-all h-48"
+                                    >
+                                        <div className="w-12 h-12 rounded-full bg-slate-50 group-hover:bg-indigo-50 text-slate-400 group-hover:text-indigo-600 flex items-center justify-center transition-colors">
+                                            <Plus className="w-6 h-6" />
+                                        </div>
+                                        <span className="text-sm font-black text-slate-500 group-hover:text-indigo-600 uppercase tracking-widest">Start New Year</span>
+                                    </button>
+                                    
+                                    {availableYears.map(year => (
+                                        <button 
+                                            key={year}
+                                            onClick={() => setActiveCoreTeamYear(year)}
+                                            className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-indigo-100 flex flex-col items-center justify-center gap-4 transition-all h-48 group relative overflow-hidden"
+                                        >
+                                            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-indigo-50 to-transparent rounded-bl-full pointer-events-none" />
+                                            <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform">
+                                                <Calendar className="w-6 h-6" />
+                                            </div>
+                                            <span className="text-xl font-black text-slate-800">{year}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+            
+                        {activeTab === 'core-team' && activeCoreTeamYear && (
+                            <div className="space-y-8 animate-fade-in pb-20 max-w-5xl mx-auto">
+                                {/* Header */}
+                                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 bg-white p-8 rounded-[2rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                                    <div>
+                                        <button onClick={() => setActiveCoreTeamYear(null)} className="flex items-center gap-2 text-slate-400 hover:text-indigo-600 text-xs font-black uppercase tracking-widest mb-4 transition-colors w-fit">
+                                            <ChevronRight className="w-4 h-4 rotate-180" /> Back to Years
+                                        </button>
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center">
+                                                <Award className="w-5 h-5 text-indigo-600" />
+                                            </div>
+                                            <h2 className="text-3xl font-black text-slate-800 tracking-tight">
+                                                Core Team Directory
+                                            </h2>
+                                        </div>
+                                        <p className="text-sm font-bold text-slate-400 tracking-widest uppercase md:ml-13">
+                                            Academic Year {activeCoreTeamYear}
+                                        </p>
+                                    </div>
+                                    
+                                    <div className="flex gap-3">
+                                        <button onClick={generateCoreTeamReport} className="bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-sm flex items-center gap-2">
+                                            <FileDown className="w-4 h-4" /> Download PDF Report
+                                        </button>
+                                    </div>
+                                </div>
+            
+                                {/* Faculty Row */}
+                                <div className="bg-slate-900 rounded-[1.5rem] border border-slate-800 shadow-xl overflow-hidden">
+                                    <div className="p-6 flex items-center justify-between cursor-pointer hover:bg-slate-800/80 transition-colors group" onClick={() => setExpandedRole(expandedRole === 'FACULTY' ? null : 'FACULTY')}>
+                                        <div className="flex items-center gap-6">
+                                            <div className="w-12 h-12 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center font-black">
+                                                <Award className="w-5 h-5" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1">Supreme Command</p>
+                                                <h3 className="text-xl font-black text-white uppercase tracking-tight">Faculty Coordinator</h3>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-6">
+                                            {coordinators.find(c => c.role === 'FACULTY COORDINATOR' && c.academicYear === activeCoreTeamYear) ? (
+                                                <div className="text-right mr-2 hidden md:block group-hover:opacity-80 transition-opacity">
+                                                    <p className="text-sm font-black text-white uppercase">{coordinators.find(c => c.role === 'FACULTY COORDINATOR' && c.academicYear === activeCoreTeamYear).fullName}</p>
+                                                    <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">{coordinators.find(c => c.role === 'FACULTY COORDINATOR' && c.academicYear === activeCoreTeamYear).department}</p>
+                                                </div>
+                                            ) : (
+                                                <span className="px-3 py-1 bg-red-500/10 text-red-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-red-500/20 mr-2">Not Assigned</span>
+                                            )}
+                                            <ChevronRight className={`w-5 h-5 text-slate-500 transition-transform ${expandedRole === 'FACULTY' ? 'rotate-90 text-amber-500' : ''}`} />
+                                        </div>
+                                    </div>
+            
+                                    <AnimatePresence>
+                                        {expandedRole === 'FACULTY' && (
+                                            <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden">
+                                                <div className="p-6 pt-0 border-t border-slate-800 bg-slate-900/40">
+                                                    {coordinators.find(c => c.role === 'FACULTY COORDINATOR' && c.academicYear === activeCoreTeamYear) ? (
+                                                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mt-6">
+                                                            <div className="flex flex-col sm:flex-row gap-6 md:gap-12">
+                                                                <div>
+                                                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Name</p>
+                                                                    <p className="text-sm font-bold text-white uppercase">{coordinators.find(c => c.role === 'FACULTY COORDINATOR' && c.academicYear === activeCoreTeamYear).fullName}</p>
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Designation</p>
+                                                                    <p className="text-sm font-bold text-white uppercase">{coordinators.find(c => c.role === 'FACULTY COORDINATOR' && c.academicYear === activeCoreTeamYear).designation}</p>
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Department</p>
+                                                                    <p className="text-sm font-bold text-white uppercase">{coordinators.find(c => c.role === 'FACULTY COORDINATOR' && c.academicYear === activeCoreTeamYear).department}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex gap-3 w-full md:w-auto">
+                                                                <button onClick={(e) => { e.stopPropagation(); setIsAssigningFaculty(true); }} className="flex-1 md:flex-none px-4 py-3 bg-white/10 text-white border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-500 hover:border-amber-500 transition-all flex items-center justify-center gap-2">
+                                                                    <Edit className="w-3 h-3" /> Edit
+                                                                </button>
+                                                                <button onClick={(e) => { e.stopPropagation(); handleRemoveCoreRole('FACULTY COORDINATOR'); }} className="flex-1 md:flex-none px-4 py-3 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-2">
+                                                                    <X className="w-3 h-3" /> Remove
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="mt-6 flex justify-center">
+                                                            <button onClick={() => setIsAssigningFaculty(true)} className="px-8 py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-orange-500/20 flex items-center gap-2">
+                                                                <Plus className="w-4 h-4" /> Assign Faculty Coordinator
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+            
+                                {/* Student Rows */}
+                                <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden divide-y divide-slate-100">
+                                    {CORE_ROLES.map((role, idx) => {
+                                        const assigned = coordinators.find(c => c.role === role && c.academicYear === activeCoreTeamYear);
+                                        const isExpanded = expandedRole === role;
+            
+                                        return (
+                                            <div key={idx} className="group transition-colors hover:bg-slate-50/50">
+                                                <div className="p-6 flex flex-col md:flex-row md:items-center justify-between cursor-pointer gap-4" onClick={() => setExpandedRole(isExpanded ? null : role)}>
+                                                    <div className="flex items-center gap-5">
+                                                        <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center font-black text-sm">
+                                                            {idx + 1}
+                                                        </div>
+                                                        <div>
+                                                            <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">{role}</h3>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div className="flex items-center gap-6 justify-between md:justify-end">
+                                                        {assigned ? (
+                                                            <div className="flex items-center gap-3 text-right mr-2">
+                                                                <span className="flex h-2.5 w-2.5 relative">
+                                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                                                                </span>
+                                                                <div className="hidden md:block group-hover:opacity-75 transition-opacity">
+                                                                    <p className="text-sm font-black text-slate-800 uppercase">{assigned.fullName}</p>
+                                                                    <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">{assigned.department}{assigned.yearOfStudy ? ` ΓÇó ${assigned.yearOfStudy} YEAR` : ''}</p>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="px-3 py-1 bg-slate-100 text-slate-400 rounded-lg text-[9px] font-black uppercase tracking-widest mr-2">Vacant</span>
+                                                        )}
+                                                        <ChevronRight className={`w-5 h-5 text-slate-300 transition-transform ${isExpanded ? 'rotate-90 text-indigo-500' : ''}`} />
+                                                    </div>
+                                                </div>
+            
+                                                <AnimatePresence>
+                                                    {isExpanded && (
+                                                        <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden">
+                                                            <div className="px-6 pb-6 pt-2 bg-slate-50/50 border-t border-slate-50">
+                                                                {assigned ? (
+                                                                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-white p-6 rounded-[1.25rem] border border-slate-200/60 shadow-sm mt-2">
+                                                                        <div className="grid grid-cols-2 md:grid-cols-5 gap-6 w-full max-w-5xl">
+                                                                            <div>
+                                                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Name</p>
+                                                                                <p className="text-sm font-bold text-slate-800 uppercase">{assigned.fullName}</p>
+                                                                            </div>
+                                                                            <div>
+                                                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Roll Number</p>
+                                                                                <p className="text-sm font-bold text-slate-800 uppercase">{assigned.rollNumber}</p>
+                                                                            </div>
+                                                                            <div>
+                                                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Year</p>
+                                                                                <p className="text-sm font-bold text-slate-800 uppercase">{assigned.yearOfStudy ? `${assigned.yearOfStudy} Year` : '-'}</p>
+                                                                            </div>
+                                                                            <div>
+                                                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Department</p>
+                                                                                <p className="text-sm font-bold text-slate-800 uppercase">{assigned.department}</p>
+                                                                            </div>
+                                                                            <div>
+                                                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Email</p>
+                                                                                <p className="text-xs font-bold text-slate-600 truncate">{assigned.email || '-'}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="flex shrink-0 w-full md:w-auto mt-4 md:mt-0">
+                                                                            <button onClick={(e) => { e.stopPropagation(); handleRemoveCoreRole(role); }} className="w-full md:w-auto px-5 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-all flex items-center justify-center gap-2 shadow-sm">
+                                                                                <X className="w-4 h-4" /> Remove Commander
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="p-4 flex justify-center mt-2">
+                                                                        <button onClick={() => setIsAssigningRole(role)} className="px-8 py-3.5 bg-white border-2 border-dashed border-slate-200 text-slate-500 rounded-xl text-xs font-black uppercase tracking-widest hover:border-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all flex items-center gap-2">
+                                                                            <Plus className="w-4 h-4" /> Select Commander
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </>
+                );
+            default:
+                return null;
         }
+    };
+
+    const handleAssignFaculty = async () => {
+        if (!activeCoreTeamYear || !facultyForm.name) return;
+        try {
+            const docId = `${activeCoreTeamYear}-faculty-coordinator`;
+            await setDoc(doc(db, 'coordinators', docId), {
+                role: 'FACULTY COORDINATOR',
+                academicYear: activeCoreTeamYear,
+                fullName: facultyForm.name,
+                designation: facultyForm.designation,
+                department: facultyForm.department,
+                updatedAt: serverTimestamp()
+            });
+            setIsAssigningFaculty(false);
+            setCoordinators(prev => {
+                const filtered = prev.filter(c => c.id !== docId);
+                return [...filtered, { id: docId, role: 'FACULTY COORDINATOR', academicYear: activeCoreTeamYear, fullName: facultyForm.name, designation: facultyForm.designation, department: facultyForm.department }];
+            });
+        } catch (error) {
+            console.error("Error assigning faculty:", error);
+            alert("Failed to assign faculty.");
+        }
+    };
+
+    const handleAssignCoreRole = async (student) => {
+        if (!activeCoreTeamYear || !isAssigningRole || !student) return;
+        try {
+            const roleId = isAssigningRole.replace(/\s+/g, '-').toLowerCase();
+            const docId = `${activeCoreTeamYear}-${roleId}`;
+            await setDoc(doc(db, 'coordinators', docId), {
+                role: isAssigningRole,
+                academicYear: activeCoreTeamYear,
+                studentId: student.id,
+                fullName: student.fullName,
+                rollNumber: student.rollNumber,
+                department: student.department,
+                yearOfStudy: student.yearOfStudy || '-',
+                email: student.email,
+                updatedAt: serverTimestamp()
+            });
+            setIsAssigningRole(null);
+            setCoordinators(prev => {
+                const filtered = prev.filter(c => c.id !== docId);
+                return [...filtered, { id: docId, role: isAssigningRole, academicYear: activeCoreTeamYear, studentId: student.id, fullName: student.fullName, rollNumber: student.rollNumber, department: student.department, yearOfStudy: student.yearOfStudy || '-', email: student.email }];
+            });
+        } catch (error) {
+            console.error("Error assigning role:", error);
+            alert("Failed to assign role.");
+        }
+    };
+
+    const handleRemoveCoreRole = async (role) => {
+        if (!window.confirm(`Are you sure you want to remove the ${role} for ${activeCoreTeamYear}?`)) return;
+        try {
+            const roleId = role.replace(/\s+/g, '-').toLowerCase();
+            const docId = `${activeCoreTeamYear}-${roleId}`;
+            await deleteDoc(doc(db, 'coordinators', docId));
+            
+            setCoordinators(prev => prev.filter(c => c.id !== docId));
+        } catch (error) {
+            console.error("Error removing role:", error);
+            alert("Failed to remove role.");
+        }
+    };
+
+    const generateCoreTeamReport = async () => {
+        if (!activeCoreTeamYear) return;
+
+        // Helper: load image via <img> + canvas → base64 (works with all Vite asset URLs)
+        const loadImgAsBase64 = (src) => new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                canvas.getContext('2d').drawImage(img, 0, 0);
+                resolve(canvas.toDataURL('image/png'));
+            };
+            img.onerror = (e) => { console.error('Logo load failed:', src, e); resolve(null); };
+            img.src = src;
+        });
+
+        const [ritB64, tsB64] = await Promise.all([loadImgAsBase64(ritLogo), loadImgAsBase64(techsparkLogo)]);
+
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const pageW = doc.internal.pageSize.getWidth(); // 210mm
+
+        // ── HEADER – clean white letterhead style ───────────────────────────
+        // Top accent stripe
+        doc.setFillColor(30, 58, 138);
+        doc.rect(0, 0, pageW, 3, 'F');
+
+        // White header background
+        doc.setFillColor(255, 255, 255);
+        doc.rect(0, 3, pageW, 42, 'F');
+
+        // RIT Logo - left (white bg, blends cleanly)
+        if (ritB64) doc.addImage(ritB64, 'PNG', 8, 5, 32, 32);
+
+        // TechSpark Logo - right
+        if (tsB64) doc.addImage(tsB64, 'PNG', pageW - 42, 5, 35, 32);
+
+        // College name & dept - centred
+        doc.setTextColor(15, 30, 80);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(13);
+        doc.text('RAJALAKSHMI INSTITUTE OF TECHNOLOGY', pageW / 2, 14, { align: 'center' });
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(80, 80, 80);
+        doc.text('(An Autonomous Institution | Affiliated to Anna University, Chennai)', pageW / 2, 20, { align: 'center' });
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(30, 58, 138);
+        doc.text('TECHSPARK — Student Technical Club', pageW / 2, 28, { align: 'center' });
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(60, 60, 60);
+        doc.text(`Core Team Directory  |  Academic Year: ${activeCoreTeamYear}`, pageW / 2, 35, { align: 'center' });
+
+        // Bottom border line under header
+        doc.setDrawColor(30, 58, 138);
+        doc.setLineWidth(0.8);
+        doc.line(0, 45, pageW, 45);
+        doc.setLineWidth(0.2);
+
+        // ── GENERATED DATE ───────────────────────────────────────────────────
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+        doc.setTextColor(120, 120, 120);
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'italic');
+        doc.text(`Generated on: ${dateStr}`, pageW - 14, 51, { align: 'right' });
+
+        // ── FACULTY COORDINATOR LINE ─────────────────────────────────────────
+        const currentTeam = coordinators.filter(c => c.academicYear === activeCoreTeamYear);
+        const faculty = currentTeam.find(c => c.role === 'FACULTY COORDINATOR');
+        let startY = 56;
+
+        if (faculty) {
+            doc.setFillColor(239, 246, 255); // Light blue bg
+            doc.roundedRect(14, startY, pageW - 28, 10, 2, 2, 'F');
+            doc.setDrawColor(191, 219, 254);
+            doc.roundedRect(14, startY, pageW - 28, 10, 2, 2, 'S');
+            doc.setTextColor(30, 64, 175);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9);
+            doc.text('Faculty Coordinator:', 18, startY + 6.5);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(30, 30, 30);
+            doc.text(
+                `${faculty.fullName}  |  ${faculty.designation || 'Faculty'}  |  Dept. of ${faculty.department || 'N/A'}`,
+                52, startY + 6.5
+            );
+            startY += 14;
+        }
+
+        // ── SECTION TITLE ─────────────────────────────────────────────────────
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(30, 58, 138);
+        doc.text('Student Core Committee Members', 14, startY + 2);
+        doc.setDrawColor(199, 210, 254);
+        doc.line(14, startY + 4, pageW - 14, startY + 4);
+        startY += 8;
+
+        // ── TABLE ─────────────────────────────────────────────────────────────
+        const tableBody = CORE_ROLES.map((role, idx) => {
+            const member = currentTeam.find(c => c.role === role);
+            if (member) {
+                const yearLabel = member.yearOfStudy
+                    ? (isNaN(member.yearOfStudy) ? member.yearOfStudy : `${member.yearOfStudy}${['', 'st', 'nd', 'rd', 'th'][Math.min(member.yearOfStudy, 4)]} Year`)
+                    : '-';
+                return [
+                    idx + 1,
+                    role.replace(/-/g, '\u2011'), // non-breaking hyphen for display
+                    member.fullName || '-',
+                    member.rollNumber || '-',
+                    yearLabel,
+                    member.department || '-',
+                    member.email || '-'
+                ];
+            }
+            return [idx + 1, role.replace(/-/g, '\u2011'), 'Not Assigned', '-', '-', '-', '-'];
+        });
+
+        autoTable(doc, {
+            startY,
+            head: [['S.No', 'Designation', 'Name', 'Roll Number', 'Year', 'Department', 'Email']],
+            body: tableBody,
+            theme: 'grid',
+            styles: {
+                fontSize: 8.5,
+                cellPadding: 3,
+                valign: 'middle',
+                lineColor: [226, 232, 240],
+                lineWidth: 0.3,
+                textColor: [30, 30, 30],
+                font: 'helvetica'
+            },
+            headStyles: {
+                fillColor: [30, 58, 138],
+                textColor: [255, 255, 255],
+                fontStyle: 'bold',
+                fontSize: 9,
+                halign: 'center'
+            },
+            columnStyles: {
+                0: { halign: 'center', cellWidth: 12 },
+                1: { cellWidth: 38, fontStyle: 'bold' },
+                2: { cellWidth: 30 },
+                3: { cellWidth: 28, halign: 'center' },
+                4: { cellWidth: 16, halign: 'center' },
+                5: { cellWidth: 22 },
+                6: { cellWidth: 40, fontSize: 7.5 }
+            },
+            alternateRowStyles: { fillColor: [248, 250, 252] },
+            didParseCell: (data) => {
+                if (data.section === 'body' && data.cell.raw === 'Not Assigned') {
+                    data.cell.styles.textColor = [148, 163, 184];
+                    data.cell.styles.fontStyle = 'italic';
+                }
+            }
+        });
+
+        // ── FOOTER ───────────────────────────────────────────────────────────
+        const finalY = doc.lastAutoTable.finalY + 10;
+        const totalAssigned = currentTeam.filter(c => c.role !== 'FACULTY COORDINATOR').length;
+        const totalRoles = CORE_ROLES.length;
+
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 116, 139);
+        doc.text(`Total Positions: ${totalRoles}   |   Assigned: ${totalAssigned}   |   Vacant: ${totalRoles - totalAssigned}`, 14, finalY);
+
+        // Signature lines
+        const sigY = finalY + 18;
+        doc.setDrawColor(180, 180, 180);
+        doc.line(14, sigY, 70, sigY);
+        doc.line(pageW - 70, sigY, pageW - 14, sigY);
+        doc.setFontSize(8);
+        doc.setTextColor(80, 80, 80);
+        doc.text('Faculty Coordinator', 14, sigY + 5);
+        doc.text('Staff Advisor / HOD', pageW - 14, sigY + 5, { align: 'right' });
+
+        // Page footer
+        doc.setFontSize(7.5);
+        doc.setTextColor(180, 180, 180);
+        doc.text(
+            'TechSpark — Rajalakshmi Institute of Technology  |  This is a computer-generated document.',
+            pageW / 2,
+            doc.internal.pageSize.getHeight() - 8,
+            { align: 'center' }
+        );
+
+        doc.save(`TechSpark_CoreTeam_${activeCoreTeamYear}.pdf`);
     };
 
     if (!admin) return null;
@@ -3616,6 +4165,7 @@ const AdminDashboard = () => {
     const navItems = [
         { id: 'overview', icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', desc: 'Overview & Analytics' },
         { id: 'analytics', icon: <BarChart3 className="w-5 h-5" />, label: 'Student Intel', desc: 'Demographics & Insights' },
+        { id: 'core-team', icon: <Award className="w-5 h-5" />, label: 'Core Team', desc: 'Club Co-ordinators' },
         { id: 'organizers', icon: <UserCog className="w-5 h-5" />, label: 'Organizers', desc: 'Team Management', badge: organizers.length },
         { id: 'approvals', icon: <CalendarCheck className="w-5 h-5" />, label: 'Approvals', desc: 'Event Authorization', badge: events.filter(e => e.status === 'PENDING').length, badgeColor: 'orange' },
         { id: 'all_events', icon: <Calendar className="w-5 h-5" />, label: 'All Events', desc: 'Complete Registry' },
@@ -3790,6 +4340,7 @@ const AdminDashboard = () => {
                             <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg shadow-blue-500/20">
                                 {activeTab === 'overview' && <LayoutDashboard className="w-5 h-5 text-white" />}
                                 {activeTab === 'analytics' && <BarChart3 className="w-5 h-5 text-white" />}
+                                {activeTab === 'core-team' && <Award className="w-5 h-5 text-white" />}
                                 {activeTab === 'organizers' && <UserCog className="w-5 h-5 text-white" />}
                                 {activeTab === 'approvals' && <CalendarCheck className="w-5 h-5 text-white" />}
                                 {activeTab === 'all_events' && <Calendar className="w-5 h-5 text-white" />}
@@ -3837,7 +4388,18 @@ const AdminDashboard = () => {
                 <div className="p-8 relative">
                     <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%239C92AC\' fill-opacity=\'0.4\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")' }} />
                     <div className="relative z-10">
-                        {renderContent()}
+                        {(() => {
+                            try {
+                                return renderContent();
+                            } catch (error) {
+                                console.error("Error rendering content:", error);
+                                return <div className="text-red-500 p-10 bg-white m-10 rounded-xl overflow-auto text-left shadow-2xl relative z-[9999]">
+                                    <h1 className="text-2xl font-bold">Dashboard Crash</h1>
+                                    <p className="font-bold my-4">{error.message}</p>
+                                    <pre className="text-xs bg-red-50 p-4 rounded-xl">{error.stack}</pre>
+                                </div>;
+                            }
+                        })()}
                     </div>
                 </div>
             </main>
@@ -5196,6 +5758,386 @@ const AdminDashboard = () => {
                             </div>
                         </motion.div>
                     </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* New Academic Year Modal */}
+            <AnimatePresence>
+                {showNewYearModal && (
+                    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowNewYearModal(false)} className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" />
+                        <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className="relative w-full max-w-sm bg-white rounded-[2rem] shadow-2xl overflow-hidden">
+                            <div className="p-6 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                                <h3 className="text-lg font-black uppercase tracking-tight text-slate-800">Start New Year</h3>
+                                <button onClick={() => setShowNewYearModal(false)} className="p-2 hover:bg-slate-200 rounded-xl transition-colors"><X className="w-4 h-4" /></button>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Academic Year (e.g. 2026-2027)</label>
+                                    <input 
+                                        type="text" 
+                                        value={newYearInput} 
+                                        onChange={e => setNewYearInput(e.target.value)} 
+                                        placeholder="YYYY-YYYY"
+                                        className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-xl text-sm font-bold text-slate-800 outline-none focus:border-indigo-500 transition-all text-center tracking-widest" 
+                                    />
+                                </div>
+                                <button 
+                                    onClick={() => {
+                                        if(newYearInput.trim().length > 4) {
+                                            setActiveCoreTeamYear(newYearInput.trim());
+                                            setShowNewYearModal(false);
+                                            setNewYearInput('');
+                                        }
+                                    }} 
+                                    className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2"
+                                >
+                                    <CheckCircle className="w-4 h-4" /> Create & Enter
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            {/* Role Assignment Modal */}
+            <AnimatePresence>
+                {isAssigningRole && (
+                    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsAssigningRole(null)}
+                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[80vh] border border-slate-100"
+                        >
+                            <div className="p-6 bg-slate-900 text-white flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-xl font-black uppercase tracking-tight flex items-center gap-3">
+                                        Assign {isAssigningRole}
+                                    </h3>
+                                </div>
+                                <button
+                                    onClick={() => setIsAssigningRole(null)}
+                                    className="p-2 hover:bg-white/10 rounded-xl transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="p-6 border-b border-slate-100">
+                                <div className="relative">
+                                    <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search by Name or Roll Number..."
+                                        value={coreSearchQuery}
+                                        onChange={(e) => setCoreSearchQuery(e.target.value)}
+                                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white transition-all uppercase placeholder:normal-case"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                                <div className="space-y-2">
+                                    {allStudents
+                                        .filter(s => 
+                                            (s.fullName || '').toLowerCase().includes(coreSearchQuery.toLowerCase()) || 
+                                            (s.rollNumber || '').toLowerCase().includes(coreSearchQuery.toLowerCase())
+                                        )
+                                        .slice(0, 15) // Limit to 15 results for performance
+                                        .map(student => (
+                                            <div key={student.id} className="p-4 bg-white border border-slate-100 rounded-2xl hover:border-indigo-500 hover:shadow-md transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 cursor-pointer" onClick={() => handleAssignCoreRole(student)}>
+                                                <div>
+                                                    <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">{student.fullName}</h4>
+                                                    <p className="text-[10px] font-mono text-slate-400 mt-1">{student.rollNumber} • {student.yearOfStudy ? `${student.yearOfStudy} Year • ` : ''}{student.department}</p>
+                                                </div>
+                                                <button className="shrink-0 px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all">
+                                                    Select
+                                                </button>
+                                            </div>
+                                        ))
+                                    }
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Faculty Assignment Modal */}
+            <AnimatePresence>
+                {isAssigningFaculty && (
+                    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsAssigningFaculty(false)}
+                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border border-slate-100"
+                        >
+                            <div className="p-6 bg-gradient-to-r from-amber-500 to-orange-500 text-white flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-xl font-black uppercase tracking-tight flex items-center gap-3">
+                                        Assign Faculty Coordinator
+                                    </h3>
+                                </div>
+                                <button onClick={() => setIsAssigningFaculty(false)} className="p-2 hover:bg-white/20 rounded-xl transition-colors">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="p-8 space-y-4 text-left">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Name</label>
+                                    <input type="text" value={facultyForm.name} onChange={e => setFacultyForm({...facultyForm, name: e.target.value})} className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-800 outline-none focus:border-amber-500 transition-all" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Designation</label>
+                                    <input type="text" value={facultyForm.designation} onChange={e => setFacultyForm({...facultyForm, designation: e.target.value})} className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-800 outline-none focus:border-amber-500 transition-all" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Department</label>
+                                    <input type="text" value={facultyForm.department} onChange={e => setFacultyForm({...facultyForm, department: e.target.value})} className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-800 outline-none focus:border-amber-500 transition-all" />
+                                </div>
+                                
+                                <button onClick={handleAssignFaculty} className="w-full py-4 mt-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg shadow-amber-500/30 flex items-center justify-center gap-2">
+                                    <CheckCircle className="w-4 h-4" /> Save Faculty Coordinator
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
                 )}
             </AnimatePresence>
 
