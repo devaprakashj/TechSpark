@@ -135,8 +135,15 @@ const AdminLogin = () => {
                 {/* Right Panel - Form (Mobile & Desktop) */}
                 <div className="w-full md:w-[52%] px-6 sm:px-10 py-8 md:p-10 lg:p-10 flex flex-col bg-[#fdfdfd] md:bg-white relative z-10 h-full overflow-y-auto">
 
+                    {/* Confidential Sliding Ticker */}
+                    <div className="absolute top-0 left-0 right-0 bg-red-50/80 border-b border-red-100 overflow-hidden py-1.5 z-20">
+                        <marquee scrollamount="4" className="text-[10px] text-red-600 font-black uppercase tracking-[0.2em]">
+                            CONFIDENTIAL &nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp; RESTRICTED ACCESS &nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp; AUTHORIZED PERSONNEL ONLY &nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp; CONFIDENTIAL
+                        </marquee>
+                    </div>
+
                     {/* Logos */}
-                    <div className="flex items-center justify-center md:justify-start gap-4 md:gap-5 mb-6 md:mb-5 opacity-100 w-full shrink-0">
+                    <div className="flex items-center justify-center md:justify-start gap-4 md:gap-5 mb-6 md:mb-5 mt-2 md:mt-0 opacity-100 w-full shrink-0">
                         <img src={ritLogo} alt="RIT Logo" className="h-10 sm:h-12 md:h-10 object-contain" />
                         <div className="w-[1.5px] h-8 md:h-6 bg-gray-300 md:bg-gray-200"></div>
                         <img src={tsLogo} alt="TechSpark Logo" className="h-7 sm:h-9 md:h-8 object-contain" />

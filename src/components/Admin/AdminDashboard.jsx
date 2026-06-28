@@ -2440,100 +2440,6 @@ const AdminDashboard = () => {
                             </div>
                         </div>
 
-                        {/* Advanced Filtration Terminal */}
-                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-                            <div className="flex flex-col lg:flex-row items-end gap-6">
-                                <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
-                                    <div className="space-y-2.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Department Registry</label>
-                                        <div className="relative group">
-                                            <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
-                                            <select
-                                                value={studentFilterDept}
-                                                onChange={(e) => setStudentFilterDept(e.target.value)}
-                                                className="w-full pl-11 pr-10 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-blue-500/5 focus:bg-white focus:border-blue-500 transition-all appearance-none cursor-pointer"
-                                            >
-                                                <option value="ALL">All Departments</option>
-                                                {Object.keys(analytics.deptWise).sort().map(d => <option key={d} value={d}>{d}</option>)}
-                                            </select>
-                                            <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 rotate-90 pointer-events-none" />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Academic Segment</label>
-                                        <div className="relative group">
-                                            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
-                                            <select
-                                                value={studentFilterYear}
-                                                onChange={(e) => setStudentFilterYear(e.target.value)}
-                                                className="w-full pl-11 pr-10 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-blue-500/5 focus:bg-white focus:border-blue-500 transition-all appearance-none cursor-pointer"
-                                            >
-                                                <option value="ALL">All Year Groups</option>
-                                                <option value="1">1st Year (Freshmen)</option>
-                                                <option value="2">2nd Year (Sophomore)</option>
-                                                <option value="3">3rd Year (Junior)</option>
-                                                <option value="4">4th Year (Senior)</option>
-                                                <option value="Alumni">Alumni / Graduates</option>
-                                            </select>
-                                            <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 rotate-90 pointer-events-none" />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Batch Identification</label>
-                                        <div className="relative group">
-                                            <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
-                                            <select
-                                                value={studentFilterBatch}
-                                                onChange={(e) => setStudentFilterBatch(e.target.value)}
-                                                className="w-full pl-11 pr-10 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-blue-500/5 focus:bg-white focus:border-blue-500 transition-all appearance-none cursor-pointer"
-                                            >
-                                                <option value="ALL">All Batch Cycles</option>
-                                                {Object.keys(analytics.batchWise).sort().map(b => <option key={b} value={b}>{b}</option>)}
-                                            </select>
-                                            <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 rotate-90 pointer-events-none" />
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3 w-full lg:w-auto">
-                                    {(studentFilterDept !== 'ALL' || studentFilterYear !== 'ALL' || studentFilterBatch !== 'ALL') && (
-                                        <button
-                                            onClick={() => {
-                                                setStudentFilterDept('ALL');
-                                                setStudentFilterYear('ALL');
-                                                setStudentFilterBatch('ALL');
-                                                setSearchQuery('');
-                                            }}
-                                            className="px-6 py-4 bg-red-50 text-red-600 rounded-2xl font-black text-[10px] hover:bg-red-600 hover:text-white transition-all uppercase tracking-widest flex-1 lg:flex-none border border-red-100"
-                                        >
-                                            Reset
-                                        </button>
-                                    )}
-                                    <button
-                                        onClick={() => {
-                                            const csv = [
-                                                ['Name', 'Roll Number', 'Dept', 'Year', 'Batch', 'Points'],
-                                                ...filteredStudents.map(s => {
-                                                    const { year, batch, dept } = getStudentExtendedData(s);
-                                                    return [s.fullName, s.rollNumber, dept, year, batch, s.points];
-                                                })
-                                            ].map(e => e.join(",")).join("\n");
-                                            const blob = new Blob([csv], { type: 'text/csv' });
-                                            const url = window.URL.createObjectURL(blob);
-                                            const a = document.createElement('a');
-                                            a.setAttribute('hidden', '');
-                                            a.setAttribute('href', url);
-                                            a.setAttribute('download', `TechSpark_Intelligence_${new Date().toISOString().split('T')[0]}.csv`);
-                                            document.body.appendChild(a);
-                                            a.click();
-                                            document.body.removeChild(a);
-                                        }}
-                                        className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] hover:bg-blue-600 transition-all flex items-center justify-center gap-3 uppercase tracking-widest shadow-xl shadow-slate-900/10 flex-1 lg:flex-none group"
-                                    >
-                                        <Download className="w-4 h-4 group-hover:animate-bounce" /> Export Segment
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
 
                         {/* Analytic Cards Area */}
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
@@ -2657,10 +2563,10 @@ const AdminDashboard = () => {
                                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                                         <input
                                             type="text"
-                                            placeholder="FILTER BY NAME / ROLL / DEPT..."
+                                            placeholder="Filter by Name, Roll Number, or Dept..."
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
-                                            className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-blue-500/5 transition-all text-slate-800 placeholder:text-slate-300"
+                                            className="w-full pl-12 pr-6 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-[13px] font-medium outline-none focus:ring-2 focus:ring-blue-500 transition-all text-slate-800 placeholder:text-slate-400"
                                         />
                                     </div>
                                     <button
@@ -2677,67 +2583,67 @@ const AdminDashboard = () => {
                                 <table className="w-full text-left">
                                     <thead className="bg-[#fcfdfe] text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
                                         <tr>
-                                            <th className="px-8 py-5">Verified Member</th>
-                                            <th className="px-8 py-5">Register ID</th>
-                                            <th className="px-8 py-5">Sub-Division</th>
-                                            <th className="px-8 py-5 text-center">Spark XP</th>
-                                            <th className="px-8 py-5 text-right">Management</th>
+                                            <th className="px-5 py-4">Verified Member</th>
+                                            <th className="px-5 py-4">Register ID</th>
+                                            <th className="px-5 py-4">Sub-Division</th>
+                                            <th className="px-5 py-4 text-center whitespace-nowrap">Spark XP</th>
+                                            <th className="px-5 py-4 text-right whitespace-nowrap">Management</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
                                         {filteredStudents.map((student) => (
                                             <tr key={student.id} className="group hover:bg-slate-50/50 transition-colors">
-                                                <td className="px-8 py-6">
+                                                <td className="px-5 py-4">
                                                     <div className="flex items-center gap-4">
-                                                        <div className="w-10 h-10 bg-white border border-slate-100 text-blue-600 rounded-xl flex items-center justify-center font-black text-sm uppercase shadow-sm group-hover:bg-blue-600 group-hover:text-white transition-all">
+                                                        <div className="w-10 h-10 bg-white border border-slate-100 text-blue-600 rounded-xl flex items-center justify-center font-black text-sm uppercase shadow-sm group-hover:bg-blue-600 group-hover:text-white transition-all shrink-0">
                                                             {student.fullName?.charAt(0)}
                                                         </div>
-                                                        <div>
-                                                            <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{student.fullName}</p>
-                                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest italic">{student.email}</p>
+                                                        <div className="min-w-0 flex-1 max-w-[150px] md:max-w-[200px] xl:max-w-[300px]">
+                                                            <p className="text-[14px] font-bold text-slate-800 tracking-tight truncate">{student.fullName}</p>
+                                                            <p className="text-[12px] text-slate-500 font-medium lowercase mt-0.5 truncate" title={student.email}>{student.email}</p>
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-8 py-6 font-mono font-bold text-slate-600 text-xs">{student.rollNumber}</td>
-                                                <td className="px-8 py-6">
+                                                <td className="px-5 py-4 font-mono font-semibold text-slate-600 text-[13px]">{student.rollNumber}</td>
+                                                <td className="px-5 py-4">
                                                     <div className="space-y-1">
                                                         {(() => {
                                                             const { year, batch, dept } = getStudentExtendedData(student);
                                                             return (
                                                                 <>
-                                                                    <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{dept}</p>
-                                                                    <p className="text-[9px] font-bold text-slate-400 uppercase">
-                                                                        {year} Year | Batch {batch} | Sec {student.section || 'N/A'}
+                                                                    <p className="text-[12px] font-bold text-slate-800 uppercase tracking-wide">{dept}</p>
+                                                                    <p className="text-[11px] font-medium text-slate-500 mt-0.5">
+                                                                        {year} Year • Batch {batch} • Sec {student.section || 'N/A'}
                                                                     </p>
                                                                 </>
                                                             );
                                                         })()}
                                                     </div>
                                                 </td>
-                                                <td className="px-8 py-6 text-center">
-                                                    <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-emerald-100">
+                                                <td className="px-5 py-4 text-center">
+                                                    <span className="inline-flex items-center justify-center whitespace-nowrap px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[11px] font-bold uppercase tracking-wider border border-emerald-100">
                                                         {student.points || 0} XP
                                                     </span>
                                                 </td>
-                                                <td className="px-8 py-6 text-right">
+                                                <td className="px-5 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-3">
                                                         <button
                                                             onClick={() => handleEditStudent(student)}
-                                                            className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                                                            className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
                                                             title="Edit Profile"
                                                         >
                                                             <Settings className="w-4 h-4" />
                                                         </button>
                                                         <button
                                                             onClick={() => handleManageStudent(student)}
-                                                            className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                                                            className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
                                                             title="Mission Intelligence"
                                                         >
                                                             <UserCog className="w-4 h-4" />
                                                         </button>
                                                         <button
                                                             onClick={() => handleDeleteStudent(student.id)}
-                                                            className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                                            className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
                                                             title="Terminate Membership"
                                                         >
                                                             <Trash2 className="w-4 h-4" />
@@ -4615,8 +4521,8 @@ const AdminDashboard = () => {
                         >
                             <div className="p-8 border-b border-slate-100 flex items-center justify-between text-left">
                                 <div>
-                                    <h3 className="text-2xl font-black text-slate-800 italic uppercase">Edit Personnel Data</h3>
-                                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mt-1">Manual override of student identity profile</p>
+                                    <h3 className="text-xl font-bold text-slate-800">Edit Student Profile</h3>
+                                    <p className="text-slate-500 text-sm mt-1">Update student details and academic information</p>
                                 </div>
                                 <button onClick={() => setIsEditStudentModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-xl transition-colors">
                                     <X className="w-6 h-6 text-slate-400" />
@@ -4625,33 +4531,33 @@ const AdminDashboard = () => {
 
                             <form onSubmit={handleSaveStudent} className="p-8 space-y-5 text-left bg-[#fcfdfe]">
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Legal Full Name - READ ONLY</label>
+                                    <label className="block text-sm font-medium text-slate-700 ml-1">Full Name</label>
                                     <input
                                         required
                                         type="text"
                                         value={editingStudent.fullName}
                                         disabled
-                                        className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black text-xs uppercase tracking-tight text-slate-500 cursor-not-allowed"
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm font-semibold text-slate-500 cursor-not-allowed"
                                     />
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-5">
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Register Number</label>
+                                        <label className="block text-sm font-medium text-slate-700 ml-1">Register Number</label>
                                         <input
                                             required
                                             type="text"
                                             value={editingStudent.rollNumber}
                                             onChange={(e) => setEditingStudent({ ...editingStudent, rollNumber: e.target.value })}
-                                            className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-mono font-bold text-xs text-slate-600"
+                                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono font-medium text-sm text-slate-800"
                                         />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Academic Department - READ ONLY</label>
+                                        <label className="block text-sm font-medium text-slate-700 ml-1">Academic Department</label>
                                         <select
                                             disabled
                                             value={editingStudent.department}
-                                            className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black text-xs uppercase tracking-widest text-slate-500 cursor-not-allowed"
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm font-semibold text-slate-500 cursor-not-allowed"
                                         >
                                             <option value="CSE">CSE</option>
                                             <option value="IT">IT</option>
@@ -4672,11 +4578,11 @@ const AdminDashboard = () => {
 
                                 <div className="grid grid-cols-3 gap-4">
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Study Year</label>
+                                        <label className="block text-sm font-medium text-slate-700 ml-1">Study Year</label>
                                         <select
                                             value={editingStudent.yearOfStudy}
                                             onChange={(e) => setEditingStudent({ ...editingStudent, yearOfStudy: e.target.value })}
-                                            className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl outline-none font-black text-xs uppercase"
+                                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-slate-800"
                                         >
                                             <option value="1">1st Year</option>
                                             <option value="2">2nd Year</option>
@@ -4686,11 +4592,11 @@ const AdminDashboard = () => {
                                         </select>
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Section</label>
+                                        <label className="block text-sm font-medium text-slate-700 ml-1">Section</label>
                                         <select
                                             value={editingStudent.section}
                                             onChange={(e) => setEditingStudent({ ...editingStudent, section: e.target.value })}
-                                            className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl outline-none font-black text-xs uppercase"
+                                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-slate-800"
                                         >
                                             {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'].map(sec => (
                                                 <option key={sec} value={sec}>Sec {sec}</option>
@@ -4698,31 +4604,31 @@ const AdminDashboard = () => {
                                         </select>
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Batch Year</label>
+                                        <label className="block text-sm font-medium text-slate-700 ml-1">Batch Year</label>
                                         <input
                                             type="text"
                                             value={editingStudent.admissionYear}
                                             onChange={(e) => setEditingStudent({ ...editingStudent, admissionYear: e.target.value })}
-                                            className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl outline-none font-black text-xs tabular-nums"
-                                            placeholder="2024"
+                                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium tabular-nums text-slate-800"
+                                            placeholder="e.g. 2024"
                                         />
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-5">
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Digital Identity (Email) - READ ONLY</label>
+                                        <label className="block text-sm font-medium text-slate-700 ml-1">Email Address</label>
                                         <input
                                             required
                                             type="email"
                                             value={editingStudent.email}
                                             disabled
-                                            className="w-full px-5 py-4 bg-slate-100 border border-slate-100 rounded-2xl outline-none font-bold text-xs lowercase text-slate-400 cursor-not-allowed"
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm font-semibold text-slate-500 cursor-not-allowed"
                                         />
                                     </div>
                                     <div className="space-y-1.5">
                                         <div className="flex items-center justify-between ml-1">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Personnel Gender</label>
+                                            <label className="block text-sm font-medium text-slate-700">Gender</label>
                                             {editingStudent.gender && (
                                                 <button
                                                     type="button"
@@ -4731,7 +4637,7 @@ const AdminDashboard = () => {
                                                             setEditingStudent({ ...editingStudent, gender: '' });
                                                         }
                                                     }}
-                                                    className="text-[9px] font-black text-orange-500 uppercase hover:text-orange-600 flex items-center gap-1 transition-all"
+                                                    className="text-xs font-semibold text-orange-500 hover:text-orange-600 flex items-center gap-1 transition-all"
                                                 >
                                                     <RotateCcw className="w-3 h-3" /> Revert
                                                 </button>
@@ -4740,7 +4646,7 @@ const AdminDashboard = () => {
                                         <select
                                             value={editingStudent.gender || ''}
                                             onChange={(e) => setEditingStudent({ ...editingStudent, gender: e.target.value })}
-                                            className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl outline-none font-black text-xs uppercase"
+                                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium text-slate-800"
                                         >
                                             <option value="">Not Set / Revert</option>
                                             <option value="Male">Male</option>
@@ -4752,10 +4658,9 @@ const AdminDashboard = () => {
 
                                 <button
                                     type="submit"
-                                    className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-3 uppercase mt-4 tracking-widest"
+                                    className="w-full py-3.5 bg-blue-600 text-white rounded-xl font-semibold text-sm shadow-md shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-2 mt-4"
                                 >
-                                    Commit Changes
-                                    <ShieldCheck className="w-4 h-4" />
+                                    Save Changes
                                 </button>
                             </form>
                         </motion.div>
@@ -4874,9 +4779,9 @@ const AdminDashboard = () => {
                             initial={{ opacity: 0, scale: 0.9, y: 30 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.9, y: 30 }}
-                            className="relative w-full max-w-md bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border border-white/20"
+                            className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded-[2.5rem] shadow-2xl flex flex-col border border-white/20"
                         >
-                            <div className="p-8 bg-slate-900 text-white flex items-center justify-between">
+                            <div className="p-6 bg-slate-900 text-white flex items-center justify-between">
                                 <div>
                                     <h3 className="text-xl font-black italic uppercase tracking-tight flex items-center gap-3">
                                         <QrCode className="w-6 h-6 text-blue-500" />
@@ -4889,29 +4794,40 @@ const AdminDashboard = () => {
                                 </button>
                             </div>
 
-                            <div className="p-8">
-                                <div className="aspect-square bg-slate-950 rounded-[2.5rem] overflow-hidden relative border-4 border-slate-100 shadow-inner">
-                                    <Scanner
-                                        onScan={handleSearchScan}
-                                        onError={(err) => console.error(err)}
-                                        styles={{
-                                            container: { width: '100%', height: '100%' },
-                                            video: { objectFit: 'cover' }
-                                        }}
-                                        allowMultiple={false}
-                                        scanDelay={2000}
-                                    />
-                                    <div className="absolute inset-0 border-[3px] border-blue-500/30 m-10 rounded-[2rem] pointer-events-none">
-                                        <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-blue-500 rounded-tl-xl" />
-                                        <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-blue-500 rounded-tr-xl" />
-                                        <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-blue-500 rounded-bl-xl" />
-                                        <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-blue-500 rounded-br-xl" />
+                            <div className="p-6">
+                                <div className="flex justify-center">
+                                    <div className="w-64 h-64 sm:w-[300px] sm:h-[300px] bg-slate-950 rounded-[2.5rem] overflow-hidden relative border-4 border-slate-100 shadow-inner">
+                                        <Scanner
+                                            onScan={handleSearchScan}
+                                            onError={(err) => console.error(err)}
+                                            styles={{
+                                                container: { width: '100%', height: '100%' },
+                                                video: { objectFit: 'cover' }
+                                            }}
+                                            allowMultiple={false}
+                                            scanDelay={2000}
+                                        />
+                                        <div className="absolute inset-0 border-[3px] border-blue-500/30 m-8 sm:m-10 rounded-[2rem] pointer-events-none">
+                                            <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-blue-500 rounded-tl-xl" />
+                                            <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-blue-500 rounded-tr-xl" />
+                                            <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-blue-500 rounded-bl-xl" />
+                                            <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-blue-500 rounded-br-xl" />
+                                        </div>
+                                        <div className="absolute top-1/2 left-0 w-full h-0.5 bg-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.8)] animate-scan z-20" />
                                     </div>
-                                    <div className="absolute top-1/2 left-0 w-full h-0.5 bg-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.8)] animate-scan z-20" />
                                 </div>
-                                <p className="text-center mt-6 text-slate-400 text-[10px] font-black uppercase tracking-widest leading-relaxed">
-                                    Position the Student QR Code within the frame<br />for instantaneous recognition
-                                </p>
+                                <div className="mt-6 flex flex-row items-center justify-between gap-4">
+                                    <p className="text-left text-slate-400 text-[9px] font-black uppercase tracking-widest leading-relaxed">
+                                        Position the Student QR Code<br />for instantaneous recognition
+                                    </p>
+                                    
+                                    {/* Institution & Event Branding */}
+                                    <div className="flex items-center gap-5">
+                                        <img src={ritLogo} alt="RIT" className="h-9 object-contain" />
+                                        <div className="w-px h-8 bg-slate-200" />
+                                        <img src={techsparkLogo} alt="TechSpark" className="h-6 object-contain" />
+                                    </div>
+                                </div>
                             </div>
                         </motion.div>
                     </div>
