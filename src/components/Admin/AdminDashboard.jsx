@@ -211,6 +211,9 @@ const AdminDashboard = () => {
     const [eventImages, setEventImages] = useState([]); // Array of base64 images
     const [isGeneratingReport, setIsGeneratingReport] = useState(false);
     const [isFetchingEventAssets, setIsFetchingEventAssets] = useState(false);
+    const [hasDbPoster, setHasDbPoster] = useState(false);
+    const [hasDbApproval, setHasDbApproval] = useState(false);
+    const [hasDbImages, setHasDbImages] = useState(false);
 
     // New states for Event Report Generator updates
     const [eventGuestName, setEventGuestName] = useState('');
@@ -620,24 +623,30 @@ const AdminDashboard = () => {
                         const eventObj = eventSnap.data();
                         
                         if (eventObj.posterUrl) {
+                            setHasDbPoster(true);
                             const posterB64 = await loadImageAsBase64(eventObj.posterUrl);
                             if (posterB64) setEventPoster(posterB64);
                         } else {
+                            setHasDbPoster(false);
                             setEventPoster(null);
                         }
 
                         if (eventObj.approvalLetterUrl) {
+                            setHasDbApproval(true);
                             const approvalB64 = await loadImageAsBase64(eventObj.approvalLetterUrl);
                             if (approvalB64) setApprovalLetter(approvalB64);
                         } else {
+                            setHasDbApproval(false);
                             setApprovalLetter(null);
                         }
 
                         if (eventObj.photoUrls && Array.isArray(eventObj.photoUrls) && eventObj.photoUrls.length > 0) {
+                            setHasDbImages(true);
                             const promises = eventObj.photoUrls.map(url => loadImageAsBase64(url));
                             const base64s = await Promise.all(promises);
                             setEventImages(base64s.filter(Boolean));
                         } else {
+                            setHasDbImages(false);
                             setEventImages([]);
                         }
                     }
@@ -649,6 +658,9 @@ const AdminDashboard = () => {
             };
             loadImagesFromEvent();
         } else {
+            setHasDbPoster(false);
+            setHasDbApproval(false);
+            setHasDbImages(false);
             setEventPoster(null);
             setApprovalLetter(null);
             setEventImages([]);
@@ -4973,9 +4985,14 @@ const AdminDashboard = () => {
                                                         type="file"
                                                         accept="image/*"
                                                         onChange={handlePosterUpload}
-                                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                                        disabled={hasDbPoster}
+                                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     />
-                                                    {eventPoster && <p className="text-[9px] text-green-600 font-bold ml-1">✓ Poster loaded</p>}
+                                                    {eventPoster && (
+                                                        <p className="text-[9px] text-green-600 font-bold ml-1">
+                                                            {hasDbPoster ? '✓ Fetched from Database (Locked)' : '✓ Poster loaded'}
+                                                        </p>
+                                                    )}
                                                 </div>
 
                                                 <div className="space-y-2">
@@ -4984,9 +5001,14 @@ const AdminDashboard = () => {
                                                         type="file"
                                                         accept="image/*"
                                                         onChange={handleApprovalLetterUpload}
-                                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                                        disabled={hasDbApproval}
+                                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     />
-                                                    {approvalLetter && <p className="text-[9px] text-green-600 font-bold ml-1">✓ Approval letter loaded</p>}
+                                                    {approvalLetter && (
+                                                        <p className="text-[9px] text-green-600 font-bold ml-1">
+                                                            {hasDbApproval ? '✓ Fetched from Database (Locked)' : '✓ Approval letter loaded'}
+                                                        </p>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -5233,9 +5255,10 @@ const AdminDashboard = () => {
                                                 multiple
                                                 accept="image/*"
                                                 onChange={handleGalleryImagesUpload}
-                                                disabled={eventImages.length >= 4}
-                                                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
+                                                disabled={eventImages.length >= 4 || hasDbImages}
+                                                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                             />
+                                            {hasDbImages && <p className="text-[9px] text-green-600 font-bold ml-1 mt-1">✓ Fetched from Database (Locked)</p>}
                                             {eventImages.length > 0 && (
                                                 <div className="grid grid-cols-2 gap-3 mt-3">
                                                     {eventImages.map((img, idx) => (
