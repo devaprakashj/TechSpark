@@ -608,14 +608,17 @@ const AdminDashboard = () => {
         }
     }, [reportsSubTab, annualAcademicYear, coordinators, analytics, events]);
 
-    // Automatically fetch and load event assets (poster, approval letter, images) from database when selectedEventId changes
+    // Automatically fetch and load event assets (poster, approval letter, images) directly from the database when selectedEventId changes
     useEffect(() => {
         if (selectedEventId) {
-            const eventObj = events.find(e => e.id === selectedEventId);
-            if (eventObj) {
-                const loadImagesFromEvent = async () => {
-                    setIsFetchingEventAssets(true);
-                    try {
+            const loadImagesFromEvent = async () => {
+                setIsFetchingEventAssets(true);
+                try {
+                    const eventDocRef = doc(db, 'events', selectedEventId);
+                    const eventSnap = await getDoc(eventDocRef);
+                    if (eventSnap.exists()) {
+                        const eventObj = eventSnap.data();
+                        
                         if (eventObj.posterUrl) {
                             const posterB64 = await loadImageAsBase64(eventObj.posterUrl);
                             if (posterB64) setEventPoster(posterB64);
@@ -637,20 +640,20 @@ const AdminDashboard = () => {
                         } else {
                             setEventImages([]);
                         }
-                    } catch (err) {
-                        console.error("Error autoloading event assets:", err);
-                    } finally {
-                        setIsFetchingEventAssets(false);
                     }
-                };
-                loadImagesFromEvent();
-            }
+                } catch (err) {
+                    console.error("Error autoloading event assets:", err);
+                } finally {
+                    setIsFetchingEventAssets(false);
+                }
+            };
+            loadImagesFromEvent();
         } else {
             setEventPoster(null);
             setApprovalLetter(null);
             setEventImages([]);
         }
-    }, [selectedEventId, events]);
+    }, [selectedEventId]);
 
     const downloadEventImpactReport = async () => {
         try {
@@ -5248,12 +5251,16 @@ const AdminDashboard = () => {
                                         <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-4">
                                             <button
                                                 onClick={downloadEventReportPDF}
-                                                disabled={isGeneratingReport || !selectedEventId}
+                                                disabled={isGeneratingReport || isFetchingEventAssets || !selectedEventId}
                                                 className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-lg shadow-blue-500/10"
                                             >
                                                 {isGeneratingReport ? (
                                                     <>
                                                         <RefreshCw className="w-4 h-4 animate-spin" /> Compiling PDF...
+                                                    </>
+                                                ) : isFetchingEventAssets ? (
+                                                    <>
+                                                        <RefreshCw className="w-4 h-4 animate-spin" /> Fetching Event Assets...
                                                     </>
                                                 ) : (
                                                     <>
