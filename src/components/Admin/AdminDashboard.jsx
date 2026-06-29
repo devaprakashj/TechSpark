@@ -208,9 +208,24 @@ const AdminDashboard = () => {
     const [selectedEventId, setSelectedEventId] = useState('');
     const [eventPoster, setEventPoster] = useState(null);
     const [approvalLetter, setApprovalLetter] = useState(null);
-    const [eventReportContent, setEventReportContent] = useState('');
     const [eventImages, setEventImages] = useState([]); // Array of base64 images
     const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+
+    // New states for Event Report Generator updates
+    const [eventGuestName, setEventGuestName] = useState('');
+    const [eventGuestDesig, setEventGuestDesig] = useState('');
+    const [eventGuestOrg, setEventGuestOrg] = useState('');
+    const [eventWriteupSections, setEventWriteupSections] = useState([
+        { title: 'Event Overview', content: '' }
+    ]);
+    const [newSectionTitle, setNewSectionTitle] = useState('');
+    const [newSectionContent, setNewSectionContent] = useState('');
+    const [sheetUrl, setSheetUrl] = useState('');
+    const [sheetStartRow, setSheetStartRow] = useState(2);
+    const [sheetEndRow, setSheetEndRow] = useState(10);
+    const [sheetCertificates, setSheetCertificates] = useState([]);
+    const [isFetchingSheet, setIsFetchingSheet] = useState(false);
+    const [eventFeedbacks, setEventFeedbacks] = useState([]); // Loaded dynamically from database
 
     // Approval Letter Generator State
     const [approvalFormNo, setApprovalFormNo] = useState('RIT/IQAC/IIPC/IVR/F3.1R1');
@@ -1176,6 +1191,12 @@ const AdminDashboard = () => {
             );
             const eventRegs = regsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
+            // Fetch feedback for this event
+            const feedbackSnap = await getDocs(
+                query(collection(db, 'feedback'), where('eventId', '==', selectedEventId))
+            );
+            const eventFeedbacks = feedbackSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
             const doc = new jsPDF();
             const pageWidth = doc.internal.pageSize.width;
             const pageHeight = doc.internal.pageSize.height;
@@ -1190,158 +1211,279 @@ const AdminDashboard = () => {
 
             const [rit, ts] = await Promise.all([loadImg(ritLogo), loadImg(techsparkLogo)]);
 
-            // Page 1: COVER PAGE
-            // Header logos
-            if (rit) doc.addImage(rit, 'PNG', 15, 10, 65, 15);
-            if (ts) doc.addImage(ts, 'PNG', pageWidth - 55, 10, 40, 15);
+            // Helper to draw standard header
+            const drawPageHeader = () => {
+                if (rit) doc.addImage(rit, 'PNG', 15, 10, 48, 11);
+                if (ts) doc.addImage(ts, 'PNG', pageWidth - 50, 8, 35, 15);
+                doc.setDrawColor(226, 232, 240);
+                doc.setLineWidth(0.8);
+                doc.line(15, 25, pageWidth - 15, 25);
+            };
 
-            doc.setDrawColor(226, 232, 240); // slate-200
-            doc.line(15, 30, pageWidth - 15, 30);
+            // ================= PAGE 1: COVER PAGE (Clean & Formal) =================
+            drawPageHeader();
 
-            // Title block
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(26);
-            doc.setTextColor(30, 41, 59); // slate-800
-            doc.text('EVENT REPORT', pageWidth / 2, 70, { align: 'center' });
+            doc.setFont('times', 'bold');
+            doc.setFontSize(22);
+            doc.setTextColor(15, 23, 42); // slate-900
+            doc.text('TECHSPARK CLUB', pageWidth / 2, 60, { align: 'center' });
 
-            doc.setFontSize(18);
-            doc.setTextColor(37, 99, 235); // blue-600
-            // Split title if long
-            const titleLines = doc.splitTextToSize((event.title || event.eventName || '').toUpperCase(), pageWidth - 40);
-            doc.text(titleLines, pageWidth / 2, 85, { align: 'center' });
+            doc.setFont('times', 'italic');
+            doc.setFontSize(14);
+            doc.setTextColor(71, 85, 105); // slate-600
+            doc.text('OFFICIAL EVENT COMPLIANCE & IMPACT REPORT', pageWidth / 2, 70, { align: 'center' });
 
-            // Horizontal Accent line
-            doc.setLineWidth(1);
-            doc.setDrawColor(37, 99, 235); // blue-600
-            doc.line(pageWidth / 2 - 30, 105, pageWidth / 2 + 30, 105);
+            // Accent Line
+            doc.setFillColor(37, 99, 235); // blue-600
+            doc.rect(pageWidth / 2 - 25, 78, 50, 1, 'F');
 
-            // Meta Info Table
-            const metaInfo = [
-                ['DATE', event.date || 'N/A'],
-                ['VENUE', event.venue || 'N/A'],
-                ['STATUS', (event.status || 'COMPLETED').toUpperCase()],
-                ['ORGANIZING BODY', 'TECHSPARK CLUB'],
-                ['REPORT GENERATION', new Date().toLocaleDateString()]
+            // Metadata Box/Frame Table
+            const coverMeta = [
+                ['EVENT TITLE', (event.title || event.eventName || 'N/A').toUpperCase()],
+                ['DATE OF CONDUCT', event.date || 'N/A'],
+                ['EVENT VENUE', event.venue || 'N/A'],
+                ['CHIEF GUEST / SPEAKER', (eventGuestName || 'N/A').toUpperCase()],
+                ['FACULTY COORDINATOR', 'DR. S. DEVAPRAKASH'],
+                ['ORGANIZING COMPLIANCE', 'TECHSPARK CLUB, RIT CHENNAI'],
+                ['DOCUMENT GENERATED', new Date().toLocaleDateString('en-US')]
             ];
 
             autoTable(doc, {
-                startY: 120,
-                margin: { left: 40, right: 40 },
-                body: metaInfo,
+                startY: 95,
+                margin: { left: 30, right: 30 },
+                body: coverMeta,
                 theme: 'plain',
                 styles: {
-                    fontSize: 10,
-                    cellPadding: 6,
-                    textColor: [71, 85, 105], // slate-600
-                    fontStyle: 'normal'
+                    font: 'times',
+                    fontSize: 10.5,
+                    cellPadding: 5,
+                    textColor: [51, 65, 85] // slate-700
                 },
                 columnStyles: {
-                    0: { fontStyle: 'bold', textColor: [30, 41, 59], width: 50 }
+                    0: { fontStyle: 'bold', textColor: [15, 23, 42], cellWidth: 55 }
+                },
+                didParseCell: (data) => {
+                    data.cell.styles.cellPadding = 6;
                 }
             });
 
-            // Footer of Cover Page
+            // Frame border around metadata
+            const finalY = doc.lastAutoTable.finalY;
+            doc.setDrawColor(203, 213, 225); // slate-300
+            doc.setLineWidth(0.5);
+            doc.rect(30, 95, pageWidth - 60, finalY - 95);
+
+            // Footer
+            doc.setFont('times', 'normal');
             doc.setFontSize(9);
-            doc.setFont('helvetica', 'normal');
             doc.setTextColor(148, 163, 184); // slate-400
             doc.text('RAJALAKSHMI INSTITUTE OF TECHNOLOGY', pageWidth / 2, pageHeight - 15, { align: 'center' });
 
-            // Page 2: EVENT POSTER (If uploaded)
-            if (eventPoster) {
-                doc.addPage();
-                if (rit) doc.addImage(rit, 'PNG', 15, 10, 65, 15);
-                if (ts) doc.addImage(ts, 'PNG', pageWidth - 55, 10, 40, 15);
-                doc.setDrawColor(226, 232, 240);
-                doc.line(15, 30, pageWidth - 15, 30);
-
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(14);
-                doc.setTextColor(30, 41, 59);
-                doc.text('EVENT POSTER', 15, 42);
-
-                try {
-                    doc.addImage(eventPoster, 'JPEG', 15, 50, 180, 220, undefined, 'FAST');
-                } catch (e) {
-                    console.error('Error drawing event poster:', e);
-                    doc.setFontSize(10);
-                    doc.setTextColor(239, 68, 68);
-                    doc.text('Failed to render event poster image.', 15, 60);
-                }
-            }
-
-            // Page 3: APPROVAL LETTER (If uploaded)
-            if (approvalLetter) {
-                doc.addPage();
-                if (rit) doc.addImage(rit, 'PNG', 15, 10, 65, 15);
-                if (ts) doc.addImage(ts, 'PNG', pageWidth - 55, 10, 40, 15);
-                doc.setDrawColor(226, 232, 240);
-                doc.line(15, 30, pageWidth - 15, 30);
-
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(14);
-                doc.setTextColor(30, 41, 59);
-                doc.text('APPROVAL LETTER', 15, 42);
-
-                try {
-                    doc.addImage(approvalLetter, 'JPEG', 15, 50, 180, 220, undefined, 'FAST');
-                } catch (e) {
-                    console.error('Error drawing approval letter:', e);
-                    doc.setFontSize(10);
-                    doc.setTextColor(239, 68, 68);
-                    doc.text('Failed to render approval letter image.', 15, 60);
-                }
-            }
-
-            // Page 4: EVENT REPORT CONTENT
+            // ================= PAGE 2: METRICS MATRIX & GUEST PROFILE =================
             doc.addPage();
-            if (rit) doc.addImage(rit, 'PNG', 15, 10, 65, 15);
-            if (ts) doc.addImage(ts, 'PNG', pageWidth - 55, 10, 40, 15);
-            doc.setDrawColor(226, 232, 240);
-            doc.line(15, 30, pageWidth - 15, 30);
+            drawPageHeader();
 
-            doc.setFont('helvetica', 'bold');
+            doc.setFont('times', 'bold');
             doc.setFontSize(14);
-            doc.setTextColor(30, 41, 59);
-            doc.text('EVENT REPORT WRITE-UP', 15, 42);
+            doc.setTextColor(15, 23, 42);
+            doc.text('EXECUTIVE METRICS MATRIX & SPEAKER PROFILE', pageWidth / 2, 35, { align: 'center' });
 
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(11);
-            doc.setTextColor(51, 65, 85);
+            let currentY = 45;
 
-            const writeUpText = eventReportContent || 'No event report content write-up provided.';
-            const splitWriteUp = doc.splitTextToSize(writeUpText, pageWidth - 30);
+            // Guest Profile Card
+            if (eventGuestName) {
+                doc.setFont('times', 'bold');
+                doc.setFontSize(12);
+                doc.setTextColor(37, 99, 235); // blue-600
+                doc.text('CHIEF GUEST / INVITED SPEAKER PROFILE', 15, currentY);
 
-            let cursorY = 52;
-            splitWriteUp.forEach(line => {
-                if (cursorY > pageHeight - 20) {
-                    doc.addPage();
-                    if (rit) doc.addImage(rit, 'PNG', 15, 10, 65, 15);
-                    if (ts) doc.addImage(ts, 'PNG', pageWidth - 55, 10, 40, 15);
-                    doc.setDrawColor(226, 232, 240);
-                    doc.line(15, 30, pageWidth - 15, 30);
-                    cursorY = 45;
+                const guestMeta = [
+                    ['GUEST NAME', eventGuestName.toUpperCase()],
+                    ['DESIGNATION', eventGuestDesig || 'N/A'],
+                    ['ORGANIZATION', eventGuestOrg || 'N/A']
+                ];
+
+                autoTable(doc, {
+                    startY: currentY + 4,
+                    body: guestMeta,
+                    theme: 'striped',
+                    styles: { font: 'times', fontSize: 10, cellPadding: 5 },
+                    columnStyles: {
+                        0: { fontStyle: 'bold', cellWidth: 40 }
+                    }
+                });
+
+                currentY = doc.lastAutoTable.finalY + 15;
+            }
+
+            // Attendance and Registration Matrix
+            doc.setFont('times', 'bold');
+            doc.setFontSize(12);
+            doc.setTextColor(37, 99, 235);
+            doc.text('PARTICIPATION TELEMETRY MATRIX', 15, currentY);
+
+            const totalRegistered = eventRegs.length;
+            const attendedCount = eventRegs.filter(r => r.isAttended || r.status === 'Present').length;
+            const absentCount = totalRegistered - attendedCount;
+            const attendancePct = totalRegistered > 0 ? ((attendedCount / totalRegistered) * 100).toFixed(1) : '0.0';
+
+            const matrixData = [
+                ['TOTAL STUDENTS REGISTERED', totalRegistered.toString()],
+                ['VERIFIED ATTENDEES (PRESENT)', attendedCount.toString()],
+                ['ABSENT REGISTRATIONS', absentCount.toString()],
+                ['ATTENDANCE COMPLIANCE RATE', `${attendancePct}%`]
+            ];
+
+            autoTable(doc, {
+                startY: currentY + 4,
+                body: matrixData,
+                theme: 'grid',
+                styles: { font: 'times', fontSize: 10, cellPadding: 6 },
+                columnStyles: {
+                    0: { fontStyle: 'bold', cellWidth: 80, fillColor: [248, 250, 252] },
+                    1: { halign: 'center', fontStyle: 'bold' }
+                },
+                didParseCell: (data) => {
+                    if (data.column.index === 1 && data.row.index === 3) {
+                        data.cell.styles.textColor = [22, 163, 74]; // green-600
+                        data.cell.styles.fillColor = [240, 253, 244];
+                    }
                 }
-                doc.text(line, 15, cursorY);
-                cursorY += 6;
             });
 
-            // Page 5: ATTENDANCE SHEET
+            // ================= PAGE 3: EVENT POSTER (If uploaded) =================
+            if (eventPoster) {
+                doc.addPage();
+                drawPageHeader();
+
+                doc.setFont('times', 'bold');
+                doc.setFontSize(14);
+                doc.setTextColor(30, 41, 59);
+                doc.text('OFFICIAL EVENT POSTER', 15, 38);
+
+                try {
+                    doc.addImage(eventPoster, 'JPEG', 20, 46, 170, 230, undefined, 'FAST');
+                } catch (e) {
+                    console.error('Error drawing poster:', e);
+                    doc.setFont('times', 'italic');
+                    doc.setFontSize(11);
+                    doc.text('Failed to render poster image.', 15, 55);
+                }
+            }
+
+            // ================= PAGE 4: APPROVAL LETTER (If uploaded) =================
+            if (approvalLetter) {
+                doc.addPage();
+                drawPageHeader();
+
+                doc.setFont('times', 'bold');
+                doc.setFontSize(14);
+                doc.setTextColor(30, 41, 59);
+                doc.text('OFFICIAL EVENT APPROVAL REQUISITION', 15, 38);
+
+                try {
+                    doc.addImage(approvalLetter, 'JPEG', 20, 46, 170, 230, undefined, 'FAST');
+                } catch (e) {
+                    console.error('Error drawing approval:', e);
+                    doc.setFont('times', 'italic');
+                    doc.setFontSize(11);
+                    doc.text('Failed to render approval letter image.', 15, 55);
+                }
+            }
+
+            // ================= PAGE 5: EVENT WRITE-UP & SUBHEADINGS =================
             doc.addPage();
-            if (rit) doc.addImage(rit, 'PNG', 15, 10, 65, 15);
-            if (ts) doc.addImage(ts, 'PNG', pageWidth - 55, 10, 40, 15);
-            doc.setDrawColor(226, 232, 240);
-            doc.line(15, 30, pageWidth - 15, 30);
+            drawPageHeader();
 
-            doc.setFont('helvetica', 'bold');
+            doc.setFont('times', 'bold');
             doc.setFontSize(14);
-            doc.setTextColor(30, 41, 59);
-            doc.text('PARTICIPANT ATTENDANCE SHEET', 15, 42);
+            doc.setTextColor(15, 23, 42);
+            doc.text('DETAILED EVENT EXECUTIVE REPORT', pageWidth / 2, 35, { align: 'center' });
 
-            const presentCount = eventRegs.filter(r => r.isAttended || r.status === 'Present').length;
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(10);
-            doc.setTextColor(71, 85, 105);
-            doc.text(`Total Registered: ${eventRegs.length}   |   Present: ${presentCount}   |   Absent: ${eventRegs.length - presentCount}`, 15, 50);
+            let writeupY = 45;
+
+            eventWriteupSections.forEach((section, sIdx) => {
+                // Measure section content to check if it fits, else add page
+                doc.setFont('times', 'bold');
+                doc.setFontSize(12);
+                const titleText = `${sIdx + 1}. ${section.title.toUpperCase()}`;
+                
+                // Add page if near bottom
+                if (writeupY > pageHeight - 35) {
+                    doc.addPage();
+                    drawPageHeader();
+                    writeupY = 35;
+                }
+
+                doc.setTextColor(37, 99, 235);
+                doc.text(titleText, 15, writeupY);
+                writeupY += 7;
+
+                doc.setFont('times', 'normal');
+                doc.setFontSize(11);
+                doc.setTextColor(51, 65, 85);
+                
+                const splitContent = doc.splitTextToSize(section.content || 'No details provided for this section.', pageWidth - 30);
+                
+                splitContent.forEach(line => {
+                    if (writeupY > pageHeight - 20) {
+                        doc.addPage();
+                        drawPageHeader();
+                        writeupY = 35;
+                        doc.setFont('times', 'normal');
+                        doc.setFontSize(11);
+                        doc.setTextColor(51, 65, 85);
+                    }
+                    doc.text(line, 15, writeupY);
+                    writeupY += 6;
+                });
+
+                writeupY += 8; // Spacing between sections
+            });
+
+            // ================= PAGE 6: CERTIFICATE ISSUANCE TABLE =================
+            if (sheetCertificates.length > 0) {
+                doc.addPage();
+                drawPageHeader();
+
+                doc.setFont('times', 'bold');
+                doc.setFontSize(14);
+                doc.setTextColor(15, 23, 42);
+                doc.text('CERTIFICATE DISTRIBUTION REGISTER', pageWidth / 2, 35, { align: 'center' });
+
+                const certRows = sheetCertificates.map((c, idx) => [
+                    idx + 1,
+                    c.rollNumber.toUpperCase(),
+                    c.name.toUpperCase(),
+                    c.role.toUpperCase(),
+                    c.certId.toUpperCase()
+                ]);
+
+                autoTable(doc, {
+                    startY: 42,
+                    theme: 'striped',
+                    head: [['S.NO', 'ROLL NUMBER', 'STUDENT NAME', 'EVENT ROLE', 'CERTIFICATE ID']],
+                    body: certRows,
+                    headStyles: { fillColor: [79, 70, 229], font: 'times', fontStyle: 'bold', fontSize: 9.5 },
+                    bodyStyles: { font: 'times', fontSize: 9 },
+                    columnStyles: {
+                        0: { cellWidth: 15, halign: 'center' },
+                        1: { cellWidth: 35 },
+                        2: { cellWidth: 60 },
+                        3: { cellWidth: 35, fontStyle: 'bold' },
+                        4: { cellWidth: 40 }
+                    }
+                });
+            }
+
+            // ================= PAGE 7: PARTICIPANT ATTENDANCE SHEET =================
+            doc.addPage();
+            drawPageHeader();
+
+            doc.setFont('times', 'bold');
+            doc.setFontSize(14);
+            doc.setTextColor(15, 23, 42);
+            doc.text('PARTICIPANT ATTENDANCE LEDGER', pageWidth / 2, 35, { align: 'center' });
 
             const tableRows = eventRegs.map((reg, index) => [
                 index + 1,
@@ -1354,12 +1496,15 @@ const AdminDashboard = () => {
             ]);
 
             autoTable(doc, {
-                startY: 56,
-                head: [['S.No', 'Student Name', 'Roll Number', 'Dept', 'Year', 'Sec', 'Status']],
+                startY: 42,
+                theme: 'striped',
+                head: [['S.NO', 'STUDENT NAME', 'ROLL NUMBER', 'DEPT', 'YEAR', 'SEC', 'STATUS']],
                 body: tableRows,
-                styles: { fontSize: 8, cellPadding: 3 },
+                styles: { font: 'times', fontSize: 8.5, cellPadding: 3.5 },
                 headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255] },
                 columnStyles: {
+                    0: { halign: 'center' },
+                    2: { halign: 'center' },
                     6: { fontStyle: 'bold' }
                 },
                 didParseCell: (data) => {
@@ -1373,24 +1518,64 @@ const AdminDashboard = () => {
                 }
             });
 
-            // Page 6: EVENT GALLERY
+            // ================= PAGE 8: FEEDBACK INTELLIGENCE =================
+            if (eventFeedbacks.length > 0) {
+                doc.addPage();
+                drawPageHeader();
+
+                doc.setFont('times', 'bold');
+                doc.setFontSize(14);
+                doc.setTextColor(15, 23, 42);
+                doc.text('PARTICIPANT FEEDBACK INTELLIGENCE', pageWidth / 2, 35, { align: 'center' });
+
+                const avgRating = (eventFeedbacks.reduce((acc, curr) => acc + (Number(curr.rating) || 0), 0) / (eventFeedbacks.length || 1)).toFixed(1);
+                
+                doc.setFont('times', 'bold');
+                doc.setFontSize(11);
+                doc.setTextColor(71, 85, 105);
+                doc.text(`Total Feedback Logs: ${eventFeedbacks.length}    |    Average Assessment Score: ${avgRating} / 5.0`, 15, 43);
+
+                // Feedback Highlights Table
+                const feedbackComments = eventFeedbacks
+                    .filter(f => f.comment || f.feedback)
+                    .map((f, index) => [
+                        index + 1,
+                        f.studentRoll || 'N/A',
+                        `★ ${f.rating || '-'}`,
+                        f.comment || f.feedback || 'N/A'
+                    ]);
+
+                autoTable(doc, {
+                    startY: 48,
+                    theme: 'striped',
+                    head: [['S.NO', 'ROLL NUMBER', 'RATING', 'STUDENT INSIGHTS & REMARKS']],
+                    body: feedbackComments,
+                    headStyles: { fillColor: [15, 23, 42], font: 'times', fontStyle: 'bold', fontSize: 9.5 },
+                    bodyStyles: { font: 'times', fontSize: 9 },
+                    columnStyles: {
+                        0: { cellWidth: 15, halign: 'center' },
+                        1: { cellWidth: 35 },
+                        2: { cellWidth: 20, fontStyle: 'bold', textColor: [234, 179, 8] },
+                        3: { cellWidth: 120 }
+                    }
+                });
+            }
+
+            // ================= PAGE 9: PHOTOGRAPHS GALLERY =================
             if (eventImages.length > 0) {
                 doc.addPage();
-                if (rit) doc.addImage(rit, 'PNG', 15, 10, 65, 15);
-                if (ts) doc.addImage(ts, 'PNG', pageWidth - 55, 10, 40, 15);
-                doc.setDrawColor(226, 232, 240);
-                doc.line(15, 30, pageWidth - 15, 30);
+                drawPageHeader();
 
-                doc.setFont('helvetica', 'bold');
+                doc.setFont('times', 'bold');
                 doc.setFontSize(14);
                 doc.setTextColor(30, 41, 59);
-                doc.text('EVENT PHOTOGRAPHS GALLERY', 15, 42);
+                doc.text('EVENT PHOTOGRAPHS GALLERY', 15, 38);
 
                 const positions = [
-                    { x: 15, y: 50, w: 85, h: 90 },
-                    { x: 110, y: 50, w: 85, h: 90 },
-                    { x: 15, y: 155, w: 85, h: 90 },
-                    { x: 110, y: 155, w: 85, h: 90 }
+                    { x: 15, y: 46, w: 85, h: 90 },
+                    { x: 110, y: 46, w: 85, h: 90 },
+                    { x: 15, y: 150, w: 85, h: 90 },
+                    { x: 110, y: 150, w: 85, h: 90 }
                 ];
 
                 eventImages.forEach((imgBase64, idx) => {
@@ -1414,6 +1599,98 @@ const AdminDashboard = () => {
             console.error('Error generating event report PDF:', error);
             alert('An error occurred during report generation. Please try again.');
             setIsGeneratingReport(false);
+        }
+    };
+
+    const fetchCertificateData = async () => {
+        if (!sheetUrl) {
+            alert('Please enter a Google Sheets URL first.');
+            return;
+        }
+        setIsFetchingSheet(true);
+        try {
+            const regex = /\/d\/([a-zA-Z0-9-_]+)/;
+            const match = sheetUrl.match(regex);
+            if (!match || !match[1]) {
+                alert('Invalid Google Sheets URL format. Make sure it contains /d/SPREADSHEET_ID.');
+                setIsFetchingSheet(false);
+                return;
+            }
+            const sheetId = match[1];
+            const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
+            const res = await fetch(csvUrl);
+            const text = await res.text();
+            
+            const parseCSV = (csvText) => {
+                const lines = [];
+                let row = [""];
+                let inQuotes = false;
+                for (let i = 0; i < csvText.length; i++) {
+                    const c = csvText[i];
+                    const next = csvText[i + 1];
+                    if (c === '"') {
+                        if (inQuotes && next === '"') {
+                            row[row.length - 1] += '"';
+                            i++;
+                        } else {
+                            inQuotes = !inQuotes;
+                        }
+                    } else if (c === ',') {
+                        if (inQuotes) {
+                            row[row.length - 1] += c;
+                        } else {
+                            row.push("");
+                        }
+                    } else if (c === '\r' || c === '\n') {
+                        if (inQuotes) {
+                            row[row.length - 1] += c;
+                        } else {
+                            if (c === '\r' && next === '\n') {
+                                i++;
+                            }
+                            lines.push(row);
+                            row = [""];
+                        }
+                    } else {
+                        row[row.length - 1] += c;
+                    }
+                }
+                if (row.length > 1 || row[0] !== "") {
+                    lines.push(row);
+                }
+                return lines;
+            };
+
+            const rows = parseCSV(text);
+            if (rows.length === 0) {
+                alert('No data found in the sheet.');
+                setIsFetchingSheet(false);
+                return;
+            }
+
+            const startIdx = Math.max(1, sheetStartRow - 1);
+            const endIdx = Math.min(rows.length, sheetEndRow);
+            const parsedCerts = [];
+
+            for (let idx = startIdx; idx < endIdx; idx++) {
+                const r = rows[idx];
+                if (r && r.length >= 4) {
+                    parsedCerts.push({
+                        rollNumber: r[0]?.trim() || '',
+                        name: r[1]?.trim() || '',
+                        role: r[2]?.trim() || 'Participant',
+                        certId: r[3]?.trim() || ''
+                    });
+                }
+            }
+
+            setSheetCertificates(parsedCerts);
+            alert(`Successfully fetched and parsed ${parsedCerts.length} certificates!`);
+        } catch (error) {
+            console.error('Error fetching Google Sheet:', error);
+            alert('Failed to fetch/parse the Google Sheet. Please verify if the sheet is public and shared with "Anyone with the link can view".');
+        } finally {
+            setIsFetchingSheet(false);
         }
     };
 
@@ -4504,94 +4781,304 @@ const AdminDashboard = () => {
                             <div className="space-y-8 animate-in fade-in duration-300">
                                 <div>
                                     <h4 className="text-xl font-black text-slate-800 uppercase italic">Event Report <span className="text-blue-600">Generator</span></h4>
-                                    <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Compile comprehensive post-event portfolios containing posters, approvals, write-ups, attendance, and galleries</p>
+                                    <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Compile official, academic-grade post-event portfolios with telemetry metrics, certificates, and feedback</p>
                                 </div>
 
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">1. Select Target Event</label>
-                                            <select
-                                                value={selectedEventId}
-                                                onChange={(e) => setSelectedEventId(e.target.value)}
-                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none cursor-pointer"
-                                            >
-                                                <option value="">-- Select Event --</option>
-                                                {events.map((e) => (
-                                                    <option key={e.id} value={e.id}>
-                                                        {(e.title || e.eventName || '').toUpperCase()} ({e.date || 'No Date'})
-                                                    </option>
+                                    {/* Left Column: Event details, Guest details, dynamic subheadings */}
+                                    <div className="space-y-6">
+                                        {/* Main Event Selection */}
+                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-4">
+                                            <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b pb-3 border-slate-100">1. Target Event & Assets</h5>
+                                            
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Select Event</label>
+                                                <select
+                                                    value={selectedEventId}
+                                                    onChange={(e) => setSelectedEventId(e.target.value)}
+                                                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none cursor-pointer"
+                                                >
+                                                    <option value="">-- Select Event --</option>
+                                                    {events.map((e) => (
+                                                        <option key={e.id} value={e.id}>
+                                                            {(e.title || e.eventName || '').toUpperCase()} ({e.date || 'No Date'})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Event Poster</label>
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        onChange={handlePosterUpload}
+                                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                                    />
+                                                    {eventPoster && <p className="text-[9px] text-green-600 font-bold ml-1">✓ Poster loaded</p>}
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Approval Letter</label>
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        onChange={handleApprovalLetterUpload}
+                                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                                    />
+                                                    {approvalLetter && <p className="text-[9px] text-green-600 font-bold ml-1">✓ Approval letter loaded</p>}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Invited Guest Details */}
+                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-4">
+                                            <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b pb-3 border-slate-100">2. Invited Guest Speaker Details</h5>
+                                            
+                                            <div className="space-y-3">
+                                                <div className="space-y-1">
+                                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Guest Name</label>
+                                                    <input
+                                                        type="text"
+                                                        value={eventGuestName}
+                                                        onChange={(e) => setEventGuestName(e.target.value)}
+                                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none"
+                                                        placeholder="e.g. Dr. Jane Smith"
+                                                    />
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="space-y-1">
+                                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Designation</label>
+                                                        <input
+                                                            type="text"
+                                                            value={eventGuestDesig}
+                                                            onChange={(e) => setEventGuestDesig(e.target.value)}
+                                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none"
+                                                            placeholder="e.g. Senior Principal Scientist"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Organization</label>
+                                                        <input
+                                                            type="text"
+                                                            value={eventGuestOrg}
+                                                            onChange={(e) => setEventGuestOrg(e.target.value)}
+                                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none"
+                                                            placeholder="e.g. CSRI Labs"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Dynamic Subheadings / Write-Up Sections */}
+                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-4">
+                                            <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b pb-3 border-slate-100">3. Report Write-up Sections</h5>
+                                            
+                                            <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1 custom-scrollbar">
+                                                {eventWriteupSections.map((sect, idx) => (
+                                                    <div key={idx} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2 relative">
+                                                        <button
+                                                            onClick={() => setEventWriteupSections(eventWriteupSections.filter((_, i) => i !== idx))}
+                                                            className="absolute top-3 right-3 text-slate-300 hover:text-red-500 transition-colors"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                        <input
+                                                            type="text"
+                                                            value={sect.title}
+                                                            onChange={(e) => {
+                                                                const updated = [...eventWriteupSections];
+                                                                updated[idx].title = e.target.value;
+                                                                setEventWriteupSections(updated);
+                                                            }}
+                                                            className="w-3/4 bg-transparent text-[11px] font-black uppercase outline-none border-b border-transparent focus:border-slate-200"
+                                                            placeholder="Section Title"
+                                                        />
+                                                        <textarea
+                                                            rows="3"
+                                                            value={sect.content}
+                                                            onChange={(e) => {
+                                                                const updated = [...eventWriteupSections];
+                                                                updated[idx].content = e.target.value;
+                                                                setEventWriteupSections(updated);
+                                                            }}
+                                                            className="w-full px-2 py-1 bg-white border border-slate-100 rounded-lg text-[10px] font-medium leading-relaxed outline-none"
+                                                            placeholder="Section content..."
+                                                        />
+                                                    </div>
                                                 ))}
-                                            </select>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <div className="space-y-2">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">2. Event Poster (Page 2)</label>
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    onChange={handlePosterUpload}
-                                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                                                />
-                                                {eventPoster && (
-                                                    <p className="text-[9px] text-green-600 font-bold ml-1 flex items-center gap-1">✓ Poster loaded successfully</p>
-                                                )}
                                             </div>
 
-                                            <div className="space-y-2">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">3. Approval Letter (Page 3)</label>
+                                            {/* Add Section form */}
+                                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/50 space-y-2">
+                                                <h6 className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Add New Section / Subheading</h6>
                                                 <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    onChange={handleApprovalLetterUpload}
-                                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                                    type="text"
+                                                    value={newSectionTitle}
+                                                    onChange={(e) => setNewSectionTitle(e.target.value)}
+                                                    placeholder="Subheading (e.g. Technical Session Summary)"
+                                                    className="w-full px-3 py-2 bg-white border border-slate-100 rounded-lg text-[10px] font-bold outline-none"
                                                 />
-                                                {approvalLetter && (
-                                                    <p className="text-[9px] text-green-600 font-bold ml-1 flex items-center gap-1">✓ Approval letter loaded successfully</p>
-                                                )}
+                                                <textarea
+                                                    rows="2"
+                                                    value={newSectionContent}
+                                                    onChange={(e) => setNewSectionContent(e.target.value)}
+                                                    placeholder="Section writeup..."
+                                                    className="w-full px-3 py-2 bg-white border border-slate-100 rounded-lg text-[10px] font-bold outline-none"
+                                                />
+                                                <button
+                                                    onClick={() => {
+                                                        if (newSectionTitle) {
+                                                            setEventWriteupSections([...eventWriteupSections, { title: newSectionTitle, content: newSectionContent }]);
+                                                            setNewSectionTitle('');
+                                                            setNewSectionContent('');
+                                                        }
+                                                    }}
+                                                    className="w-full py-2 bg-slate-900 hover:bg-black text-white rounded-xl text-[9px] font-black uppercase tracking-widest"
+                                                >
+                                                    + Add Report Section
+                                                </button>
                                             </div>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">4. Event Content / Write-Up (Page 4)</label>
-                                            <textarea
-                                                rows="6"
-                                                value={eventReportContent}
-                                                onChange={(e) => setEventReportContent(e.target.value)}
-                                                placeholder="Describe the event outcomes, highlights, guest speakers, number of participants, feedback summary, and overall impacts..."
-                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold leading-relaxed outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
-                                            />
                                         </div>
                                     </div>
 
+                                    {/* Right Column: Google Sheets Importer, Certificates Registry, Photographs & Export */}
                                     <div className="space-y-6">
-                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
+                                        {/* Google Sheets Certificates Importer */}
+                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-4">
+                                            <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b pb-3 border-slate-100">4. Certificates Importer (Google Sheets)</h5>
+                                            
                                             <div className="space-y-2">
-                                                <div className="flex items-center justify-between">
-                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">5. Event Gallery Images (Page 6 - Max 4)</label>
-                                                    {eventImages.length > 0 && (
-                                                        <button
-                                                            onClick={() => setEventImages([])}
-                                                            className="text-[9px] font-black text-red-500 hover:underline uppercase tracking-widest"
-                                                        >
-                                                            Clear All
-                                                        </button>
-                                                    )}
-                                                </div>
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Public Google Sheet Link (Shared / Anyone View)</label>
                                                 <input
-                                                    type="file"
-                                                    multiple
-                                                    accept="image/*"
-                                                    onChange={handleGalleryImagesUpload}
-                                                    disabled={eventImages.length >= 4}
-                                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
+                                                    type="text"
+                                                    value={sheetUrl}
+                                                    onChange={(e) => setSheetUrl(e.target.value)}
+                                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none"
+                                                    placeholder="Paste spreadsheet link..."
                                                 />
-                                                <p className="text-[9px] text-slate-400 font-bold ml-1">Selected: {eventImages.length} / 4 photographs</p>
                                             </div>
 
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="space-y-1">
+                                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Starting Row</label>
+                                                    <input
+                                                        type="number"
+                                                        value={sheetStartRow}
+                                                        onChange={(e) => setSheetStartRow(parseInt(e.target.value) || 2)}
+                                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Ending Row</label>
+                                                    <input
+                                                        type="number"
+                                                        value={sheetEndRow}
+                                                        onChange={(e) => setSheetEndRow(parseInt(e.target.value) || 10)}
+                                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                onClick={fetchCertificateData}
+                                                disabled={isFetchingSheet}
+                                                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 disabled:bg-slate-50 text-slate-700 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                                            >
+                                                {isFetchingSheet ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : '+ Fetch Certificate Registry Data'}
+                                            </button>
+
+                                            {/* Loaded Certificates Registry */}
+                                            {sheetCertificates.length > 0 && (
+                                                <div className="space-y-3 pt-3 border-t border-slate-100">
+                                                    <h6 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fetched Certificate Roster ({sheetCertificates.length})</h6>
+                                                    <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
+                                                        {sheetCertificates.map((c, idx) => (
+                                                            <div key={idx} className="flex gap-2 items-center bg-slate-50 p-2 rounded-xl text-[10px]">
+                                                                <span className="font-bold text-slate-400">{idx + 1}.</span>
+                                                                <input
+                                                                    type="text"
+                                                                    value={c.rollNumber}
+                                                                    onChange={(e) => {
+                                                                        const updated = [...sheetCertificates];
+                                                                        updated[idx].rollNumber = e.target.value;
+                                                                        setSheetCertificates(updated);
+                                                                    }}
+                                                                    className="w-1/4 bg-transparent outline-none font-bold uppercase"
+                                                                    placeholder="Roll"
+                                                                />
+                                                                <input
+                                                                    type="text"
+                                                                    value={c.name}
+                                                                    onChange={(e) => {
+                                                                        const updated = [...sheetCertificates];
+                                                                        updated[idx].name = e.target.value;
+                                                                        setSheetCertificates(updated);
+                                                                    }}
+                                                                    className="w-1/3 bg-transparent outline-none font-medium"
+                                                                    placeholder="Name"
+                                                                />
+                                                                <select
+                                                                    value={c.role}
+                                                                    onChange={(e) => {
+                                                                        const updated = [...sheetCertificates];
+                                                                        updated[idx].role = e.target.value;
+                                                                        setSheetCertificates(updated);
+                                                                    }}
+                                                                    className="bg-transparent outline-none font-black text-[9px] uppercase cursor-pointer"
+                                                                >
+                                                                    <option value="Participant">Participant</option>
+                                                                    <option value="Winner">Winner</option>
+                                                                </select>
+                                                                <input
+                                                                    type="text"
+                                                                    value={c.certId}
+                                                                    onChange={(e) => {
+                                                                        const updated = [...sheetCertificates];
+                                                                        updated[idx].certId = e.target.value;
+                                                                        setSheetCertificates(updated);
+                                                                    }}
+                                                                    className="flex-1 bg-transparent outline-none text-slate-600 font-bold"
+                                                                    placeholder="Cert ID"
+                                                                />
+                                                                <button
+                                                                    onClick={() => setSheetCertificates(sheetCertificates.filter((_, i) => i !== idx))}
+                                                                    className="text-slate-300 hover:text-red-500 transition-colors"
+                                                                >
+                                                                    <X className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Gallery Photos */}
+                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-4">
+                                            <div className="flex items-center justify-between border-b pb-3 border-slate-100">
+                                                <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider">5. Event Gallery (Max 4)</h5>
+                                                {eventImages.length > 0 && (
+                                                    <button
+                                                        onClick={() => setEventImages([])}
+                                                        className="text-[9px] font-black text-red-500 hover:underline uppercase tracking-widest"
+                                                    >
+                                                        Clear All
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <input
+                                                type="file"
+                                                multiple
+                                                accept="image/*"
+                                                onChange={handleGalleryImagesUpload}
+                                                disabled={eventImages.length >= 4}
+                                                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
+                                            />
                                             {eventImages.length > 0 && (
-                                                <div className="grid grid-cols-2 gap-4">
+                                                <div className="grid grid-cols-2 gap-3 mt-3">
                                                     {eventImages.map((img, idx) => (
                                                         <div key={idx} className="relative aspect-video rounded-xl overflow-hidden border border-slate-200">
                                                             <img src={img} alt={`preview-${idx}`} className="w-full h-full object-cover" />
@@ -4599,7 +5086,10 @@ const AdminDashboard = () => {
                                                     ))}
                                                 </div>
                                             )}
+                                        </div>
 
+                                        {/* Compile Action */}
+                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-4">
                                             <button
                                                 onClick={downloadEventReportPDF}
                                                 disabled={isGeneratingReport || !selectedEventId}
