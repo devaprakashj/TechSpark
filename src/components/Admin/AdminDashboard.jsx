@@ -523,6 +523,57 @@ const AdminDashboard = () => {
         }
     }, [reportsSubTab, analytics, organizers, events]);
 
+    // Fetch and populate Faculty Coordinator, President, and VP from Core Team directory based on selected Academic Year
+    useEffect(() => {
+        const targetYear = annualAcademicYear.trim();
+        const yearCoords = coordinators.filter(c => c.academicYear === targetYear);
+
+        const faculty = yearCoords.find(c => c.role === 'FACULTY COORDINATOR');
+        if (faculty) {
+            setAnnualFacultyCoord({
+                name: faculty.fullName || 'NIL',
+                designation: faculty.designation || 'Faculty Coordinator',
+                department: faculty.department || 'NIL'
+            });
+        } else {
+            setAnnualFacultyCoord({
+                name: 'NIL',
+                designation: 'Faculty Coordinator',
+                department: 'NIL'
+            });
+        }
+
+        const pres = yearCoords.find(c => c.role === 'PRESIDENT');
+        if (pres) {
+            setAnnualPresident({
+                name: pres.fullName || 'NIL',
+                designation: 'President',
+                department: pres.department || 'NIL'
+            });
+        } else {
+            setAnnualPresident({
+                name: 'NIL',
+                designation: 'President',
+                department: 'NIL'
+            });
+        }
+
+        const vp = yearCoords.find(c => c.role === 'VICE-PRESIDENT');
+        if (vp) {
+            setAnnualVicePresident({
+                name: vp.fullName || 'NIL',
+                designation: 'Vice President',
+                department: vp.department || 'NIL'
+            });
+        } else {
+            setAnnualVicePresident({
+                name: 'NIL',
+                designation: 'Vice President',
+                department: 'NIL'
+            });
+        }
+    }, [annualAcademicYear, coordinators]);
+
     const downloadEventImpactReport = async () => {
         try {
             const doc = new jsPDF();
