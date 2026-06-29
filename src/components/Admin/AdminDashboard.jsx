@@ -54,6 +54,7 @@ import autoTable from 'jspdf-autotable';
 import emailjs from '@emailjs/browser';
 import ritLogo from '../../assets/rit-logo.png';
 import techsparkLogo from '../../assets/techspark-logo.png';
+import iqacLogo from '../../assets/iqac-logo.png';
 
 const AdminDashboard = () => {
     const [admin, setAdmin] = useState(null);
@@ -200,6 +201,115 @@ const AdminDashboard = () => {
     const [odInputRoll, setOdInputRoll] = useState('');
     const [isSearchingOdStudent, setIsSearchingOdStudent] = useState(false);
 
+    // Reports Restructure Sub-tab State
+    const [reportsSubTab, setReportsSubTab] = useState('strategic_reports');
+
+    // Event Report Generator State
+    const [selectedEventId, setSelectedEventId] = useState('');
+    const [eventPoster, setEventPoster] = useState(null);
+    const [approvalLetter, setApprovalLetter] = useState(null);
+    const [eventReportContent, setEventReportContent] = useState('');
+    const [eventImages, setEventImages] = useState([]); // Array of base64 images
+    const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+
+    // Approval Letter Generator State
+    const [approvalFormNo, setApprovalFormNo] = useState('RIT/IQAC/IIPC/IVR/F3.1R1');
+    const [approvalDate, setApprovalDate] = useState(new Date().toLocaleDateString('en-GB').split('/').join('.')); // e.g. 29.06.2026
+    const [approvalSubmissionTarget, setApprovalSubmissionTarget] = useState('Submitted for Vice Chairman Approval');
+    const [approvalThrough, setApprovalThrough] = useState('Principal / RIT');
+    const [approvalSubject, setApprovalSubject] = useState('Requesting Approval to conduct TechSpark Talent Quiz - 2nd Year');
+    const [approvalBody, setApprovalBody] = useState('The TechSpark Club proposes to conduct "IQ League", a section-wise online talent assessment for all Second Year students during regular class hours. The event will be held on 23.1.26(Friday). The event may be conducted as per the proposed plan under the coordination of the respective class in-charges. We kindly request your approval to conduct this event and support the issuance of certificates and the proposed industry visit for selected students.');
+    const [approvalDetails, setApprovalDetails] = useState([
+        { label: 'Name of the Event', value: '"IQ League"' },
+        { label: 'Event Duration', value: '20 Minutes' },
+        { label: 'Participants Details', value: 'II Year EE(VLSI) Students' },
+        { label: 'Type of the Event', value: 'Club Activity' },
+        { label: 'Registration Fees', value: 'No' },
+        { label: 'Budget Details', value: 'NA' },
+        { label: 'Any other Remarks', value: 'Certificate required.' }
+    ]);
+    const [approvalSignatures, setApprovalSignatures] = useState([
+        'Faculty Coordinator',
+        'HOD',
+        'Principal'
+    ]);
+    const [newDetailLabel, setNewDetailLabel] = useState('');
+    const [newDetailValue, setNewDetailValue] = useState('');
+    const [newSigName, setNewSigName] = useState('');
+    const [isGeneratingApprovalLetter, setIsGeneratingApprovalLetter] = useState(false);
+
+    // Annual Report Generator State
+    const [annualAcademicYear, setAnnualAcademicYear] = useState('2025 - 2026');
+    const [annualFacultyCoord, setAnnualFacultyCoord] = useState({ name: 'Dr. S. Devaprakash', designation: 'Assistant Professor', department: 'Information Technology' });
+    const [annualPresident, setAnnualPresident] = useState({ name: 'Praveen R', designation: 'President', department: 'Computer Science & Engineering' });
+    const [annualVicePresident, setAnnualVicePresident] = useState({ name: 'Thendral Raja K', designation: 'Vice President', department: 'Information Technology' });
+    const [annualObjectives, setAnnualObjectives] = useState('To foster advanced agentic coding skills, organize section-wise talent contests, host workshops, and guide students towards industry-standard technical innovations.');
+    const [annualEnrollment, setAnnualEnrollment] = useState([
+        { year: 'I Year', count: 120 },
+        { year: 'II Year', count: 98 },
+        { year: 'III Year', count: 85 },
+        { year: 'IV Year', count: 50 }
+    ]);
+    const [annualCoordinators, setAnnualCoordinators] = useState([
+        { designation: 'Club Coordinator', name: 'Barath S' },
+        { designation: 'Event Head', name: 'Monesh B' },
+        { designation: 'Technical Lead', name: 'Kanishga M' }
+    ]);
+    const [annualEvents, setAnnualEvents] = useState([
+        { date: '15.09.2025', title: 'TechSpark Orientation', objective: 'Introduce club structure to freshmen', workDone: 'Conducted live orientation session' },
+        { date: '21.01.2026', title: 'IQ League Talent Quiz', objective: 'Assess VLSI domain fundamentals', workDone: 'Organized online platform test' }
+    ]);
+    const [isGeneratingAnnualReport, setIsGeneratingAnnualReport] = useState(false);
+
+    // Inputs for adding to tables
+    const [newEnrollYear, setNewEnrollYear] = useState('');
+    const [newEnrollCount, setNewEnrollCount] = useState('');
+    const [newCoordDesig, setNewCoordDesig] = useState('');
+    const [newCoordName, setNewCoordName] = useState('');
+    const [newEventDate, setNewEventDate] = useState('');
+    const [newEventTitle, setNewEventTitle] = useState('');
+    const [newEventObj, setNewEventObj] = useState('');
+    const [newEventWork, setNewEventWork] = useState('');
+
+    // Upload Helper Functions
+    const handlePosterUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (uploadEvent) => {
+                setEventPoster(uploadEvent.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleApprovalLetterUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (uploadEvent) => {
+                setApprovalLetter(uploadEvent.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleGalleryImagesUpload = (e) => {
+        const files = Array.from(e.target.files);
+        let loadedCount = 0;
+        const tempImages = [];
+        files.forEach((file) => {
+            const reader = new FileReader();
+            reader.onload = (uploadEvent) => {
+                tempImages.push(uploadEvent.target.result);
+                loadedCount++;
+                if (loadedCount === files.length) {
+                    setEventImages(prev => [...prev, ...tempImages].slice(0, 4));
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+    };
 
     const fetchDashboardData = (silent = false) => {
         console.log("Strategic Refresh Triggered", silent ? "(silent)" : "");
@@ -360,6 +470,44 @@ const AdminDashboard = () => {
 
     }, [allStudents, events]);
 
+    // Auto-prepopulate annual report data when entering the generator tab
+    useEffect(() => {
+        if (reportsSubTab === 'annual_report_generator') {
+            // 1. Prepopulate enrollment from analytics.yearWise
+            if (analytics && analytics.yearWise && Object.keys(analytics.yearWise).length > 0) {
+                const mapped = Object.entries(analytics.yearWise).map(([year, count]) => ({
+                    year: `${year} Year`,
+                    count: count
+                }));
+                setAnnualEnrollment(mapped.sort((a, b) => a.year.localeCompare(b.year)));
+            }
+
+            // 2. Prepopulate student coordinators from organizers list
+            if (organizers && organizers.length > 0) {
+                const mappedCoords = organizers
+                    .filter(o => o.role && !o.role.toLowerCase().includes('faculty') && !o.role.toLowerCase().includes('advisor'))
+                    .map(o => ({
+                        designation: o.role || 'Coordinator',
+                        name: o.fullName
+                    }));
+                if (mappedCoords.length > 0) {
+                    setAnnualCoordinators(mappedCoords);
+                }
+            }
+
+            // 3. Prepopulate events from events list
+            if (events && events.length > 0) {
+                const mappedEvents = events.map(e => ({
+                    date: e.date || '',
+                    title: e.title || '',
+                    objective: e.objective || 'Promote domain knowledge.',
+                    workDone: e.description || 'Conducted successfully.'
+                }));
+                setAnnualEvents(mappedEvents);
+            }
+        }
+    }, [reportsSubTab, analytics, organizers, events]);
+
     const downloadEventImpactReport = async () => {
         try {
             const doc = new jsPDF();
@@ -377,7 +525,7 @@ const AdminDashboard = () => {
             // Header Section
             doc.setFillColor(255, 255, 255);
             doc.rect(0, 0, 210, 65, 'F');
-            doc.addImage(rit, 'PNG', 15, 15, 42, 36);
+            doc.addImage(rit, 'PNG', 15, 23, 65, 15);
             doc.addImage(ts, 'PNG', 161, 16, 34, 34);
 
             doc.setTextColor(15, 23, 42);
@@ -453,7 +601,7 @@ const AdminDashboard = () => {
                 new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = techsparkLogo; })
             ]);
 
-            doc.addImage(rit, 'PNG', 15, 15, 42, 36);
+            doc.addImage(rit, 'PNG', 15, 23, 65, 15);
             doc.addImage(ts, 'PNG', 161, 16, 34, 34);
             doc.setFontSize(20).setFont('helvetica', 'bold').text('MEMBER DEMOGRAPHIC AUDIT', 105, 30, { align: 'center' });
             doc.setFontSize(9).setTextColor(100).text(`Generated: ${new Date().toLocaleString()} | ID: ${reportId}`, 105, 40, { align: 'center' });
@@ -495,7 +643,7 @@ const AdminDashboard = () => {
                 new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = techsparkLogo; })
             ]);
 
-            doc.addImage(rit, 'PNG', 15, 15, 42, 36);
+            doc.addImage(rit, 'PNG', 15, 23, 65, 15);
             doc.addImage(ts, 'PNG', 161, 16, 34, 34);
             doc.setFontSize(22).setFont('helvetica', 'bold').text('OPERATIONAL LOGISTICS AUDIT', 105, 30, { align: 'center' });
             doc.setFontSize(10).setTextColor(120).text('STRATEGIC OVERSIGHT & GOVERNANCE REPORT', 105, 40, { align: 'center' });
@@ -609,6 +757,666 @@ const AdminDashboard = () => {
         }));
     };
 
+    const downloadAnnualReportPDF = async () => {
+        setIsGeneratingAnnualReport(true);
+        try {
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.width;
+            const pageHeight = doc.internal.pageSize.height;
+
+            // Load Logos
+            const loadImg = (path) => new Promise(res => {
+                const img = new Image();
+                img.onload = () => res(img);
+                img.onerror = () => res(null);
+                img.src = path;
+            });
+            const [rit, ts] = await Promise.all([loadImg(ritLogo), loadImg(techsparkLogo)]);
+
+            // Helper to draw standard header
+            const drawPageHeader = () => {
+                if (rit) doc.addImage(rit, 'PNG', 15, 10, 48, 11);
+                if (ts) doc.addImage(ts, 'PNG', pageWidth - 50, 8, 35, 15);
+                doc.setDrawColor(226, 232, 240);
+                doc.setLineWidth(0.8);
+                doc.line(15, 25, pageWidth - 15, 25);
+            };
+
+            // ================= PAGE 1: COVER PAGE =================
+            drawPageHeader();
+
+            doc.setFont('times', 'bold');
+            
+            // TechSpark Club title
+            doc.setFontSize(28);
+            doc.setTextColor(15, 23, 42); // slate-900
+            doc.text('TECHSPARK CLUB', pageWidth / 2, pageHeight / 3 + 10, { align: 'center' });
+
+            // Divider bar
+            doc.setFillColor(37, 99, 235); // blue-600
+            doc.rect(pageWidth / 2 - 35, pageHeight / 3 + 18, 70, 1.5, 'F');
+
+            // Annual Report Subtitle
+            doc.setFontSize(20);
+            doc.setTextColor(71, 85, 105); // slate-600
+            doc.text('ANNUAL REPORT', pageWidth / 2, pageHeight / 2, { align: 'center' });
+
+            // Academic Year Subtitle
+            doc.setFontSize(15);
+            doc.setTextColor(100, 116, 139); // slate-500
+            doc.text(`ACADEMIC YEAR ${annualAcademicYear.toUpperCase()}`, pageWidth / 2, pageHeight / 2 + 15, { align: 'center' });
+
+            // ================= PAGE 2: LEADERSHIP & OBJECTIVES =================
+            doc.addPage();
+            drawPageHeader();
+
+            doc.setFont('times', 'bold');
+            doc.setFontSize(14);
+            doc.setTextColor(15, 23, 42);
+            doc.text('CLUB LEADERSHIP & CORE EXECUTIVE COMMITTEE', pageWidth / 2, 35, { align: 'center' });
+
+            // Leadership Table
+            autoTable(doc, {
+                startY: 42,
+                theme: 'striped',
+                head: [['ROLE', 'OFFICER NAME', 'DESIGNATION', 'DEPARTMENT']],
+                body: [
+                    ['Faculty Coordinator', annualFacultyCoord.name.toUpperCase(), annualFacultyCoord.designation, annualFacultyCoord.department],
+                    ['Club President', annualPresident.name.toUpperCase(), annualPresident.designation, annualPresident.department],
+                    ['Club Vice President', annualVicePresident.name.toUpperCase(), annualVicePresident.designation, annualVicePresident.department]
+                ],
+                headStyles: { fillColor: [30, 41, 59], font: 'times', fontStyle: 'bold', fontSize: 10 },
+                bodyStyles: { font: 'times', fontSize: 9.5 },
+                columnStyles: {
+                    0: { fontStyle: 'bold', cellWidth: 40 }
+                }
+            });
+
+            // Objectives Section
+            const objStartY = doc.lastAutoTable.finalY + 15;
+            doc.setFont('times', 'bold');
+            doc.setFontSize(12);
+            doc.text('STATEMENT OF OBJECTIVES', 15, objStartY);
+            
+            doc.setFont('times', 'normal');
+            doc.setFontSize(10.5);
+            doc.setTextColor(51, 65, 85);
+            const splitObjectives = doc.splitTextToSize(annualObjectives, pageWidth - 30);
+            doc.text(splitObjectives, 15, objStartY + 8);
+
+            // ================= PAGE 3: ENROLLMENT DETAILS =================
+            doc.addPage();
+            drawPageHeader();
+
+            doc.setFont('times', 'bold');
+            doc.setFontSize(14);
+            doc.setTextColor(15, 23, 42);
+            doc.text('CLUB MEMBERSHIP ENROLLMENT METRICS', pageWidth / 2, 35, { align: 'center' });
+
+            const totalEnrollmentCount = annualEnrollment.reduce((acc, curr) => acc + Number(curr.count || 0), 0);
+
+            // Enrollment Table
+            autoTable(doc, {
+                startY: 42,
+                theme: 'grid',
+                head: [['ACADEMIC YEAR / STUDY SEGMENT', 'ENROLLED MEMBERS COUNT']],
+                body: [
+                    ...annualEnrollment.map(e => [e.year.toUpperCase(), e.count]),
+                    [{ content: 'TOTAL ACTIVE ENROLLED MEMBERS', styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } }, { content: totalEnrollmentCount, styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } }]
+                ],
+                headStyles: { fillColor: [37, 99, 235], font: 'times', fontStyle: 'bold', fontSize: 10, halign: 'center' },
+                bodyStyles: { font: 'times', fontSize: 10 },
+                columnStyles: {
+                    0: { cellWidth: 100 },
+                    1: { halign: 'center' }
+                }
+            });
+
+            // ================= PAGE 4: COORDINATORS LIST =================
+            doc.addPage();
+            drawPageHeader();
+
+            doc.setFont('times', 'bold');
+            doc.setFontSize(14);
+            doc.setTextColor(15, 23, 42);
+            doc.text('STUDENT EXECUTION COMMITTEE (COORDINATORS)', pageWidth / 2, 35, { align: 'center' });
+
+            // Coordinators Table
+            autoTable(doc, {
+                startY: 42,
+                theme: 'striped',
+                head: [['S.NO', 'DESIGNATION', 'STUDENT LEADER NAME']],
+                body: annualCoordinators.map((c, idx) => [idx + 1, c.designation.toUpperCase(), c.name.toUpperCase()]),
+                headStyles: { fillColor: [79, 70, 229], font: 'times', fontStyle: 'bold', fontSize: 10 },
+                bodyStyles: { font: 'times', fontSize: 9.5 },
+                columnStyles: {
+                    0: { cellWidth: 20, halign: 'center' },
+                    1: { cellWidth: 60, fontStyle: 'bold' }
+                }
+            });
+
+            // ================= PAGE 5: EVENTS ORGANIZED =================
+            doc.addPage();
+            drawPageHeader();
+
+            doc.setFont('times', 'bold');
+            doc.setFontSize(14);
+            doc.setTextColor(15, 23, 42);
+            doc.text('EVENTS ORGANIZED IN THIS ACADEMIC YEAR', pageWidth / 2, 35, { align: 'center' });
+
+            // Events Table
+            autoTable(doc, {
+                startY: 42,
+                theme: 'grid',
+                head: [['S.NO', 'DATE', 'EVENT TITLE', 'OBJECTIVE / INTENT', 'WORK DONE / DESCRIPTION']],
+                body: annualEvents.map((e, idx) => [
+                    idx + 1,
+                    e.date,
+                    e.title.toUpperCase(),
+                    e.objective,
+                    e.workDone
+                ]),
+                headStyles: { fillColor: [15, 23, 42], font: 'times', fontStyle: 'bold', fontSize: 9.5, halign: 'center' },
+                bodyStyles: { font: 'times', fontSize: 9, valign: 'middle' },
+                columnStyles: {
+                    0: { cellWidth: 12, halign: 'center' },
+                    1: { cellWidth: 22, halign: 'center' },
+                    2: { cellWidth: 42, fontStyle: 'bold' },
+                    3: { cellWidth: 50 },
+                    4: { cellWidth: 54 }
+                }
+            });
+
+            doc.save(`TechSpark_Annual_Report_${annualAcademicYear.replace(/\s+/g, '')}.pdf`);
+            setIsGeneratingAnnualReport(false);
+        } catch (error) {
+            console.error('Error generating annual report PDF:', error);
+            alert('An error occurred during PDF generation.');
+            setIsGeneratingAnnualReport(false);
+        }
+    };
+
+    const downloadApprovalLetterPDF = async () => {
+        setIsGeneratingApprovalLetter(true);
+        try {
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.width;
+            const pageHeight = doc.internal.pageSize.height;
+
+            // Load Logos
+            const loadImg = (path) => new Promise(res => {
+                const img = new Image();
+                img.onload = () => res(img);
+                img.onerror = () => res(null);
+                img.src = path;
+            });
+            const [rit, iqac] = await Promise.all([loadImg(ritLogo), loadImg(iqacLogo)]);
+
+            // Left Header: RIT Logo (Cropped content box, aligned properly)
+            if (rit) {
+                doc.addImage(rit, 'PNG', 15, 10, 48, 11);
+            }
+
+            // Right Header: IQAC Logo
+            if (iqac) {
+                doc.addImage(iqac, 'PNG', pageWidth - 42, 10, 27, 11);
+            }
+
+            // Thin Horizontal Divider Line
+            doc.setDrawColor(51, 65, 85); // slate-700
+            doc.setLineWidth(0.8);
+            doc.line(15, 25, pageWidth - 15, 25);
+
+            // Form No & Date Row (Times font, size 11)
+            doc.setFont('times', 'italic');
+            doc.setFontSize(11);
+            doc.setTextColor(71, 85, 105);
+            doc.text(`Form No.: ${approvalFormNo}`, 15, 32);
+
+            doc.setFont('times', 'bold');
+            doc.setFontSize(11);
+            doc.text(`Date: ${approvalDate}`, pageWidth - 15, 32, { align: 'right' });
+
+            // Submitted for Vice Chairman Approval (Times font, size 14)
+            doc.setFont('times', 'bold');
+            doc.setFontSize(14);
+            doc.setTextColor(15, 23, 42);
+            doc.text(approvalSubmissionTarget.toUpperCase(), pageWidth / 2, 42, { align: 'center' });
+            // Underline it
+            const submissionWidth = doc.getTextWidth(approvalSubmissionTarget.toUpperCase());
+            doc.line(pageWidth / 2 - submissionWidth / 2, 44, pageWidth / 2 + submissionWidth / 2, 44);
+
+            // Through Line (Times font, size 11)
+            doc.setFont('times', 'bold');
+            doc.setFontSize(11);
+            doc.text(`Through: ${approvalThrough}`, 15, 52);
+
+            // Subject Line (Italic + Bold, size 11)
+            doc.setFont('times', 'bolditalic');
+            doc.setFontSize(11);
+            const subText = `Sub:    ${approvalSubject}`;
+            const splitSub = doc.splitTextToSize(subText, pageWidth - 30);
+            let subCursorY = 60;
+            splitSub.forEach((line, index) => {
+                doc.text(line, 15, subCursorY + (index * 6));
+            });
+            const subHeight = splitSub.length * 6;
+
+            // Rich Text Paragraph Drawing Helper
+            const drawFormattedParagraph = (text, x, y, maxWidth, lineHeight = 7, defaultFont = 'times', fontSize = 11) => {
+                const words = text.split(/(\s+)/);
+                let lines = [];
+                let currentLine = [];
+                let currentLineWidth = 0;
+                
+                let isBold = false;
+                let isItalic = false;
+
+                const getWordWidth = (word) => {
+                    const parts = word.split(/(<\/?b>|<\/?u>|<\/?i>)/g);
+                    let width = 0;
+                    let tempBold = isBold;
+                    let tempItalic = isItalic;
+                    
+                    parts.forEach(part => {
+                        if (part === '<b>') { tempBold = true; }
+                        else if (part === '</b>') { tempBold = false; }
+                        else if (part === '<i>') { tempItalic = true; }
+                        else if (part === '</i>') { tempItalic = false; }
+                        else if (part !== '<u>' && part !== '</u>') {
+                            let style = 'normal';
+                            if (tempBold && tempItalic) style = 'bolditalic';
+                            else if (tempBold) style = 'bold';
+                            else if (tempItalic) style = 'italic';
+                            
+                            doc.setFont(defaultFont, style);
+                            doc.setFontSize(fontSize);
+                            width += doc.getTextWidth(part);
+                        }
+                    });
+                    return width;
+                };
+
+                words.forEach(word => {
+                    if (word.trim() === '' && word.includes('\n')) {
+                        lines.push(currentLine);
+                        currentLine = [];
+                        currentLineWidth = 0;
+                        return;
+                    }
+                    
+                    const wordWidth = getWordWidth(word);
+                    if (currentLineWidth + wordWidth > maxWidth && currentLine.length > 0) {
+                        lines.push(currentLine);
+                        currentLine = [word];
+                        currentLineWidth = wordWidth;
+                    } else {
+                        currentLine.push(word);
+                        currentLineWidth += wordWidth;
+                    }
+                });
+                if (currentLine.length > 0) {
+                    lines.push(currentLine);
+                }
+
+                let cursorY = y;
+                isBold = false;
+                isItalic = false;
+                let isUnderline = false;
+
+                lines.forEach(line => {
+                    let cursorX = x;
+                    const lineText = line.join('');
+                    const parts = lineText.split(/(<\/?b>|<\/?u>|<\/?i>)/g);
+                    
+                    parts.forEach(part => {
+                        if (part === '<b>') { isBold = true; }
+                        else if (part === '</b>') { isBold = false; }
+                        else if (part === '<i>') { isItalic = true; }
+                        else if (part === '</i>') { isItalic = false; }
+                        else if (part === '<u>') { isUnderline = true; }
+                        else if (part === '</u>') { isUnderline = false; }
+                        else {
+                            let style = 'normal';
+                            if (isBold && isItalic) style = 'bolditalic';
+                            else if (isBold) style = 'bold';
+                            else if (isItalic) style = 'italic';
+                            
+                            doc.setFont(defaultFont, style);
+                            doc.setFontSize(fontSize);
+                            doc.text(part, cursorX, cursorY);
+                            
+                            const w = doc.getTextWidth(part);
+                            if (isUnderline) {
+                                doc.line(cursorX, cursorY + 0.8, cursorX + w, cursorY + 0.8);
+                            }
+                            cursorX += w;
+                        }
+                    });
+                    cursorY += lineHeight;
+                });
+
+                return cursorY;
+            };
+
+            // Body Paragraph (Times font, size 11, line spacing 7)
+            let bodyCursorY = 60 + subHeight + 6;
+            let endBodyY = drawFormattedParagraph(approvalBody, 15, bodyCursorY, pageWidth - 30, 7, 'times', 11);
+
+            // Details section header
+            let detailsCursorY = endBodyY + 6;
+            doc.setFont('times', 'normal');
+            doc.setFontSize(11);
+            doc.setTextColor(30, 41, 59);
+            doc.text('The Details of the event are as follows:', 15, detailsCursorY);
+
+            // Details Table List (Times font, size 11, colon aligned)
+            let listCursorY = detailsCursorY + 7;
+            approvalDetails.forEach((detail, index) => {
+                doc.setFont('times', 'normal');
+                doc.setFontSize(11);
+                doc.text(`${index + 1}.`, 20, listCursorY);
+                doc.text(detail.label, 26, listCursorY);
+                doc.text(':', 75, listCursorY);
+                doc.text(detail.value, 78, listCursorY);
+                listCursorY += 7;
+            });
+
+            // Thanking you
+            let closingCursorY = listCursorY + 10;
+            doc.setFont('times', 'normal');
+            doc.setFontSize(11);
+            doc.text('Thanking you', pageWidth / 2, closingCursorY, { align: 'center' });
+
+            // Approved / Not Approved
+            let approvalStatusCursorY = closingCursorY + 12;
+            doc.setFont('times', 'bold');
+            doc.setFontSize(11);
+            doc.text('Approved / Not Approved', pageWidth / 2, approvalStatusCursorY, { align: 'center' });
+
+            // Signatures
+            let sigsCursorY = approvalStatusCursorY + 24;
+            if (approvalSignatures.length > 0) {
+                const colWidth = (pageWidth - 30) / approvalSignatures.length;
+                doc.setFont('times', 'bold');
+                doc.setFontSize(11);
+                approvalSignatures.forEach((sig, idx) => {
+                    const xPos = 15 + (idx * colWidth) + (colWidth / 2);
+                    doc.text(sig, xPos, sigsCursorY, { align: 'center' });
+                });
+            }
+
+            doc.save(`Approval_Letter_${approvalDate.split('.').join('_')}.pdf`);
+            setIsGeneratingApprovalLetter(false);
+        } catch (error) {
+            console.error('Error generating approval letter:', error);
+            alert('An error occurred during PDF generation.');
+            setIsGeneratingApprovalLetter(false);
+        }
+    };
+
+
+    const downloadEventReportPDF = async () => {
+        if (!selectedEventId) {
+            alert('Please select an event first.');
+            return;
+        }
+        setIsGeneratingReport(true);
+        try {
+            const event = events.find(e => e.id === selectedEventId);
+            if (!event) {
+                alert('Event not found.');
+                setIsGeneratingReport(false);
+                return;
+            }
+
+            // Fetch registrations for this event
+            const regsSnap = await getDocs(
+                query(collection(db, 'registrations'), where('eventId', '==', selectedEventId))
+            );
+            const eventRegs = regsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.width;
+            const pageHeight = doc.internal.pageSize.height;
+
+            // Load Logos Helper
+            const loadImg = (path) => new Promise(res => {
+                const img = new Image();
+                img.onload = () => res(img);
+                img.onerror = () => res(null);
+                img.src = path;
+            });
+
+            const [rit, ts] = await Promise.all([loadImg(ritLogo), loadImg(techsparkLogo)]);
+
+            // Page 1: COVER PAGE
+            // Header logos
+            if (rit) doc.addImage(rit, 'PNG', 15, 10, 65, 15);
+            if (ts) doc.addImage(ts, 'PNG', pageWidth - 55, 10, 40, 15);
+
+            doc.setDrawColor(226, 232, 240); // slate-200
+            doc.line(15, 30, pageWidth - 15, 30);
+
+            // Title block
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(26);
+            doc.setTextColor(30, 41, 59); // slate-800
+            doc.text('EVENT REPORT', pageWidth / 2, 70, { align: 'center' });
+
+            doc.setFontSize(18);
+            doc.setTextColor(37, 99, 235); // blue-600
+            // Split title if long
+            const titleLines = doc.splitTextToSize((event.title || event.eventName || '').toUpperCase(), pageWidth - 40);
+            doc.text(titleLines, pageWidth / 2, 85, { align: 'center' });
+
+            // Horizontal Accent line
+            doc.setLineWidth(1);
+            doc.setDrawColor(37, 99, 235); // blue-600
+            doc.line(pageWidth / 2 - 30, 105, pageWidth / 2 + 30, 105);
+
+            // Meta Info Table
+            const metaInfo = [
+                ['DATE', event.date || 'N/A'],
+                ['VENUE', event.venue || 'N/A'],
+                ['STATUS', (event.status || 'COMPLETED').toUpperCase()],
+                ['ORGANIZING BODY', 'TECHSPARK CLUB'],
+                ['REPORT GENERATION', new Date().toLocaleDateString()]
+            ];
+
+            autoTable(doc, {
+                startY: 120,
+                margin: { left: 40, right: 40 },
+                body: metaInfo,
+                theme: 'plain',
+                styles: {
+                    fontSize: 10,
+                    cellPadding: 6,
+                    textColor: [71, 85, 105], // slate-600
+                    fontStyle: 'normal'
+                },
+                columnStyles: {
+                    0: { fontStyle: 'bold', textColor: [30, 41, 59], width: 50 }
+                }
+            });
+
+            // Footer of Cover Page
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(148, 163, 184); // slate-400
+            doc.text('RAJALAKSHMI INSTITUTE OF TECHNOLOGY', pageWidth / 2, pageHeight - 15, { align: 'center' });
+
+            // Page 2: EVENT POSTER (If uploaded)
+            if (eventPoster) {
+                doc.addPage();
+                if (rit) doc.addImage(rit, 'PNG', 15, 10, 65, 15);
+                if (ts) doc.addImage(ts, 'PNG', pageWidth - 55, 10, 40, 15);
+                doc.setDrawColor(226, 232, 240);
+                doc.line(15, 30, pageWidth - 15, 30);
+
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(14);
+                doc.setTextColor(30, 41, 59);
+                doc.text('EVENT POSTER', 15, 42);
+
+                try {
+                    doc.addImage(eventPoster, 'JPEG', 15, 50, 180, 220, undefined, 'FAST');
+                } catch (e) {
+                    console.error('Error drawing event poster:', e);
+                    doc.setFontSize(10);
+                    doc.setTextColor(239, 68, 68);
+                    doc.text('Failed to render event poster image.', 15, 60);
+                }
+            }
+
+            // Page 3: APPROVAL LETTER (If uploaded)
+            if (approvalLetter) {
+                doc.addPage();
+                if (rit) doc.addImage(rit, 'PNG', 15, 10, 65, 15);
+                if (ts) doc.addImage(ts, 'PNG', pageWidth - 55, 10, 40, 15);
+                doc.setDrawColor(226, 232, 240);
+                doc.line(15, 30, pageWidth - 15, 30);
+
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(14);
+                doc.setTextColor(30, 41, 59);
+                doc.text('APPROVAL LETTER', 15, 42);
+
+                try {
+                    doc.addImage(approvalLetter, 'JPEG', 15, 50, 180, 220, undefined, 'FAST');
+                } catch (e) {
+                    console.error('Error drawing approval letter:', e);
+                    doc.setFontSize(10);
+                    doc.setTextColor(239, 68, 68);
+                    doc.text('Failed to render approval letter image.', 15, 60);
+                }
+            }
+
+            // Page 4: EVENT REPORT CONTENT
+            doc.addPage();
+            if (rit) doc.addImage(rit, 'PNG', 15, 10, 65, 15);
+            if (ts) doc.addImage(ts, 'PNG', pageWidth - 55, 10, 40, 15);
+            doc.setDrawColor(226, 232, 240);
+            doc.line(15, 30, pageWidth - 15, 30);
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.setTextColor(30, 41, 59);
+            doc.text('EVENT REPORT WRITE-UP', 15, 42);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(11);
+            doc.setTextColor(51, 65, 85);
+
+            const writeUpText = eventReportContent || 'No event report content write-up provided.';
+            const splitWriteUp = doc.splitTextToSize(writeUpText, pageWidth - 30);
+
+            let cursorY = 52;
+            splitWriteUp.forEach(line => {
+                if (cursorY > pageHeight - 20) {
+                    doc.addPage();
+                    if (rit) doc.addImage(rit, 'PNG', 15, 10, 65, 15);
+                    if (ts) doc.addImage(ts, 'PNG', pageWidth - 55, 10, 40, 15);
+                    doc.setDrawColor(226, 232, 240);
+                    doc.line(15, 30, pageWidth - 15, 30);
+                    cursorY = 45;
+                }
+                doc.text(line, 15, cursorY);
+                cursorY += 6;
+            });
+
+            // Page 5: ATTENDANCE SHEET
+            doc.addPage();
+            if (rit) doc.addImage(rit, 'PNG', 15, 10, 65, 15);
+            if (ts) doc.addImage(ts, 'PNG', pageWidth - 55, 10, 40, 15);
+            doc.setDrawColor(226, 232, 240);
+            doc.line(15, 30, pageWidth - 15, 30);
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.setTextColor(30, 41, 59);
+            doc.text('PARTICIPANT ATTENDANCE SHEET', 15, 42);
+
+            const presentCount = eventRegs.filter(r => r.isAttended || r.status === 'Present').length;
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(71, 85, 105);
+            doc.text(`Total Registered: ${eventRegs.length}   |   Present: ${presentCount}   |   Absent: ${eventRegs.length - presentCount}`, 15, 50);
+
+            const tableRows = eventRegs.map((reg, index) => [
+                index + 1,
+                (reg.studentName || 'N/A').toUpperCase(),
+                reg.studentRoll || reg.rollNumber || 'N/A',
+                (reg.studentDept || reg.department || 'N/A').toUpperCase(),
+                reg.studentYear || reg.yearOfStudy || 'N/A',
+                reg.studentSection || reg.section || '-',
+                reg.isAttended || reg.status === 'Present' ? 'PRESENT' : 'ABSENT'
+            ]);
+
+            autoTable(doc, {
+                startY: 56,
+                head: [['S.No', 'Student Name', 'Roll Number', 'Dept', 'Year', 'Sec', 'Status']],
+                body: tableRows,
+                styles: { fontSize: 8, cellPadding: 3 },
+                headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255] },
+                columnStyles: {
+                    6: { fontStyle: 'bold' }
+                },
+                didParseCell: (data) => {
+                    if (data.column.index === 6 && data.cell.section === 'body') {
+                        if (data.cell.text[0] === 'PRESENT') {
+                            data.cell.styles.textColor = [22, 163, 74];
+                        } else {
+                            data.cell.styles.textColor = [220, 38, 38];
+                        }
+                    }
+                }
+            });
+
+            // Page 6: EVENT GALLERY
+            if (eventImages.length > 0) {
+                doc.addPage();
+                if (rit) doc.addImage(rit, 'PNG', 15, 10, 65, 15);
+                if (ts) doc.addImage(ts, 'PNG', pageWidth - 55, 10, 40, 15);
+                doc.setDrawColor(226, 232, 240);
+                doc.line(15, 30, pageWidth - 15, 30);
+
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(14);
+                doc.setTextColor(30, 41, 59);
+                doc.text('EVENT PHOTOGRAPHS GALLERY', 15, 42);
+
+                const positions = [
+                    { x: 15, y: 50, w: 85, h: 90 },
+                    { x: 110, y: 50, w: 85, h: 90 },
+                    { x: 15, y: 155, w: 85, h: 90 },
+                    { x: 110, y: 155, w: 85, h: 90 }
+                ];
+
+                eventImages.forEach((imgBase64, idx) => {
+                    if (idx < positions.length) {
+                        const pos = positions[idx];
+                        try {
+                            doc.addImage(imgBase64, 'JPEG', pos.x, pos.y, pos.w, pos.h, undefined, 'FAST');
+                            doc.setDrawColor(200);
+                            doc.setLineWidth(0.2);
+                            doc.rect(pos.x, pos.y, pos.w, pos.h);
+                        } catch (e) {
+                            console.error('Error drawing gallery image:', e);
+                        }
+                    }
+                });
+            }
+
+            doc.save(`Event_Report_${event.title.replace(/\s+/g, '_')}.pdf`);
+            setIsGeneratingReport(false);
+        } catch (error) {
+            console.error('Error generating event report PDF:', error);
+            alert('An error occurred during report generation. Please try again.');
+            setIsGeneratingReport(false);
+        }
+    };
+
     const downloadManualODLetter = async () => {
         try {
             const doc = new jsPDF();
@@ -626,7 +1434,7 @@ const AdminDashboard = () => {
             const [rit, ts] = await Promise.all([loadImg(ritLogo), loadImg(techsparkLogo)]);
 
             // Header Section
-            if (rit) doc.addImage(rit, 'PNG', 15, 12, 45, 11);
+            if (rit) doc.addImage(rit, 'PNG', 15, 10, 65, 15);
             if (ts) doc.addImage(ts, 'PNG', pageWidth - 55, 10, 40, 15);
 
             doc.setDrawColor(200);
@@ -1364,8 +2172,8 @@ const AdminDashboard = () => {
                     img.src = path;
                 });
                 const [rit, ts] = await Promise.all([loadImg(ritLogo), loadImg(techsparkLogo)]);
-                if (rit) doc.addImage(rit, 'PNG', 10, 8, 45, 12);
-                if (ts) doc.addImage(ts, 'PNG', pageWidth - 55, 8, 45, 12);
+                if (rit) doc.addImage(rit, 'PNG', 10, 8, 52, 12);
+                if (ts) doc.addImage(ts, 'PNG', pageWidth - 55, 8, 41, 12);
             };
 
             const addWatermark = (text = 'OFFICIAL AUDIT') => {
@@ -1943,8 +2751,8 @@ const AdminDashboard = () => {
             // Green Bar & Header
             doc.setFillColor(16, 185, 129);
             doc.rect(0, 0, 5, 297, 'F');
-            if (rit) doc.addImage(rit, 'PNG', 12, 10, 48, 15);
-            if (ts) doc.addImage(ts, 'PNG', pageWidth - 60, 10, 45, 15);
+            if (rit) doc.addImage(rit, 'PNG', 12, 10, 65, 15);
+            if (ts) doc.addImage(ts, 'PNG', pageWidth - 66, 10, 51, 15);
             doc.setDrawColor(226, 232, 240);
             doc.line(12, 30, pageWidth - 12, 30);
 
@@ -3222,37 +4030,7 @@ const AdminDashboard = () => {
                     </div>
                 );
 
-            case 'reports':
-                return (
-                    <div className="animate-in slide-in-from-bottom-4 duration-500 text-left">
-                        <div className="mb-8">
-                            <h3 className="text-3xl font-black text-slate-800 italic uppercase">Strategic Reports</h3>
-                            <p className="text-slate-500 font-medium">Generate high-fidelity intelligence summaries</p>
-                        </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                            {[
-                                { title: 'Event Impact Study', desc: 'KPIs, attendance metrics, and participation trends.', icon: <TrendingUp className="w-6 h-6" />, action: downloadEventImpactReport },
-                                { title: 'Member Demographic', desc: 'Breakdown of student base by department and year.', icon: <Users className="w-6 h-6" />, action: downloadDemographicReport },
-                                { title: 'Operational Audit', desc: 'Organizer activity and event approval history.', icon: <ShieldCheck className="w-6 h-6" />, action: downloadOperationalAuditReport }
-                            ].map((report, i) => (
-                                <div key={i} className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm hover:shadow-xl transition-all group flex flex-col">
-                                    <div className="w-14 h-14 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-inner">
-                                        {report.icon}
-                                    </div>
-                                    <h4 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-2">{report.title}</h4>
-                                    <p className="text-xs text-slate-400 font-bold uppercase leading-relaxed mb-8">{report.desc}</p>
-                                    <button
-                                        onClick={report.action}
-                                        className="mt-auto py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-black transition-all"
-                                    >
-                                        Generate PDF
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                );
 
             case 'settings':
                 return (
@@ -3498,173 +4276,983 @@ const AdminDashboard = () => {
                         </div>
                     </div>
                 );
-            case 'od_generator':
+            case 'reports':
                 return (
-                    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500 text-left">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h3 className="text-3xl font-black text-slate-800 uppercase italic">OD <span className="text-blue-600">Generator</span></h3>
-                                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Create official requisition letters for club members</p>
-                            </div>
-                            <button
-                                onClick={downloadManualODLetter}
-                                className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-slate-200 hover:bg-black transition-all flex items-center gap-3"
-                            >
-                                <Download className="w-4 h-4" /> Download Official PDF
-                            </button>
+                    <div className="animate-in slide-in-from-bottom-4 duration-500 text-left">
+                        <div className="mb-6">
+                            <h3 className="text-3xl font-black text-slate-800 italic uppercase">Club Reports <span className="text-blue-600">&</span> Requisitions</h3>
+                            <p className="text-slate-500 font-medium">Generate high-fidelity intelligence, requisitions, and reports</p>
                         </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            {/* Left: Input Form */}
-                            <div className="space-y-6">
-                                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">From</label>
-                                            <textarea
-                                                rows="4"
-                                                value={odLetterData.from}
-                                                onChange={(e) => setOdLetterData({ ...odLetterData, from: e.target.value })}
-                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-bold uppercase outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
-                                                placeholder="Sender Details..."
-                                            />
+                        {/* Submenu Tabs */}
+                        <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-4 mb-8">
+                            {[
+                                { id: 'strategic_reports', label: 'Strategic Reports' },
+                                { id: 'od_generator', label: 'OD Requisition' },
+                                { id: 'event_report_generator', label: 'Event Report Generator' },
+                                { id: 'approval_letter_generator', label: 'Approval Letter Generator' },
+                                { id: 'annual_report_generator', label: 'Annual Report Generator' }
+                            ].map(tab => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setReportsSubTab(tab.id)}
+                                    className={`px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${
+                                        reportsSubTab === tab.id
+                                            ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                                            : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {reportsSubTab === 'strategic_reports' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                {[
+                                    { title: 'Event Impact Study', desc: 'KPIs, attendance metrics, and participation trends.', icon: <TrendingUp className="w-6 h-6" />, action: downloadEventImpactReport },
+                                    { title: 'Member Demographic', desc: 'Breakdown of student base by department and year.', icon: <Users className="w-6 h-6" />, action: downloadDemographicReport },
+                                    { title: 'Operational Audit', desc: 'Organizer activity and event approval history.', icon: <ShieldCheck className="w-6 h-6" />, action: downloadOperationalAuditReport }
+                                ].map((report, i) => (
+                                    <div key={i} className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm hover:shadow-xl transition-all group flex flex-col">
+                                        <div className="w-14 h-14 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-inner">
+                                            {report.icon}
                                         </div>
+                                        <h4 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-2">{report.title}</h4>
+                                        <p className="text-xs text-slate-400 font-bold uppercase leading-relaxed mb-8">{report.desc}</p>
+                                        <button
+                                            onClick={report.action}
+                                            className="mt-auto py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-black transition-all"
+                                        >
+                                            Generate PDF
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {reportsSubTab === 'od_generator' && (
+                            <div className="space-y-8">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h4 className="text-xl font-black text-slate-800 uppercase italic">OD <span className="text-blue-600">Requisition</span></h4>
+                                        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Create official requisition letters for club members</p>
+                                    </div>
+                                    <button
+                                        onClick={downloadManualODLetter}
+                                        className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-slate-200 hover:bg-black transition-all flex items-center gap-3"
+                                    >
+                                        <Download className="w-4 h-4" /> Download Official PDF
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                    {/* Left: Input Form */}
+                                    <div className="space-y-6">
+                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">From</label>
+                                                    <textarea
+                                                        rows="4"
+                                                        value={odLetterData.from}
+                                                        onChange={(e) => setOdLetterData({ ...odLetterData, from: e.target.value })}
+                                                        className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-bold uppercase outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
+                                                        placeholder="Sender Details..."
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">To</label>
+                                                    <textarea
+                                                        rows="4"
+                                                        value={odLetterData.to}
+                                                        onChange={(e) => setOdLetterData({ ...odLetterData, to: e.target.value })}
+                                                        className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-bold uppercase outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
+                                                        placeholder="Recipient Details..."
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Salutation</label>
+                                                    <input
+                                                        type="text"
+                                                        value={odLetterData.salutation}
+                                                        onChange={(e) => setOdLetterData({ ...odLetterData, salutation: e.target.value })}
+                                                        className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-bold outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
+                                                        placeholder="Respected Mam/Sir,"
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Subject Line</label>
+                                                    <input
+                                                        type="text"
+                                                        value={odLetterData.subject}
+                                                        onChange={(e) => setOdLetterData({ ...odLetterData, subject: e.target.value })}
+                                                        className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-bold outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
+                                                        placeholder="Requisition for..."
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Contents / Body</label>
+                                                <textarea
+                                                    rows="5"
+                                                    value={odLetterData.body}
+                                                    onChange={(e) => setOdLetterData({ ...odLetterData, body: e.target.value })}
+                                                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-bold leading-relaxed outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
+                                                    placeholder="Write the letter body here..."
+                                                />
+                                            </div>
+
+                                            <div className="pt-6 border-t border-slate-100">
+                                                <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-4">Authorized Signatures</h4>
+                                                <div className="grid grid-cols-3 gap-3">
+                                                    {odLetterData.signatures.map((sig, idx) => (
+                                                        <div key={idx} className="relative group">
+                                                            <input
+                                                                type="text"
+                                                                value={sig}
+                                                                onChange={(e) => {
+                                                                    const newSigs = [...odLetterData.signatures];
+                                                                    newSigs[idx] = e.target.value;
+                                                                    setOdLetterData({ ...odLetterData, signatures: newSigs });
+                                                                }}
+                                                                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[9px] font-black uppercase outline-none focus:ring-2 focus:ring-blue-500/20"
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Right: Student Management */}
+                                    <div className="space-y-6">
+                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+                                            <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2">
+                                                <Users className="w-4 h-4 text-blue-600" /> Member Selection
+                                            </h4>
+
+                                            <div className="flex gap-2 mb-8">
+                                                <input
+                                                    type="text"
+                                                    value={odInputRoll}
+                                                    onChange={(e) => setOdInputRoll(e.target.value)}
+                                                    onKeyPress={(e) => e.key === 'Enter' && handleAddOdStudent()}
+                                                    placeholder="Enter Register Number..."
+                                                    className="flex-1 px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
+                                                />
+                                                <button
+                                                    onClick={handleAddOdStudent}
+                                                    disabled={isSearchingOdStudent}
+                                                    className="px-6 py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase transition-all hover:bg-blue-700 active:scale-95 disabled:opacity-50"
+                                                >
+                                                    {isSearchingOdStudent ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Add Member'}
+                                                </button>
+                                            </div>
+
+                                            <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                                                {odLetterData.students.length > 0 ? odLetterData.students.map((student, idx) => (
+                                                    <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl group hover:border-blue-200 transition-all">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center font-black text-xs">
+                                                                {student.name.charAt(0)}
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[11px] font-black text-slate-800 uppercase">{student.name}</p>
+                                                                <p className="text-[10px] font-bold text-slate-400">{student.rollNumber} • {student.dept} • Sec {student.section || '-'} • {student.year} Year</p>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleRemoveOdStudent(student.rollNumber)}
+                                                            className="p-2 text-slate-300 hover:text-red-500 transition-colors"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                )) : (
+                                                    <div className="py-20 text-center">
+                                                        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-dashed border-slate-200">
+                                                            <Users className="w-8 h-8 text-slate-200" />
+                                                        </div>
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No members added to requisition</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="p-6 bg-blue-600 rounded-[2.5rem] text-white shadow-xl shadow-blue-500/20">
+                                            <div className="flex items-start gap-4">
+                                                <Info className="w-6 h-6 shrink-0 mt-1" />
+                                                <div>
+                                                    <h5 className="font-black uppercase tracking-tight">Pro-Tip: Selective OD</h5>
+                                                    <p className="text-xs text-blue-100 mt-1 leading-relaxed">
+                                                        Letters generated here follow the official TechSpark and RIT branding protocols. Ensure all register numbers are verified before export.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {reportsSubTab === 'event_report_generator' && (
+                            <div className="space-y-8 animate-in fade-in duration-300">
+                                <div>
+                                    <h4 className="text-xl font-black text-slate-800 uppercase italic">Event Report <span className="text-blue-600">Generator</span></h4>
+                                    <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Compile comprehensive post-event portfolios containing posters, approvals, write-ups, attendance, and galleries</p>
+                                </div>
+
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
                                         <div className="space-y-2">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">To</label>
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">1. Select Target Event</label>
+                                            <select
+                                                value={selectedEventId}
+                                                onChange={(e) => setSelectedEventId(e.target.value)}
+                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none cursor-pointer"
+                                            >
+                                                <option value="">-- Select Event --</option>
+                                                {events.map((e) => (
+                                                    <option key={e.id} value={e.id}>
+                                                        {(e.title || e.eventName || '').toUpperCase()} ({e.date || 'No Date'})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">2. Event Poster (Page 2)</label>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={handlePosterUpload}
+                                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                                />
+                                                {eventPoster && (
+                                                    <p className="text-[9px] text-green-600 font-bold ml-1 flex items-center gap-1">✓ Poster loaded successfully</p>
+                                                )}
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">3. Approval Letter (Page 3)</label>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={handleApprovalLetterUpload}
+                                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                                />
+                                                {approvalLetter && (
+                                                    <p className="text-[9px] text-green-600 font-bold ml-1 flex items-center gap-1">✓ Approval letter loaded successfully</p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">4. Event Content / Write-Up (Page 4)</label>
                                             <textarea
-                                                rows="4"
-                                                value={odLetterData.to}
-                                                onChange={(e) => setOdLetterData({ ...odLetterData, to: e.target.value })}
-                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-bold uppercase outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
-                                                placeholder="Recipient Details..."
+                                                rows="6"
+                                                value={eventReportContent}
+                                                onChange={(e) => setEventReportContent(e.target.value)}
+                                                placeholder="Describe the event outcomes, highlights, guest speakers, number of participants, feedback summary, and overall impacts..."
+                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold leading-relaxed outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
                                             />
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Salutation</label>
-                                            <input
-                                                type="text"
-                                                value={odLetterData.salutation}
-                                                onChange={(e) => setOdLetterData({ ...odLetterData, salutation: e.target.value })}
-                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-bold outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
-                                                placeholder="Respected Mam/Sir,"
+                                    <div className="space-y-6">
+                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">5. Event Gallery Images (Page 6 - Max 4)</label>
+                                                    {eventImages.length > 0 && (
+                                                        <button
+                                                            onClick={() => setEventImages([])}
+                                                            className="text-[9px] font-black text-red-500 hover:underline uppercase tracking-widest"
+                                                        >
+                                                            Clear All
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <input
+                                                    type="file"
+                                                    multiple
+                                                    accept="image/*"
+                                                    onChange={handleGalleryImagesUpload}
+                                                    disabled={eventImages.length >= 4}
+                                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
+                                                />
+                                                <p className="text-[9px] text-slate-400 font-bold ml-1">Selected: {eventImages.length} / 4 photographs</p>
+                                            </div>
+
+                                            {eventImages.length > 0 && (
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    {eventImages.map((img, idx) => (
+                                                        <div key={idx} className="relative aspect-video rounded-xl overflow-hidden border border-slate-200">
+                                                            <img src={img} alt={`preview-${idx}`} className="w-full h-full object-cover" />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            <button
+                                                onClick={downloadEventReportPDF}
+                                                disabled={isGeneratingReport || !selectedEventId}
+                                                className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-lg shadow-blue-500/10"
+                                            >
+                                                {isGeneratingReport ? (
+                                                    <>
+                                                        <RefreshCw className="w-4 h-4 animate-spin" /> Compiling PDF...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Download className="w-4 h-4" /> Generate Event Report PDF
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {reportsSubTab === 'annual_report_generator' && (
+                            <div className="space-y-8 animate-in fade-in duration-300">
+                                <div>
+                                    <h4 className="text-xl font-black text-slate-800 uppercase italic">Annual Report <span className="text-blue-600">Generator</span></h4>
+                                    <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Pre-populated and fully editable summary of academic year metrics, events, and leadership</p>
+                                </div>
+
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                    {/* Left Column: Cover Page, Leadership & Objectives */}
+                                    <div className="space-y-6">
+                                        {/* Cover Page */}
+                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-4">
+                                            <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b pb-3 border-slate-100">1. Cover Page Details</h5>
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Academic Year</label>
+                                                <input
+                                                    type="text"
+                                                    value={annualAcademicYear}
+                                                    onChange={(e) => setAnnualAcademicYear(e.target.value)}
+                                                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none"
+                                                    placeholder="e.g. 2025 - 2026"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Leadership */}
+                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
+                                            <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b pb-3 border-slate-100">2. Executive Leadership Committee</h5>
+                                            
+                                            {/* Faculty Coord */}
+                                            <div className="space-y-3">
+                                                <h6 className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Faculty Coordinator</h6>
+                                                <div className="grid grid-cols-3 gap-3">
+                                                    <input
+                                                        type="text"
+                                                        value={annualFacultyCoord.name}
+                                                        onChange={(e) => setAnnualFacultyCoord({ ...annualFacultyCoord, name: e.target.value })}
+                                                        className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none"
+                                                        placeholder="Name"
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        value={annualFacultyCoord.designation}
+                                                        onChange={(e) => setAnnualFacultyCoord({ ...annualFacultyCoord, designation: e.target.value })}
+                                                        className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none"
+                                                        placeholder="Designation"
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        value={annualFacultyCoord.department}
+                                                        onChange={(e) => setAnnualFacultyCoord({ ...annualFacultyCoord, department: e.target.value })}
+                                                        className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none"
+                                                        placeholder="Department"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* President */}
+                                            <div className="space-y-3 pt-3 border-t border-slate-100">
+                                                <h6 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Club President</h6>
+                                                <div className="grid grid-cols-3 gap-3">
+                                                    <input
+                                                        type="text"
+                                                        value={annualPresident.name}
+                                                        onChange={(e) => setAnnualPresident({ ...annualPresident, name: e.target.value })}
+                                                        className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none"
+                                                        placeholder="Name"
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        value={annualPresident.designation}
+                                                        onChange={(e) => setAnnualPresident({ ...annualPresident, designation: e.target.value })}
+                                                        className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none"
+                                                        placeholder="Designation"
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        value={annualPresident.department}
+                                                        onChange={(e) => setAnnualPresident({ ...annualPresident, department: e.target.value })}
+                                                        className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none"
+                                                        placeholder="Department"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Vice President */}
+                                            <div className="space-y-3 pt-3 border-t border-slate-100">
+                                                <h6 className="text-[10px] font-black text-purple-600 uppercase tracking-widest">Club Vice President</h6>
+                                                <div className="grid grid-cols-3 gap-3">
+                                                    <input
+                                                        type="text"
+                                                        value={annualVicePresident.name}
+                                                        onChange={(e) => setAnnualVicePresident({ ...annualVicePresident, name: e.target.value })}
+                                                        className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none"
+                                                        placeholder="Name"
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        value={annualVicePresident.designation}
+                                                        onChange={(e) => setAnnualVicePresident({ ...annualVicePresident, designation: e.target.value })}
+                                                        className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none"
+                                                        placeholder="Designation"
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        value={annualVicePresident.department}
+                                                        onChange={(e) => setAnnualVicePresident({ ...annualVicePresident, department: e.target.value })}
+                                                        className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none"
+                                                        placeholder="Department"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Objectives */}
+                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-4">
+                                            <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b pb-3 border-slate-100">3. Club Objectives Statement</h5>
+                                            <textarea
+                                                rows="4"
+                                                value={annualObjectives}
+                                                onChange={(e) => setAnnualObjectives(e.target.value)}
+                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold leading-relaxed outline-none"
+                                                placeholder="Write club objectives..."
                                             />
                                         </div>
+                                    </div>
+
+                                    {/* Right Column: Enrollment, Coordinators & Events organized */}
+                                    <div className="space-y-6">
+                                        {/* Yearwise Enrollment Details */}
+                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-4">
+                                            <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b pb-3 border-slate-100">4. Year-Wise Enrollment Metrics</h5>
+                                            <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
+                                                {annualEnrollment.map((e, idx) => (
+                                                    <div key={idx} className="flex gap-2 items-center bg-slate-50 p-2 rounded-xl">
+                                                        <input
+                                                            type="text"
+                                                            value={e.year}
+                                                            onChange={(evt) => {
+                                                                const updated = [...annualEnrollment];
+                                                                updated[idx].year = evt.target.value;
+                                                                setAnnualEnrollment(updated);
+                                                            }}
+                                                            className="w-1/2 bg-transparent text-[11px] font-black uppercase outline-none"
+                                                        />
+                                                        <input
+                                                            type="number"
+                                                            value={e.count}
+                                                            onChange={(evt) => {
+                                                                const updated = [...annualEnrollment];
+                                                                updated[idx].count = parseInt(evt.target.value) || 0;
+                                                                setAnnualEnrollment(updated);
+                                                            }}
+                                                            className="flex-1 bg-transparent text-[11px] font-bold outline-none text-right"
+                                                        />
+                                                        <button
+                                                            onClick={() => setAnnualEnrollment(annualEnrollment.filter((_, i) => i !== idx))}
+                                                            className="p-1.5 text-slate-300 hover:text-red-500 transition-colors"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="flex gap-2 pt-2 border-t border-slate-100">
+                                                <input
+                                                    type="text"
+                                                    value={newEnrollYear}
+                                                    onChange={(evt) => setNewEnrollYear(evt.target.value)}
+                                                    placeholder="Year (e.g. III Year)"
+                                                    className="w-1/2 px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-bold outline-none"
+                                                />
+                                                <input
+                                                    type="number"
+                                                    value={newEnrollCount}
+                                                    onChange={(evt) => setNewEnrollCount(evt.target.value)}
+                                                    placeholder="Count"
+                                                    className="flex-1 px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-bold outline-none"
+                                                />
+                                                <button
+                                                    onClick={() => {
+                                                        if (newEnrollYear && newEnrollCount) {
+                                                            setAnnualEnrollment([...annualEnrollment, { year: newEnrollYear, count: parseInt(newEnrollCount) || 0 }]);
+                                                            setNewEnrollYear('');
+                                                            setNewEnrollCount('');
+                                                        }
+                                                    }}
+                                                    className="px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[9px] font-black uppercase tracking-wider"
+                                                >
+                                                    Add
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Student Coordinator Table */}
+                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-4">
+                                            <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b pb-3 border-slate-100">5. Student Executive Coordinators</h5>
+                                            <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
+                                                {annualCoordinators.map((c, idx) => (
+                                                    <div key={idx} className="flex gap-2 items-center bg-slate-50 p-2 rounded-xl">
+                                                        <input
+                                                            type="text"
+                                                            value={c.designation}
+                                                            onChange={(evt) => {
+                                                                const updated = [...annualCoordinators];
+                                                                updated[idx].designation = evt.target.value;
+                                                                setAnnualCoordinators(updated);
+                                                            }}
+                                                            className="w-1/2 bg-transparent text-[11px] font-black uppercase outline-none"
+                                                        />
+                                                        <input
+                                                            type="text"
+                                                            value={c.name}
+                                                            onChange={(evt) => {
+                                                                const updated = [...annualCoordinators];
+                                                                updated[idx].name = evt.target.value;
+                                                                setAnnualCoordinators(updated);
+                                                            }}
+                                                            className="flex-1 bg-transparent text-[11px] font-bold outline-none"
+                                                        />
+                                                        <button
+                                                            onClick={() => setAnnualCoordinators(annualCoordinators.filter((_, i) => i !== idx))}
+                                                            className="p-1.5 text-slate-300 hover:text-red-500 transition-colors"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="flex gap-2 pt-2 border-t border-slate-100">
+                                                <input
+                                                    type="text"
+                                                    value={newCoordDesig}
+                                                    onChange={(evt) => setNewCoordDesig(evt.target.value)}
+                                                    placeholder="Role (e.g. Publicity Head)"
+                                                    className="w-1/2 px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-bold outline-none"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={newCoordName}
+                                                    onChange={(evt) => setNewCoordName(evt.target.value)}
+                                                    placeholder="Student Name"
+                                                    className="flex-1 px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-bold outline-none"
+                                                />
+                                                <button
+                                                    onClick={() => {
+                                                        if (newCoordDesig && newCoordName) {
+                                                            setAnnualCoordinators([...annualCoordinators, { designation: newCoordDesig, name: newCoordName }]);
+                                                            setNewCoordDesig('');
+                                                            setNewCoordName('');
+                                                        }
+                                                    }}
+                                                    className="px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[9px] font-black uppercase tracking-wider"
+                                                >
+                                                    Add
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Events organized Table */}
+                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-4">
+                                            <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b pb-3 border-slate-100">6. Academic Year Events Summary</h5>
+                                            <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                                                {annualEvents.map((ev, idx) => (
+                                                    <div key={idx} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2 relative">
+                                                        <button
+                                                            onClick={() => setAnnualEvents(annualEvents.filter((_, i) => i !== idx))}
+                                                            className="absolute top-3 right-3 text-slate-300 hover:text-red-500 transition-colors"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                        <div className="grid grid-cols-3 gap-2">
+                                                            <input
+                                                                type="text"
+                                                                value={ev.date}
+                                                                onChange={(evt) => {
+                                                                    const updated = [...annualEvents];
+                                                                    updated[idx].date = evt.target.value;
+                                                                    setAnnualEvents(updated);
+                                                                }}
+                                                                className="px-2 py-1 bg-white border border-slate-100 rounded-lg text-[10px] font-black outline-none"
+                                                                placeholder="Date"
+                                                            />
+                                                            <input
+                                                                type="text"
+                                                                value={ev.title}
+                                                                onChange={(evt) => {
+                                                                    const updated = [...annualEvents];
+                                                                    updated[idx].title = evt.target.value;
+                                                                    setAnnualEvents(updated);
+                                                                }}
+                                                                className="col-span-2 px-2 py-1 bg-white border border-slate-100 rounded-lg text-[10px] font-black outline-none"
+                                                                placeholder="Title"
+                                                            />
+                                                        </div>
+                                                        <input
+                                                            type="text"
+                                                            value={ev.objective}
+                                                            onChange={(evt) => {
+                                                                const updated = [...annualEvents];
+                                                                updated[idx].objective = evt.target.value;
+                                                                setAnnualEvents(updated);
+                                                            }}
+                                                            className="w-full px-2 py-1 bg-white border border-slate-100 rounded-lg text-[10px] font-medium outline-none"
+                                                            placeholder="Event Objective"
+                                                        />
+                                                        <textarea
+                                                            rows="2"
+                                                            value={ev.workDone}
+                                                            onChange={(evt) => {
+                                                                const updated = [...annualEvents];
+                                                                updated[idx].workDone = evt.target.value;
+                                                                setAnnualEvents(updated);
+                                                            }}
+                                                            className="w-full px-2 py-1 bg-white border border-slate-100 rounded-lg text-[10px] font-medium outline-none"
+                                                            placeholder="Work Done / Description"
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {/* Add Event Row */}
+                                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/50 space-y-2">
+                                                <h6 className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Add New Event organized</h6>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={newEventDate}
+                                                        onChange={(evt) => setNewEventDate(evt.target.value)}
+                                                        placeholder="Date (DD.MM.YYYY)"
+                                                        className="px-2 py-1.5 bg-white border border-slate-100 rounded-lg text-[10px] font-bold outline-none"
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        value={newEventTitle}
+                                                        onChange={(evt) => setNewEventTitle(evt.target.value)}
+                                                        placeholder="Event Title"
+                                                        className="col-span-2 px-2 py-1.5 bg-white border border-slate-100 rounded-lg text-[10px] font-bold outline-none"
+                                                    />
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    value={newEventObj}
+                                                    onChange={(evt) => setNewEventObj(evt.target.value)}
+                                                    placeholder="Event Objective"
+                                                    className="w-full px-2 py-1.5 bg-white border border-slate-100 rounded-lg text-[10px] font-bold outline-none"
+                                                />
+                                                <textarea
+                                                    rows="2"
+                                                    value={newEventWork}
+                                                    onChange={(evt) => setNewEventWork(evt.target.value)}
+                                                    placeholder="Work Done / Impact Description"
+                                                    className="w-full px-2 py-1.5 bg-white border border-slate-100 rounded-lg text-[10px] font-bold outline-none"
+                                                />
+                                                <button
+                                                    onClick={() => {
+                                                        if (newEventDate && newEventTitle) {
+                                                            setAnnualEvents([...annualEvents, { date: newEventDate, title: newEventTitle, objective: newEventObj || 'Domain training.', workDone: newEventWork || 'Conducted orientation and contest.' }]);
+                                                            setNewEventDate('');
+                                                            setNewEventTitle('');
+                                                            setNewEventObj('');
+                                                            setNewEventWork('');
+                                                        }
+                                                    }}
+                                                    className="w-full py-2 bg-slate-900 hover:bg-black text-white rounded-xl text-[9px] font-black uppercase tracking-widest"
+                                                >
+                                                    + Add Event to List
+                                                </button>
+                                            </div>
+
+                                            <button
+                                                onClick={downloadAnnualReportPDF}
+                                                disabled={isGeneratingAnnualReport}
+                                                className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-lg shadow-emerald-500/10"
+                                            >
+                                                {isGeneratingAnnualReport ? (
+                                                    <>
+                                                        <RefreshCw className="w-4 h-4 animate-spin" /> Compiling Report...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Download className="w-4 h-4" /> Export Annual Report PDF
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {reportsSubTab === 'approval_letter_generator' && (
+                            <div className="space-y-8 animate-in fade-in duration-300">
+                                <div>
+                                    <h4 className="text-xl font-black text-slate-800 uppercase italic">Approval Letter <span className="text-blue-600">Generator</span></h4>
+                                    <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Generate official event proposal and permission letters for college leadership with dynamic fields</p>
+                                </div>
+
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                    {/* Left Column: Letter Headers & Body */}
+                                    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
+                                        <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b pb-3 border-slate-100">1. Letter Headers & Paragraph</h5>
+                                        
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Form Number</label>
+                                                <input
+                                                    type="text"
+                                                    value={approvalFormNo}
+                                                    onChange={(e) => setApprovalFormNo(e.target.value)}
+                                                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none"
+                                                    placeholder="Form No..."
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Letter Date</label>
+                                                <input
+                                                    type="text"
+                                                    value={approvalDate}
+                                                    onChange={(e) => setApprovalDate(e.target.value)}
+                                                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none"
+                                                    placeholder="DD.MM.YYYY..."
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Submission Target (Underlined)</label>
+                                            <input
+                                                type="text"
+                                                value={approvalSubmissionTarget}
+                                                onChange={(e) => setApprovalSubmissionTarget(e.target.value)}
+                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none"
+                                                placeholder="Submitted for Vice Chairman Approval..."
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Through Line</label>
+                                            <input
+                                                type="text"
+                                                value={approvalThrough}
+                                                onChange={(e) => setApprovalThrough(e.target.value)}
+                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none"
+                                                placeholder="Through..."
+                                            />
+                                        </div>
+
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Subject Line</label>
                                             <input
                                                 type="text"
-                                                value={odLetterData.subject}
-                                                onChange={(e) => setOdLetterData({ ...odLetterData, subject: e.target.value })}
-                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-bold outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
-                                                placeholder="Requisition for..."
+                                                value={approvalSubject}
+                                                onChange={(e) => setApprovalSubject(e.target.value)}
+                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none"
+                                                placeholder="Subject..."
                                             />
                                         </div>
-                                    </div>
 
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Contents / Body</label>
-                                        <textarea
-                                            rows="5"
-                                            value={odLetterData.body}
-                                            onChange={(e) => setOdLetterData({ ...odLetterData, body: e.target.value })}
-                                            className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-bold leading-relaxed outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
-                                            placeholder="Write the letter body here..."
-                                        />
-                                    </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Body Text Paragraph</label>
+                                            <textarea
+                                                rows="5"
+                                                value={approvalBody}
+                                                onChange={(e) => setApprovalBody(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.ctrlKey && (e.key === 'b' || e.key === 'u' || e.key === 'i')) {
+                                                        e.preventDefault();
+                                                        const textarea = e.target;
+                                                        const start = textarea.selectionStart;
+                                                        const end = textarea.selectionEnd;
+                                                        const text = textarea.value;
+                                                        const selectedText = text.substring(start, end);
+                                                        
+                                                        let tagOpen = '';
+                                                        let tagClose = '';
+                                                        if (e.key === 'b') { tagOpen = '<b>'; tagClose = '</b>'; }
+                                                        if (e.key === 'u') { tagOpen = '<u>'; tagClose = '</u>'; }
+                                                        if (e.key === 'i') { tagOpen = '<i>'; tagClose = '</i>'; }
 
-                                    <div className="pt-6 border-t border-slate-100">
-                                        <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-4">Authorized Signatures</h4>
-                                        <div className="grid grid-cols-3 gap-3">
-                                            {odLetterData.signatures.map((sig, idx) => (
-                                                <div key={idx} className="relative group">
-                                                    <input
-                                                        type="text"
-                                                        value={sig}
-                                                        onChange={(e) => {
-                                                            const newSigs = [...odLetterData.signatures];
-                                                            newSigs[idx] = e.target.value;
-                                                            setOdLetterData({ ...odLetterData, signatures: newSigs });
-                                                        }}
-                                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[9px] font-black uppercase outline-none focus:ring-2 focus:ring-blue-500/20"
-                                                    />
-                                                </div>
-                                            ))}
+                                                        const newText = text.substring(0, start) + tagOpen + selectedText + tagClose + text.substring(end);
+                                                        setApprovalBody(newText);
+
+                                                        setTimeout(() => {
+                                                            textarea.focus();
+                                                            textarea.setSelectionRange(start + tagOpen.length, end + tagOpen.length);
+                                                        }, 0);
+                                                    }
+                                                }}
+                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold leading-relaxed outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
+                                                placeholder="Write the introduction paragraph here..."
+                                            />
+                                            <p className="text-[9px] text-slate-400 font-bold ml-1 mt-1">💡 Tip: Highlight text and press Ctrl+B (bold), Ctrl+U (underline), or Ctrl+I (italic)</p>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
 
-                            {/* Right: Student Management */}
-                            <div className="space-y-6">
-                                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-                                    <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2">
-                                        <Users className="w-4 h-4 text-blue-600" /> Member Selection
-                                    </h4>
-
-                                    <div className="flex gap-2 mb-8">
-                                        <input
-                                            type="text"
-                                            value={odInputRoll}
-                                            onChange={(e) => setOdInputRoll(e.target.value)}
-                                            onKeyPress={(e) => e.key === 'Enter' && handleAddOdStudent()}
-                                            placeholder="Enter Register Number..."
-                                            className="flex-1 px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
-                                        />
-                                        <button
-                                            onClick={handleAddOdStudent}
-                                            disabled={isSearchingOdStudent}
-                                            className="px-6 py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase transition-all hover:bg-blue-700 active:scale-95 disabled:opacity-50"
-                                        >
-                                            {isSearchingOdStudent ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Add Member'}
-                                        </button>
-                                    </div>
-
-                                    <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                                        {odLetterData.students.length > 0 ? odLetterData.students.map((student, idx) => (
-                                            <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl group hover:border-blue-200 transition-all">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center font-black text-xs">
-                                                        {student.name.charAt(0)}
+                                    {/* Right Column: Details & Signatures */}
+                                    <div className="space-y-6">
+                                        {/* Event Details List Editor */}
+                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
+                                            <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b pb-3 border-slate-100">2. Event Details List (Add / Delete)</h5>
+                                            
+                                            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                                {approvalDetails.map((detail, idx) => (
+                                                    <div key={idx} className="flex gap-2 items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                                        <span className="text-[10px] font-black text-slate-400 w-5">{idx + 1}.</span>
+                                                        <input
+                                                            type="text"
+                                                            value={detail.label}
+                                                            onChange={(e) => {
+                                                                const updated = [...approvalDetails];
+                                                                updated[idx].label = e.target.value;
+                                                                setApprovalDetails(updated);
+                                                            }}
+                                                            className="w-1/3 bg-transparent text-[11px] font-black uppercase outline-none"
+                                                            placeholder="Label"
+                                                        />
+                                                        <span className="text-slate-400">:</span>
+                                                        <input
+                                                            type="text"
+                                                            value={detail.value}
+                                                            onChange={(e) => {
+                                                                const updated = [...approvalDetails];
+                                                                updated[idx].value = e.target.value;
+                                                                setApprovalDetails(updated);
+                                                            }}
+                                                            className="flex-1 bg-transparent text-[11px] font-bold outline-none"
+                                                            placeholder="Value"
+                                                        />
+                                                        <button
+                                                            onClick={() => {
+                                                                setApprovalDetails(approvalDetails.filter((_, i) => i !== idx));
+                                                            }}
+                                                            className="p-1.5 text-slate-300 hover:text-red-500 transition-colors"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
                                                     </div>
-                                                    <div>
-                                                        <p className="text-[11px] font-black text-slate-800 uppercase">{student.name}</p>
-                                                        <p className="text-[10px] font-bold text-slate-400">{student.rollNumber} • {student.dept} • Sec {student.section || '-'} • {student.year} Year</p>
-                                                    </div>
-                                                </div>
+                                                ))}
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100">
+                                                <input
+                                                    type="text"
+                                                    value={newDetailLabel}
+                                                    onChange={(e) => setNewDetailLabel(e.target.value)}
+                                                    placeholder="New Field Label (e.g. Venue)"
+                                                    className="px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-bold outline-none"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={newDetailValue}
+                                                    onChange={(e) => setNewDetailValue(e.target.value)}
+                                                    placeholder="New Field Value (e.g. Auditorium)"
+                                                    className="px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-bold outline-none"
+                                                />
                                                 <button
-                                                    onClick={() => handleRemoveOdStudent(student.rollNumber)}
-                                                    className="p-2 text-slate-300 hover:text-red-500 transition-colors"
+                                                    onClick={() => {
+                                                        if (newDetailLabel && newDetailValue) {
+                                                            setApprovalDetails([...approvalDetails, { label: newDetailLabel, value: newDetailValue }]);
+                                                            setNewDetailLabel('');
+                                                            setNewDetailValue('');
+                                                        }
+                                                    }}
+                                                    className="col-span-2 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all"
                                                 >
-                                                    <Trash2 className="w-4 h-4" />
+                                                    + Add Event Detail Line
                                                 </button>
                                             </div>
-                                        )) : (
-                                            <div className="py-20 text-center">
-                                                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-dashed border-slate-200">
-                                                    <Users className="w-8 h-8 text-slate-200" />
-                                                </div>
-                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No members added to requisition</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
+                                        </div>
 
-                                <div className="p-6 bg-blue-600 rounded-[2.5rem] text-white shadow-xl shadow-blue-500/20">
-                                    <div className="flex items-start gap-4">
-                                        <Info className="w-6 h-6 shrink-0 mt-1" />
-                                        <div>
-                                            <h5 className="font-black uppercase tracking-tight">Pro-Tip: Selective OD</h5>
-                                            <p className="text-xs text-blue-100 mt-1 leading-relaxed">
-                                                Letters generated here follow the official TechSpark and RIT branding protocols. Ensure all register numbers are verified before export.
-                                            </p>
+                                        {/* Dynamic Signatures Editor */}
+                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
+                                            <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b pb-3 border-slate-100">3. Approval Signatures</h5>
+                                            
+                                            <div className="flex flex-wrap gap-2">
+                                                {approvalSignatures.map((sig, idx) => (
+                                                    <div key={idx} className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-800 text-[10px] font-black uppercase tracking-wider rounded-xl border border-slate-200">
+                                                        <span>{sig}</span>
+                                                        <button
+                                                            onClick={() => {
+                                                                setApprovalSignatures(approvalSignatures.filter((_, i) => i !== idx));
+                                                            }}
+                                                            className="text-slate-400 hover:text-red-500 transition-colors ml-1"
+                                                        >
+                                                            <X className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={newSigName}
+                                                    onChange={(e) => setNewSigName(e.target.value)}
+                                                    placeholder="Signature Title (e.g. Dean)"
+                                                    className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-bold outline-none"
+                                                />
+                                                <button
+                                                    onClick={() => {
+                                                        if (newSigName) {
+                                                            setApprovalSignatures([...approvalSignatures, newSigName]);
+                                                            setNewSigName('');
+                                                        }
+                                                    }}
+                                                    className="px-6 bg-slate-900 hover:bg-black text-white rounded-xl font-black text-[9px] uppercase tracking-widest transition-all"
+                                                >
+                                                    Add
+                                                </button>
+                                            </div>
+
+                                            <button
+                                                onClick={downloadApprovalLetterPDF}
+                                                disabled={isGeneratingApprovalLetter}
+                                                className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-lg shadow-blue-500/10"
+                                            >
+                                                {isGeneratingApprovalLetter ? (
+                                                    <>
+                                                        <RefreshCw className="w-4 h-4 animate-spin" /> Compiling Letter...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Download className="w-4 h-4" /> Generate Approval Letter PDF
+                                                    </>
+                                                )}
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                 );
             case 'core-team':
@@ -3996,10 +5584,10 @@ const AdminDashboard = () => {
         doc.rect(0, 3, pageW, 42, 'F');
 
         // RIT Logo - left (white bg, blends cleanly)
-        if (ritB64) doc.addImage(ritB64, 'PNG', 8, 5, 32, 32);
+        if (ritB64) doc.addImage(ritB64, 'PNG', 8, 15, 65, 15);
 
         // TechSpark Logo - right
-        if (tsB64) doc.addImage(tsB64, 'PNG', pageW - 42, 5, 35, 32);
+        if (tsB64) doc.addImage(tsB64, 'PNG', pageW - 59, 15, 51, 15);
 
         // College name & dept - centred
         doc.setTextColor(15, 30, 80);
@@ -4170,8 +5758,7 @@ const AdminDashboard = () => {
         { id: 'approvals', icon: <CalendarCheck className="w-5 h-5" />, label: 'Approvals', desc: 'Event Authorization', badge: events.filter(e => e.status === 'PENDING').length, badgeColor: 'orange' },
         { id: 'all_events', icon: <Calendar className="w-5 h-5" />, label: 'All Events', desc: 'Complete Registry' },
         { id: 'registrations', icon: <ClipboardList className="w-5 h-5" />, label: 'Registrations', desc: 'Participant Data' },
-        { id: 'reports', icon: <PieChart className="w-5 h-5" />, label: 'Reports', desc: 'PDF Intelligence' },
-        { id: 'od_generator', icon: <FileText className="w-5 h-5" />, label: 'OD Generator', desc: 'Official Requisitions' },
+        { id: 'reports', icon: <PieChart className="w-5 h-5" />, label: 'Reports & Requisitions', desc: 'PDF Intelligence' },
         { id: 'submissions', icon: <Activity className="w-5 h-5" />, label: 'Quiz Scores', desc: 'Live Performance', isLive: true },
         { id: 'settings', icon: <Settings className="w-5 h-5" />, label: 'Settings', desc: 'System Config' },
         { id: 'logs', icon: <ShieldAlert className="w-5 h-5" />, label: 'Security', desc: 'Audit Trail' }
