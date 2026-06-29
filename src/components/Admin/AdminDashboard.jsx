@@ -1668,18 +1668,30 @@ const AdminDashboard = () => {
                 return;
             }
 
+            const headers = rows[0] ? rows[0].map(h => h.toLowerCase().replace(/[^a-z0-9]/g, '')) : [];
+            
+            let rollIdx = headers.findIndex(h => h.includes('roll') || h.includes('reg') || h.includes('studentnumber') || h.includes('admission') || h.includes('rollnumber'));
+            let nameIdx = headers.findIndex(h => h.includes('name') || h.includes('studentname') || h.includes('fullname'));
+            let roleIdx = headers.findIndex(h => h.includes('role') || h.includes('participation') || h.includes('winner') || h.includes('status'));
+            let certIdx = headers.findIndex(h => h.includes('certificateid') || h.includes('certid') || h.includes('certificateNo') || (h.includes('cert') && !h.includes('role')) || h.includes('certificatenumber'));
+
+            if (rollIdx === -1) rollIdx = 0;
+            if (nameIdx === -1) nameIdx = 1;
+            if (roleIdx === -1) roleIdx = 2;
+            if (certIdx === -1) certIdx = 3;
+
             const startIdx = Math.max(1, sheetStartRow - 1);
             const endIdx = Math.min(rows.length, sheetEndRow);
             const parsedCerts = [];
 
             for (let idx = startIdx; idx < endIdx; idx++) {
                 const r = rows[idx];
-                if (r && r.length >= 4) {
+                if (r) {
                     parsedCerts.push({
-                        rollNumber: r[0]?.trim() || '',
-                        name: r[1]?.trim() || '',
-                        role: r[2]?.trim() || 'Participant',
-                        certId: r[3]?.trim() || ''
+                        rollNumber: r[rollIdx]?.trim() || '',
+                        name: r[nameIdx]?.trim() || '',
+                        role: r[roleIdx]?.trim() || 'Participant',
+                        certId: r[certIdx]?.trim() || ''
                     });
                 }
             }
