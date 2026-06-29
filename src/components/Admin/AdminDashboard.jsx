@@ -210,6 +210,7 @@ const AdminDashboard = () => {
     const [approvalLetter, setApprovalLetter] = useState(null);
     const [eventImages, setEventImages] = useState([]); // Array of base64 images
     const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+    const [isFetchingEventAssets, setIsFetchingEventAssets] = useState(false);
 
     // New states for Event Report Generator updates
     const [eventGuestName, setEventGuestName] = useState('');
@@ -325,6 +326,32 @@ const AdminDashboard = () => {
             reader.readAsDataURL(file);
         });
     };
+
+    const getDirectDriveUrl = (url) => {
+        if (!url) return '';
+        const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
+        if (match && match[1]) {
+            return `https://docs.google.com/uc?export=download&id=${match[1]}`;
+        }
+        return url;
+    };
+
+    const loadImageAsBase64 = (url) => new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/jpeg'));
+        };
+        img.onerror = () => {
+            resolve(null);
+        };
+        img.src = getDirectDriveUrl(url);
+    });
 
     const fetchDashboardData = (silent = false) => {
         console.log("Strategic Refresh Triggered", silent ? "(silent)" : "");
@@ -485,10 +512,81 @@ const AdminDashboard = () => {
 
     }, [allStudents, events]);
 
-    // Auto-prepopulate annual report data when entering the generator tab
+    // Auto-prepopulate annual report data when entering the generator tab or changing academic year
+    // Auto-prepopulate annual report data when entering the generator tab or changing academic year
     useEffect(() => {
         if (reportsSubTab === 'annual_report_generator') {
-            // 1. Prepopulate enrollment from analytics.yearWise
+            const targetYear = annualAcademicYear.trim();
+            const extractStartYear = (yr) => {
+                if (!yr) return '';
+                const match = yr.toString().match(/\d{4}/);
+                return match ? match[0] : yr.toString().replace(/\s+/g, '').toLowerCase();
+            };
+            const normalizeRole = (role) => role ? role.toString().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+            const targetStartYear = extractStartYear(targetYear);
+            
+            // Filter core team coordinators for the target year
+            const yearCoords = coordinators.filter(c => extractStartYear(c.academicYear) === targetStartYear);
+
+            // 1. Prepopulate Executive Leadership (Left Panel)
+            const faculty = yearCoords.find(c => normalizeRole(c.role) === 'facultycoordinator');
+            if (faculty) {
+                setAnnualFacultyCoord({
+                    name: faculty.fullName || 'NIL',
+                    designation: faculty.designation || 'Faculty Coordinator',
+                    department: faculty.department || 'NIL'
+                });
+            } else {
+                setAnnualFacultyCoord({
+                    name: 'NIL',
+                    designation: 'Faculty Coordinator',
+                    department: 'NIL'
+                });
+            }
+
+            const pres = yearCoords.find(c => normalizeRole(c.role) === 'president');
+            if (pres) {
+                setAnnualPresident({
+                    name: pres.fullName || 'NIL',
+                    designation: 'President',
+                    department: pres.department || 'NIL'
+                });
+            } else {
+                setAnnualPresident({
+                    name: 'NIL',
+                    designation: 'President',
+                    department: 'NIL'
+                });
+            }
+
+            const vp = yearCoords.find(c => normalizeRole(c.role) === 'vicepresident');
+            if (vp) {
+                setAnnualVicePresident({
+                    name: vp.fullName || 'NIL',
+                    designation: 'Vice President',
+                    department: vp.department || 'NIL'
+                });
+            } else {
+                setAnnualVicePresident({
+                    name: 'NIL',
+                    designation: 'Vice President',
+                    department: 'NIL'
+                });
+            }
+
+            // 2. Prepopulate Student Executive Coordinators (Right Panel) from Core Team coordinators of target year (excluding Faculty, President, and VP)
+            const studentCoords = yearCoords
+                .filter(c => {
+                    const r = normalizeRole(c.role);
+                    return r !== 'facultycoordinator' && r !== 'president' && r !== 'vicepresident';
+                })
+                .map(c => ({
+                    designation: c.role || 'Coordinator',
+                    name: c.fullName || 'NIL'
+                }));
+            setAnnualCoordinators(studentCoords);
+
+            // 3. Prepopulate enrollment from analytics.yearWise
             if (analytics && analytics.yearWise && Object.keys(analytics.yearWise).length > 0) {
                 const mapped = Object.entries(analytics.yearWise).map(([year, count]) => ({
                     year: `${year} Year`,
@@ -497,20 +595,7 @@ const AdminDashboard = () => {
                 setAnnualEnrollment(mapped.sort((a, b) => a.year.localeCompare(b.year)));
             }
 
-            // 2. Prepopulate student coordinators from organizers list
-            if (organizers && organizers.length > 0) {
-                const mappedCoords = organizers
-                    .filter(o => o.role && !o.role.toLowerCase().includes('faculty') && !o.role.toLowerCase().includes('advisor'))
-                    .map(o => ({
-                        designation: o.role || 'Coordinator',
-                        name: o.fullName
-                    }));
-                if (mappedCoords.length > 0) {
-                    setAnnualCoordinators(mappedCoords);
-                }
-            }
-
-            // 3. Prepopulate events from events list
+            // 4. Prepopulate events from events list
             if (events && events.length > 0) {
                 const mappedEvents = events.map(e => ({
                     date: e.date || '',
@@ -521,58 +606,51 @@ const AdminDashboard = () => {
                 setAnnualEvents(mappedEvents);
             }
         }
-    }, [reportsSubTab, analytics, organizers, events]);
+    }, [reportsSubTab, annualAcademicYear, coordinators, analytics, events]);
 
-    // Fetch and populate Faculty Coordinator, President, and VP from Core Team directory based on selected Academic Year
+    // Automatically fetch and load event assets (poster, approval letter, images) from database when selectedEventId changes
     useEffect(() => {
-        const targetYear = annualAcademicYear.trim();
-        const yearCoords = coordinators.filter(c => c.academicYear === targetYear);
+        if (selectedEventId) {
+            const eventObj = events.find(e => e.id === selectedEventId);
+            if (eventObj) {
+                const loadImagesFromEvent = async () => {
+                    setIsFetchingEventAssets(true);
+                    try {
+                        if (eventObj.posterUrl) {
+                            const posterB64 = await loadImageAsBase64(eventObj.posterUrl);
+                            if (posterB64) setEventPoster(posterB64);
+                        } else {
+                            setEventPoster(null);
+                        }
 
-        const faculty = yearCoords.find(c => c.role === 'FACULTY COORDINATOR');
-        if (faculty) {
-            setAnnualFacultyCoord({
-                name: faculty.fullName || 'NIL',
-                designation: faculty.designation || 'Faculty Coordinator',
-                department: faculty.department || 'NIL'
-            });
-        } else {
-            setAnnualFacultyCoord({
-                name: 'NIL',
-                designation: 'Faculty Coordinator',
-                department: 'NIL'
-            });
-        }
+                        if (eventObj.approvalLetterUrl) {
+                            const approvalB64 = await loadImageAsBase64(eventObj.approvalLetterUrl);
+                            if (approvalB64) setApprovalLetter(approvalB64);
+                        } else {
+                            setApprovalLetter(null);
+                        }
 
-        const pres = yearCoords.find(c => c.role === 'PRESIDENT');
-        if (pres) {
-            setAnnualPresident({
-                name: pres.fullName || 'NIL',
-                designation: 'President',
-                department: pres.department || 'NIL'
-            });
+                        if (eventObj.photoUrls && Array.isArray(eventObj.photoUrls) && eventObj.photoUrls.length > 0) {
+                            const promises = eventObj.photoUrls.map(url => loadImageAsBase64(url));
+                            const base64s = await Promise.all(promises);
+                            setEventImages(base64s.filter(Boolean));
+                        } else {
+                            setEventImages([]);
+                        }
+                    } catch (err) {
+                        console.error("Error autoloading event assets:", err);
+                    } finally {
+                        setIsFetchingEventAssets(false);
+                    }
+                };
+                loadImagesFromEvent();
+            }
         } else {
-            setAnnualPresident({
-                name: 'NIL',
-                designation: 'President',
-                department: 'NIL'
-            });
+            setEventPoster(null);
+            setApprovalLetter(null);
+            setEventImages([]);
         }
-
-        const vp = yearCoords.find(c => c.role === 'VICE-PRESIDENT');
-        if (vp) {
-            setAnnualVicePresident({
-                name: vp.fullName || 'NIL',
-                designation: 'Vice President',
-                department: vp.department || 'NIL'
-            });
-        } else {
-            setAnnualVicePresident({
-                name: 'NIL',
-                designation: 'Vice President',
-                department: 'NIL'
-            });
-        }
-    }, [annualAcademicYear, coordinators]);
+    }, [selectedEventId, events]);
 
     const downloadEventImpactReport = async () => {
         try {
@@ -1612,35 +1690,45 @@ const AdminDashboard = () => {
                 });
             }
 
-            // ================= PAGE 9: PHOTOGRAPHS GALLERY =================
+            // ================= PAGE 9 & 10: PHOTOGRAPHS GALLERY =================
             if (eventImages.length > 0) {
-                doc.addPage();
-                drawPageHeader();
+                const drawGalleryPage = (imagesSubset) => {
+                    doc.addPage();
+                    drawPageHeader();
 
-                doc.setFont('times', 'bold');
-                doc.setFontSize(14);
-                doc.setTextColor(30, 41, 59);
-                doc.text('EVENT PHOTOGRAPHS GALLERY', 15, 38);
+                    doc.setFont('times', 'bold');
+                    doc.setFontSize(14);
+                    doc.setTextColor(30, 41, 59);
+                    doc.text('EVENT PHOTOGRAPHS GALLERY', 15, 38);
 
-                const positions = [
-                    { x: 15, y: 46, w: 85, h: 90 },
-                    { x: 110, y: 46, w: 85, h: 90 },
-                    { x: 15, y: 150, w: 85, h: 90 },
-                    { x: 110, y: 150, w: 85, h: 90 }
-                ];
+                    const positions = [
+                        { x: 15, y: 46, w: 85, h: 90 },
+                        { x: 110, y: 46, w: 85, h: 90 },
+                        { x: 15, y: 150, w: 85, h: 90 },
+                        { x: 110, y: 150, w: 85, h: 90 }
+                    ];
 
-                eventImages.forEach((imgBase64, idx) => {
-                    if (idx < positions.length) {
-                        const pos = positions[idx];
-                        try {
-                            doc.addImage(imgBase64, 'JPEG', pos.x, pos.y, pos.w, pos.h, undefined, 'FAST');
-                            doc.setDrawColor(200);
-                            doc.setLineWidth(0.2);
-                            doc.rect(pos.x, pos.y, pos.w, pos.h);
-                        } catch (e) {
-                            console.error('Error drawing gallery image:', e);
+                    imagesSubset.forEach((imgBase64, idx) => {
+                        if (idx < positions.length) {
+                            const pos = positions[idx];
+                            try {
+                                doc.addImage(imgBase64, 'JPEG', pos.x, pos.y, pos.w, pos.h, undefined, 'FAST');
+                                doc.setDrawColor(200);
+                                doc.setLineWidth(0.2);
+                                doc.rect(pos.x, pos.y, pos.w, pos.h);
+                            } catch (e) {
+                                console.error('Error drawing gallery image:', e);
+                            }
                         }
-                    }
+                    });
+                };
+
+                const chunks = [];
+                for (let i = 0; i < eventImages.length; i += 4) {
+                    chunks.push(eventImages.slice(i, i + 4));
+                }
+                chunks.forEach((chunk) => {
+                    drawGalleryPage(chunk);
                 });
             }
 
@@ -4868,6 +4956,11 @@ const AdminDashboard = () => {
                                                         </option>
                                                     ))}
                                                 </select>
+                                                {isFetchingEventAssets && (
+                                                    <p className="text-[10px] text-blue-600 font-bold bg-blue-50 p-2 rounded-xl flex items-center gap-1.5 animate-pulse mt-2">
+                                                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Autoloading event poster, approval letter, and photos from database...
+                                                    </p>
+                                                )}
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -5204,86 +5297,29 @@ const AdminDashboard = () => {
                                             <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b pb-3 border-slate-100">2. Executive Leadership Committee</h5>
                                             
                                             {/* Faculty Coord */}
-                                            <div className="space-y-3">
+                                            <div className="space-y-1">
                                                 <h6 className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Faculty Coordinator</h6>
-                                                <div className="grid grid-cols-3 gap-3">
-                                                    <input
-                                                        type="text"
-                                                        value={annualFacultyCoord.name}
-                                                        onChange={(e) => setAnnualFacultyCoord({ ...annualFacultyCoord, name: e.target.value })}
-                                                        className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none"
-                                                        placeholder="Name"
-                                                    />
-                                                    <input
-                                                        type="text"
-                                                        value={annualFacultyCoord.designation}
-                                                        onChange={(e) => setAnnualFacultyCoord({ ...annualFacultyCoord, designation: e.target.value })}
-                                                        className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none"
-                                                        placeholder="Designation"
-                                                    />
-                                                    <input
-                                                        type="text"
-                                                        value={annualFacultyCoord.department}
-                                                        onChange={(e) => setAnnualFacultyCoord({ ...annualFacultyCoord, department: e.target.value })}
-                                                        className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none"
-                                                        placeholder="Department"
-                                                    />
+                                                <div className="bg-slate-50 p-4 rounded-2xl flex flex-col gap-1 text-xs">
+                                                    <p className="font-black text-slate-800 uppercase">{annualFacultyCoord.name}</p>
+                                                    <p className="font-bold text-slate-500">{annualFacultyCoord.designation} • {annualFacultyCoord.department}</p>
                                                 </div>
                                             </div>
 
                                             {/* President */}
-                                            <div className="space-y-3 pt-3 border-t border-slate-100">
+                                            <div className="space-y-1 pt-3 border-t border-slate-100">
                                                 <h6 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Club President</h6>
-                                                <div className="grid grid-cols-3 gap-3">
-                                                    <input
-                                                        type="text"
-                                                        value={annualPresident.name}
-                                                        onChange={(e) => setAnnualPresident({ ...annualPresident, name: e.target.value })}
-                                                        className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none"
-                                                        placeholder="Name"
-                                                    />
-                                                    <input
-                                                        type="text"
-                                                        value={annualPresident.designation}
-                                                        onChange={(e) => setAnnualPresident({ ...annualPresident, designation: e.target.value })}
-                                                        className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none"
-                                                        placeholder="Designation"
-                                                    />
-                                                    <input
-                                                        type="text"
-                                                        value={annualPresident.department}
-                                                        onChange={(e) => setAnnualPresident({ ...annualPresident, department: e.target.value })}
-                                                        className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none"
-                                                        placeholder="Department"
-                                                    />
+                                                <div className="bg-slate-50 p-4 rounded-2xl flex flex-col gap-1 text-xs">
+                                                    <p className="font-black text-slate-800 uppercase">{annualPresident.name}</p>
+                                                    <p className="font-bold text-slate-500">{annualPresident.designation} • {annualPresident.department}</p>
                                                 </div>
                                             </div>
 
                                             {/* Vice President */}
-                                            <div className="space-y-3 pt-3 border-t border-slate-100">
+                                            <div className="space-y-1 pt-3 border-t border-slate-100">
                                                 <h6 className="text-[10px] font-black text-purple-600 uppercase tracking-widest">Club Vice President</h6>
-                                                <div className="grid grid-cols-3 gap-3">
-                                                    <input
-                                                        type="text"
-                                                        value={annualVicePresident.name}
-                                                        onChange={(e) => setAnnualVicePresident({ ...annualVicePresident, name: e.target.value })}
-                                                        className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none"
-                                                        placeholder="Name"
-                                                    />
-                                                    <input
-                                                        type="text"
-                                                        value={annualVicePresident.designation}
-                                                        onChange={(e) => setAnnualVicePresident({ ...annualVicePresident, designation: e.target.value })}
-                                                        className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none"
-                                                        placeholder="Designation"
-                                                    />
-                                                    <input
-                                                        type="text"
-                                                        value={annualVicePresident.department}
-                                                        onChange={(e) => setAnnualVicePresident({ ...annualVicePresident, department: e.target.value })}
-                                                        className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold outline-none"
-                                                        placeholder="Department"
-                                                    />
+                                                <div className="bg-slate-50 p-4 rounded-2xl flex flex-col gap-1 text-xs">
+                                                    <p className="font-black text-slate-800 uppercase">{annualVicePresident.name}</p>
+                                                    <p className="font-bold text-slate-500">{annualVicePresident.designation} • {annualVicePresident.department}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -5368,68 +5404,22 @@ const AdminDashboard = () => {
                                             </div>
                                         </div>
 
-                                        {/* Student Coordinator Table */}
+                                        {/* Student Coordinator Table (Read Only) */}
                                         <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-4">
                                             <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b pb-3 border-slate-100">5. Student Executive Coordinators</h5>
-                                            <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
-                                                {annualCoordinators.map((c, idx) => (
-                                                    <div key={idx} className="flex gap-2 items-center bg-slate-50 p-2 rounded-xl">
-                                                        <input
-                                                            type="text"
-                                                            value={c.designation}
-                                                            onChange={(evt) => {
-                                                                const updated = [...annualCoordinators];
-                                                                updated[idx].designation = evt.target.value;
-                                                                setAnnualCoordinators(updated);
-                                                            }}
-                                                            className="w-1/2 bg-transparent text-[11px] font-black uppercase outline-none"
-                                                        />
-                                                        <input
-                                                            type="text"
-                                                            value={c.name}
-                                                            onChange={(evt) => {
-                                                                const updated = [...annualCoordinators];
-                                                                updated[idx].name = evt.target.value;
-                                                                setAnnualCoordinators(updated);
-                                                            }}
-                                                            className="flex-1 bg-transparent text-[11px] font-bold outline-none"
-                                                        />
-                                                        <button
-                                                            onClick={() => setAnnualCoordinators(annualCoordinators.filter((_, i) => i !== idx))}
-                                                            className="p-1.5 text-slate-300 hover:text-red-500 transition-colors"
-                                                        >
-                                                            <Trash2 className="w-3.5 h-3.5" />
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            <div className="flex gap-2 pt-2 border-t border-slate-100">
-                                                <input
-                                                    type="text"
-                                                    value={newCoordDesig}
-                                                    onChange={(evt) => setNewCoordDesig(evt.target.value)}
-                                                    placeholder="Role (e.g. Publicity Head)"
-                                                    className="w-1/2 px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-bold outline-none"
-                                                />
-                                                <input
-                                                    type="text"
-                                                    value={newCoordName}
-                                                    onChange={(evt) => setNewCoordName(evt.target.value)}
-                                                    placeholder="Student Name"
-                                                    className="flex-1 px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-bold outline-none"
-                                                />
-                                                <button
-                                                    onClick={() => {
-                                                        if (newCoordDesig && newCoordName) {
-                                                            setAnnualCoordinators([...annualCoordinators, { designation: newCoordDesig, name: newCoordName }]);
-                                                            setNewCoordDesig('');
-                                                            setNewCoordName('');
-                                                        }
-                                                    }}
-                                                    className="px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[9px] font-black uppercase tracking-wider"
-                                                >
-                                                    Add
-                                                </button>
+                                            <div className="space-y-3 max-h-[250px] overflow-y-auto pr-1 custom-scrollbar">
+                                                {annualCoordinators.length > 0 ? (
+                                                    annualCoordinators.map((c, idx) => (
+                                                        <div key={idx} className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl text-xs border border-slate-100">
+                                                            <div className="flex flex-col gap-0.5">
+                                                                <p className="font-black text-slate-800 uppercase">{c.designation}</p>
+                                                                <p className="font-bold text-slate-500">{c.name}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center py-6">No student coordinators assigned in Core Team for this academic year</p>
+                                                )}
                                             </div>
                                         </div>
 

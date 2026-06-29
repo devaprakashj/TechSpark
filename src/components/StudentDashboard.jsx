@@ -121,6 +121,147 @@ const EventCountdown = ({ targetDate }) => {
     );
 };
 
+const StudentDueActionForm = ({ event, actionType }) => {
+    const [loading, setLoading] = useState(false);
+    const [posterUrl, setPosterUrl] = useState('');
+    const [approvalUrl, setApprovalUrl] = useState('');
+    const [photo1, setPhoto1] = useState('');
+    const [photo2, setPhoto2] = useState('');
+    const [photo3, setPhoto3] = useState('');
+    const [photo4, setPhoto4] = useState('');
+    const [photo5, setPhoto5] = useState('');
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            const eventRef = doc(db, 'events', event.id);
+            if (actionType === 'POSTER') {
+                if (!posterUrl.trim()) return alert('Please enter the poster URL.');
+                await updateDoc(eventRef, { posterUrl: posterUrl.trim() });
+                alert('Poster link submitted successfully!');
+            } else if (actionType === 'APPROVAL') {
+                if (!approvalUrl.trim()) return alert('Please enter the approval letter URL.');
+                await updateDoc(eventRef, { approvalLetterUrl: approvalUrl.trim() });
+                alert('Approval letter link submitted successfully!');
+            } else if (actionType === 'PHOTOS') {
+                const urls = [photo1.trim(), photo2.trim(), photo3.trim(), photo4.trim(), photo5.trim()].filter(Boolean);
+                if (urls.length < 5) return alert('Please enter all 5 image URLs.');
+                await updateDoc(eventRef, { photoUrls: urls });
+                alert('All 5 photo links submitted successfully!');
+            }
+        } catch (err) {
+            console.error('Failed to submit link:', err);
+            alert('Submission failed. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (actionType === 'POSTER') {
+        return (
+            <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                <input
+                    type="url"
+                    placeholder="Paste Google Drive Poster Link"
+                    value={posterUrl}
+                    onChange={(e) => setPosterUrl(e.target.value)}
+                    required
+                    className="w-full sm:w-64 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-red-500 focus:bg-white transition-all"
+                />
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full sm:w-auto px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                    {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Submit Poster'}
+                </button>
+            </form>
+        );
+    }
+
+    if (actionType === 'APPROVAL') {
+        return (
+            <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                <input
+                    type="url"
+                    placeholder="Paste Scanned Approval Letter Link"
+                    value={approvalUrl}
+                    onChange={(e) => setApprovalUrl(e.target.value)}
+                    required
+                    className="w-full sm:w-64 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-red-500 focus:bg-white transition-all"
+                />
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full sm:w-auto px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                    {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Submit Letter'}
+                </button>
+            </form>
+        );
+    }
+
+    if (actionType === 'PHOTOS') {
+        return (
+            <form onSubmit={handleSubmit} className="space-y-3 w-full sm:w-96">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Upload 5 Images separately (Google Drive URL):</p>
+                <div className="grid grid-cols-1 gap-2">
+                    <input
+                        type="url"
+                        placeholder="Image 1 Drive URL"
+                        value={photo1}
+                        onChange={(e) => setPhoto1(e.target.value)}
+                        required
+                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-red-500 focus:bg-white transition-all"
+                    />
+                    <input
+                        type="url"
+                        placeholder="Image 2 Drive URL"
+                        value={photo2}
+                        onChange={(e) => setPhoto2(e.target.value)}
+                        required
+                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-red-500 focus:bg-white transition-all"
+                    />
+                    <input
+                        type="url"
+                        placeholder="Image 3 Drive URL"
+                        value={photo3}
+                        onChange={(e) => setPhoto3(e.target.value)}
+                        required
+                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-red-500 focus:bg-white transition-all"
+                    />
+                    <input
+                        type="url"
+                        placeholder="Image 4 Drive URL"
+                        value={photo4}
+                        onChange={(e) => setPhoto4(e.target.value)}
+                        required
+                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-red-500 focus:bg-white transition-all"
+                    />
+                    <input
+                        type="url"
+                        placeholder="Image 5 Drive URL"
+                        value={photo5}
+                        onChange={(e) => setPhoto5(e.target.value)}
+                        required
+                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-red-500 focus:bg-white transition-all"
+                    />
+                </div>
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                    {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Submit 5 Photos'}
+                </button>
+            </form>
+        );
+    }
+
+    return null;
+};
+
 const StudentDashboard = () => {
     const { user, logout } = useAuth();
     const [registrations, setRegistrations] = useState([]);
@@ -1473,6 +1614,91 @@ const StudentDashboard = () => {
                             ))}
                         </div>
 
+
+                        {/* Due Actions Section for Core Team Members */}
+                        {coreTeamRole && (
+                            <AnimatePresence>
+                                {(() => {
+                                    const userRole = coreTeamRole.role ? coreTeamRole.role.toUpperCase() : '';
+                                    
+                                    // Calculate pending actions from allEvents
+                                    const dueActionsList = allEvents.filter(event => {
+                                        if (event.status !== 'LIVE') return false;
+                                        
+                                        // 1. Poster: Creative Head / Graphic Designer
+                                        if (userRole === 'CREATIVE HEAD' || userRole === 'GRAPHIC DESIGNER') {
+                                            return !event.posterUrl;
+                                        }
+                                        
+                                        // 2. Approval Letter: President / Vice President / Event Organizer
+                                        const isCreator = event.organizer && user.fullName && 
+                                            event.organizer.toLowerCase().includes(user.fullName.toLowerCase());
+                                        const isOrganizerRole = userRole === 'PRESIDENT' || userRole === 'VICE-PRESIDENT' || userRole === 'EVENT ORGANISER' || isCreator;
+                                        
+                                        if (isOrganizerRole) {
+                                            return event.posterUrl && !event.approvalLetterUrl;
+                                        }
+                                        
+                                        // 3. Photography: Photography Head (on/after Event Day)
+                                        if (userRole === 'PHOTOGRAPHY HEAD') {
+                                            const todayStr = new Date().toISOString().split('T')[0];
+                                            const isEventDayOrAfter = event.date ? todayStr >= event.date : true;
+                                            return event.posterUrl && event.approvalLetterUrl && (!event.photoUrls || event.photoUrls.length < 5) && isEventDayOrAfter;
+                                        }
+                                        
+                                        return false;
+                                    });
+
+                                    if (dueActionsList.length === 0) return null;
+
+                                    return (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: -20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: -20 }}
+                                            className="bg-white rounded-[2rem] border border-red-100 shadow-sm overflow-hidden"
+                                        >
+                                            <div className="p-6 border-b border-red-50 bg-gradient-to-r from-red-50/50 to-transparent flex justify-between items-center">
+                                                <h2 className="text-xl font-bold text-red-900 flex items-center gap-2">
+                                                    <Clock className="w-5 h-5 text-red-600 animate-pulse" />
+                                                    Pending Due Actions
+                                                </h2>
+                                                <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-black uppercase">
+                                                    {dueActionsList.length} Action Required
+                                                </span>
+                                            </div>
+                                            
+                                            <div className="p-6 divide-y divide-slate-100">
+                                                {dueActionsList.map((event, idx) => {
+                                                    let actionType = '';
+                                                    const isCreator = event.organizer && user.fullName && event.organizer.toLowerCase().includes(user.fullName.toLowerCase());
+                                                    if (userRole === 'CREATIVE HEAD' || userRole === 'GRAPHIC DESIGNER') actionType = 'POSTER';
+                                                    else if (userRole === 'PRESIDENT' || userRole === 'VICE-PRESIDENT' || userRole === 'EVENT ORGANISER' || isCreator) actionType = 'APPROVAL';
+                                                    else if (userRole === 'PHOTOGRAPHY HEAD') actionType = 'PHOTOS';
+
+                                                    return (
+                                                        <div key={event.id} className={`py-6 ${idx === 0 ? 'pt-0' : ''} ${idx === dueActionsList.length - 1 ? 'pb-0' : ''}`}>
+                                                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                                                <div>
+                                                                    <p className="text-[10px] font-black text-red-500 uppercase tracking-widest">Action Requested</p>
+                                                                    <h3 className="text-base font-black text-slate-800 uppercase mt-0.5">{event.title}</h3>
+                                                                    <p className="text-xs text-slate-500 font-medium mt-1">
+                                                                        <strong>Date:</strong> {event.date || 'TBD'} | <strong>Venue:</strong> {event.venue || 'TBD'}
+                                                                    </p>
+                                                                </div>
+                                                                <div className="w-full md:w-auto shrink-0">
+                                                                    <StudentDueActionForm event={event} actionType={actionType} />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </motion.div>
+                                    );
+                                })()}
+                            </AnimatePresence>
+                        )}
 
                         {/* Registered Events */}
                         <div id="registered-events" className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">

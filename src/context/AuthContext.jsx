@@ -277,6 +277,17 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const devBypassLogin = async (uid) => {
+        const userDocRef = doc(db, 'users', uid);
+        const userSnapshot = await getDoc(userDocRef);
+        if (userSnapshot.exists()) {
+            setUser({ ...userSnapshot.data(), uid });
+            setIsAuthModalOpen(false);
+            return true;
+        }
+        return false;
+    };
+
     return (
         <AuthContext.Provider value={{
             user,
@@ -291,6 +302,7 @@ export const AuthProvider = ({ children }) => {
             closeAuthModal,
             showBadge,
             setShowBadge,
+            devBypassLogin,
             isAuthenticated: !!user
         }}>
             {!loading && children}

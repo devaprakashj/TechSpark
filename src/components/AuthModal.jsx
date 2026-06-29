@@ -16,10 +16,12 @@ const AuthModal = () => {
         pendingUser,
         completeRegistration,
         isAuthenticated,
-        signingIn
+        signingIn,
+        devBypassLogin
     } = useAuth();
 
     const navigate = useNavigate();
+    const [devUid, setDevUid] = useState('');
 
     // Redirect to dashboard after successful auth
     useEffect(() => {
@@ -317,6 +319,29 @@ const AuthModal = () => {
                                     )}
                                     <span>{signingIn ? 'Signing in...' : 'Continue with Google'}</span>
                                 </button>
+                                
+                                <div className="border-t border-slate-100 pt-4 mt-4 space-y-3">
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider text-center">Dev Bypass Options</p>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Paste Student UID (coordinators collection)"
+                                            value={devUid}
+                                            onChange={(e) => setDevUid(e.target.value)}
+                                            className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none"
+                                        />
+                                        <button
+                                            onClick={async () => {
+                                                if (!devUid.trim()) return alert("Please enter a UID");
+                                                const success = await devBypassLogin(devUid.trim());
+                                                if (!success) alert("UID not found in users collection.");
+                                            }}
+                                            className="px-4 py-2 bg-slate-800 text-white font-bold rounded-xl text-xs uppercase"
+                                        >
+                                            Bypass
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         )}
 
