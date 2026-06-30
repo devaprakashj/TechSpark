@@ -94,6 +94,7 @@ const OrganizerDashboard = () => {
     const [isScannerOpen, setIsScannerOpen] = useState(false);
     const [isScanning, setIsScanning] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(false);
 
     // Custom Export System
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -2047,87 +2048,180 @@ const OrganizerDashboard = () => {
                 </button>
             </header>
 
-            {/* Mobile Backdrop */}
+            {/* Mobile Sidebar Overlay */}
             <AnimatePresence>
                 {isMobileMenuOpen && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden"
-                    />
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+                        />
+                        <motion.aside
+                            initial={{ x: '-100%' }}
+                            animate={{ x: 0 }}
+                            exit={{ x: '-100%' }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                            className="fixed top-0 left-0 w-[260px] h-[100dvh] bg-white border-r border-slate-200 z-50 flex flex-col overflow-hidden shadow-2xl lg:hidden"
+                        >
+                            {/* Brand Header */}
+                            <div className="h-24 px-6 border-b border-slate-100 flex items-center justify-between shrink-0">
+                                <div className="flex-1 flex items-center justify-center border border-amber-200/50 py-3 rounded-xl shadow-sm bg-gradient-to-br from-amber-50/50 to-orange-50/30 mr-4">
+                                    <img src={techsparkLogo} alt="TechSpark" className="h-10 w-auto object-contain pr-1" />
+                                </div>
+                                <button 
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                    className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-all"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            {/* Navigation */}
+                            <div className="flex-1 overflow-y-auto py-6 pl-4 pr-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                                <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Main Menu</p>
+                                <nav className="space-y-1">
+                                    {[
+                                        { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
+                                        { id: 'create', label: 'Create Event', icon: <Plus className="w-5 h-5" /> },
+                                        { id: 'my_events', label: 'My Events', icon: <Briefcase className="w-5 h-5" /> },
+                                        { id: 'registrations', label: 'Registrations', icon: <Users className="w-5 h-5" /> },
+                                        { id: 'submissions', label: 'Live Scores', icon: <Activity className="w-5 h-5" /> },
+                                        { id: 'reports', label: 'Reports', icon: <TrendingUp className="w-5 h-5" /> },
+                                        { id: 'profile', label: 'Profile', icon: <UserCog className="w-5 h-5" /> },
+                                    ].map((item) => (
+                                        <button
+                                            key={item.id}
+                                            onClick={() => {
+                                                setCurrentView(item.id);
+                                                setIsMobileMenuOpen(false);
+                                                if (item.id === 'create') {
+                                                    setActiveStep(1);
+                                                    setSelectedEvent(null);
+                                                    setEditingEventId(null);
+                                                    setFormData({
+                                                        title: '', type: 'Workshop', shortDescription: '', detailedDescription: '', posterUrl: '',
+                                                        startDate: '', startTime: '', endDate: '', endTime: '', venueType: 'Offline', venueName: '', googleMapLink: '',
+                                                        audienceType: 'Whole College', departments: [], years: [], sections: [],
+                                                        registrationRequired: true, regStartDateTime: '', regEndDateTime: '', maxParticipants: '', waitingList: false,
+                                                        coordinatorName: '', coordinatorPhone: '', coordinatorEmail: '', displayCoordinator: true,
+                                                        terms: '', acceptedTerms: false, internalNotes: ''
+                                                    });
+                                                }
+                                                if (item.id !== 'dashboard') setSelectedEvent(null);
+                                            }}
+                                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${currentView === item.id
+                                                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                                                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                                                }`}
+                                        >
+                                            <div className={`${currentView === item.id ? 'text-white' : 'text-slate-400'}`}>
+                                                {item.icon}
+                                            </div>
+                                            <span className="flex-1 text-left">{item.label}</span>
+                                        </button>
+                                    ))}
+                                </nav>
+                            </div>
+
+                            {/* Bottom Action */}
+                            <div className="p-4 pl-5 pr-2 border-t border-slate-100 shrink-0">
+                                <button
+                                    onClick={handleLogout}
+                                    className="w-full flex items-center justify-center gap-2 py-3 border border-slate-200 text-slate-600 font-medium text-sm rounded-xl hover:bg-slate-50 hover:text-red-600 transition-all"
+                                >
+                                    <LogOut className="w-4 h-4" />
+                                    Logout
+                                </button>
+                            </div>
+                        </motion.aside>
+                    </>
                 )}
             </AnimatePresence>
 
-            {/* SaaS Dark Sidebar */}
-            <aside className={`
-                w-72 lg:w-80 bg-[#0f172a] flex flex-col fixed lg:sticky shadow-2xl z-50 transition-transform duration-300
-                ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-                top-[64px] lg:top-0 h-[calc(100vh-64px)] lg:h-screen lg:inset-y-0
-            `}>
-                <div className="p-8 flex items-center gap-4 mb-8">
-                    <img src={techsparkLogo} alt="TechSpark Logo" className="h-10 w-auto object-contain" />
-                    <div className="w-px h-8 bg-white/10 mx-2" />
-                    <div>
-                        <p className="text-[10px] text-blue-500 font-bold tracking-[0.2em] uppercase">Control Center</p>
-                    </div>
+            {/* Minimalist Light Sidebar (Desktop) */}
+            <aside className={`h-screen sticky top-0 bg-white border-r border-slate-200 hidden lg:flex flex-col z-50 transition-all duration-300 ${isCollapsed ? 'w-[88px]' : 'w-[260px]'}`}>
+                {/* Brand Header */}
+                <div className={`h-24 px-4 border-b border-slate-100 flex items-center shrink-0 transition-all ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
+                    {!isCollapsed && (
+                        <div className="flex-1 flex items-center justify-center border border-amber-200/50 py-3 rounded-xl shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)] bg-gradient-to-br from-amber-50/50 to-orange-50/30 mr-3">
+                            <img src={techsparkLogo} alt="TechSpark" className="h-10 w-auto object-contain pr-1" />
+                        </div>
+                    )}
+                    <button 
+                        onClick={() => setIsCollapsed(!isCollapsed)}
+                        className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
+                    >
+                        <ChevronRight className={`w-5 h-5 transition-transform duration-300 ${isCollapsed ? '' : 'rotate-180'}`} />
+                    </button>
                 </div>
 
-                <nav className="space-y-1.5 px-4 flex-1 overflow-y-auto custom-scrollbar">
-                    {[
-                        { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
-                        { id: 'create', label: 'Create Event', icon: <Plus className="w-5 h-5" /> },
-                        { id: 'my_events', label: 'My Events', icon: <Briefcase className="w-5 h-5" /> },
-                        { id: 'registrations', label: 'Registrations', icon: <Users className="w-5 h-5" /> },
-                        { id: 'submissions', label: 'Live Scores', icon: <Activity className="w-5 h-5" /> },
-                        { id: 'reports', label: 'Reports', icon: <TrendingUp className="w-5 h-5" /> },
-                        { id: 'profile', label: 'Profile', icon: <UserCog className="w-5 h-5" /> },
-                    ].map((item) => (
-                        <button
-                            key={item.id}
-                            onClick={() => {
-                                setCurrentView(item.id);
-                                setIsMobileMenuOpen(false); // Close on selection on mobile
-                                if (item.id === 'create') {
-                                    setActiveStep(1);
-                                    setSelectedEvent(null);
-                                    setEditingEventId(null);
-                                    // Reset form for new event
-                                    setFormData({
-                                        title: '', type: 'Workshop', shortDescription: '', detailedDescription: '', posterUrl: '',
-                                        startDate: '', startTime: '', endDate: '', endTime: '', venueType: 'Offline', venueName: '', googleMapLink: '',
-                                        audienceType: 'Whole College', departments: [], years: [], sections: [],
-                                        registrationRequired: true, regStartDateTime: '', regEndDateTime: '', maxParticipants: '', waitingList: false,
-                                        coordinatorName: '', coordinatorPhone: '', coordinatorEmail: '', displayCoordinator: true,
-                                        terms: '', acceptedTerms: false, internalNotes: ''
-                                    });
-                                }
-                                if (item.id !== 'dashboard') setSelectedEvent(null);
-                            }}
-                            className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-bold text-sm transition-all text-left ${currentView === item.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-white/5'
-                                }`}
-                        >
-                            {item.icon} {item.label}
-                        </button>
-                    ))}
-                </nav>
+                {/* Navigation */}
+                <div className="flex-1 overflow-y-auto py-6 pl-4 pr-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] overflow-x-hidden">
+                    <p className={`text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 transition-all whitespace-nowrap ${isCollapsed ? 'px-1 text-center' : 'px-3'}`}>
+                        {isCollapsed ? '•••' : 'Main Menu'}
+                    </p>
+                    <nav className="space-y-1 pr-3">
+                        {[
+                            { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
+                            { id: 'create', label: 'Create Event', icon: <Plus className="w-5 h-5" /> },
+                            { id: 'my_events', label: 'My Events', icon: <Briefcase className="w-5 h-5" /> },
+                            { id: 'registrations', label: 'Registrations', icon: <Users className="w-5 h-5" /> },
+                            { id: 'submissions', label: 'Live Scores', icon: <Activity className="w-5 h-5" /> },
+                            { id: 'reports', label: 'Reports', icon: <TrendingUp className="w-5 h-5" /> },
+                            { id: 'profile', label: 'Profile', icon: <UserCog className="w-5 h-5" /> },
+                        ].map((item) => (
+                            <button
+                                key={item.id}
+                                onClick={() => {
+                                    setCurrentView(item.id);
+                                    if (item.id === 'create') {
+                                        setActiveStep(1);
+                                        setSelectedEvent(null);
+                                        setEditingEventId(null);
+                                        setFormData({
+                                            title: '', type: 'Workshop', shortDescription: '', detailedDescription: '', posterUrl: '',
+                                            startDate: '', startTime: '', endDate: '', endTime: '', venueType: 'Offline', venueName: '', googleMapLink: '',
+                                            audienceType: 'Whole College', departments: [], years: [], sections: [],
+                                            registrationRequired: true, regStartDateTime: '', regEndDateTime: '', maxParticipants: '', waitingList: false,
+                                            coordinatorName: '', coordinatorPhone: '', coordinatorEmail: '', displayCoordinator: true,
+                                            terms: '', acceptedTerms: false, internalNotes: ''
+                                        });
+                                    }
+                                    if (item.id !== 'dashboard') setSelectedEvent(null);
+                                }}
+                                className={`flex items-center gap-3 py-3 rounded-xl font-medium text-sm transition-all overflow-hidden ${
+                                    isCollapsed ? 'justify-center px-0 w-12 mx-auto' : 'w-full px-4'
+                                } ${currentView === item.id
+                                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                                    }`}
+                                title={isCollapsed ? item.label : ""}
+                            >
+                                <div className={`shrink-0 ${currentView === item.id ? 'text-white' : 'text-slate-400'}`}>
+                                    {item.icon}
+                                </div>
+                                {!isCollapsed && (
+                                    <>
+                                        <span className="flex-1 text-left whitespace-nowrap">{item.label}</span>
+                                    </>
+                                )}
+                            </button>
+                        ))}
+                    </nav>
+                </div>
 
-                <div className="mt-auto p-8 space-y-4 border-t border-white/5 bg-[#0f172a]">
-                    <div className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl border border-white/5">
-                        <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 font-black italic">
-                            {organizer.username.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="min-w-0">
-                            <p className="text-xs font-black text-white truncate uppercase italic">{organizer.username}</p>
-                            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Active Lead</p>
-                        </div>
-                    </div>
+                {/* Bottom Action */}
+                <div className="p-4 pl-5 pr-2 border-t border-slate-100 shrink-0">
                     <button
                         onClick={handleLogout}
-                        className="w-full flex items-center justify-center gap-3 py-4 text-slate-500 font-bold text-xs hover:text-red-400 transition-colors uppercase tracking-widest border border-white/5 rounded-xl hover:bg-white/5"
+                        className={`flex items-center justify-center gap-2 py-3 border border-slate-200 text-slate-600 font-medium text-sm rounded-xl hover:bg-slate-50 hover:text-red-600 transition-all ${isCollapsed ? 'px-0 w-12 mx-auto' : 'w-full'}`}
+                        title={isCollapsed ? "Logout" : ""}
                     >
-                        <LogOut className="w-4 h-4" /> Sign Termination
+                        <LogOut className="w-4 h-4 shrink-0" />
+                        {!isCollapsed && <span className="whitespace-nowrap">Logout</span>}
                     </button>
                 </div>
             </aside>
@@ -2216,28 +2310,28 @@ const OrganizerDashboard = () => {
                             <motion.div key="my_events" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
                                 {selectedEvent ? (
                                     <div className="space-y-12 text-left">
-                                        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-slate-200">
-                                            <div className="flex items-center gap-4 md:gap-6">
-                                                <button onClick={() => setSelectedEvent(null)} className="w-10 h-10 md:w-12 md:h-12 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-900 transition-all shadow-sm shrink-0">
-                                                    <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
+                                        <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 md:gap-6 pb-6 border-b border-slate-200">
+                                            <div className="flex items-start lg:items-center gap-3 md:gap-4">
+                                                <button onClick={() => setSelectedEvent(null)} className="w-8 h-8 md:w-10 md:h-10 bg-white border border-slate-200 rounded-lg md:rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-900 transition-all shadow-sm shrink-0 mt-1 lg:mt-0">
+                                                    <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
                                                 </button>
                                                 <div>
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <span className="px-2 md:px-2.5 py-1 bg-blue-50 text-blue-600 text-[8px] md:text-[10px] font-black rounded-lg uppercase tracking-widest">{selectedEvent.type}</span>
-                                                        <span className={`px-2 md:px-2.5 py-1 text-[8px] md:text-[10px] font-black rounded-lg uppercase tracking-widest ${selectedEvent.status === 'LIVE' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'
+                                                    <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                                                        <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[8px] md:text-[9px] font-black rounded-md uppercase tracking-widest">{selectedEvent.type}</span>
+                                                        <span className={`px-2 py-0.5 text-[8px] md:text-[9px] font-black rounded-md uppercase tracking-widest ${selectedEvent.status === 'LIVE' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'
                                                             }`}>{selectedEvent.status}</span>
                                                     </div>
-                                                    <h1 className="text-xl md:text-3xl font-black text-slate-900 tracking-tighter uppercase italic line-clamp-1">{selectedEvent.title}</h1>
+                                                    <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-slate-900 tracking-tighter uppercase italic pr-4 leading-tight">{selectedEvent.title}</h1>
                                                 </div>
                                             </div>
-                                            <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                                            <div className="flex flex-wrap items-center gap-2">
                                                 {selectedEvent.status === 'LIVE' && (
-                                                    <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto">
+                                                    <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
                                                         <button
                                                             onClick={() => navigate('/checkin')}
-                                                            className="flex-1 md:flex-none px-4 md:px-6 py-3 md:py-3.5 bg-blue-600 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
+                                                            className="flex-1 md:flex-none px-3 md:px-4 py-2 md:py-2.5 bg-blue-600 text-white rounded-lg md:rounded-xl font-black text-[9px] md:text-[10px] shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-1.5 uppercase tracking-widest"
                                                         >
-                                                            <QrCode className="w-4 h-4 md:w-5 md:h-5" /> <span className="hidden sm:inline">Launch</span> Terminal
+                                                            <QrCode className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden sm:inline">Launch</span> Terminal
                                                         </button>
 
                                                         {/* Quiz Toggle in Header */}
@@ -2245,14 +2339,14 @@ const OrganizerDashboard = () => {
                                                             selectedEvent.quizEnabled ? (
                                                                 <button
                                                                     onClick={() => handleDisableQuiz(selectedEvent.id)}
-                                                                    className="px-6 py-3.5 bg-red-500 text-white rounded-2xl font-black text-xs shadow-xl shadow-red-500/20 hover:bg-red-600 transition-all flex items-center gap-2 uppercase tracking-widest"
+                                                                    className="px-3 md:px-4 py-2 md:py-2.5 bg-red-500 text-white rounded-lg md:rounded-xl font-black text-[9px] md:text-[10px] shadow-lg shadow-red-500/20 hover:bg-red-600 transition-all flex items-center gap-1.5 uppercase tracking-widest"
                                                                 >
                                                                     🚫 Disable Quiz
                                                                 </button>
                                                             ) : (
                                                                 <button
                                                                     onClick={() => handleEnableQuiz(selectedEvent.id)}
-                                                                    className="px-6 py-3.5 bg-emerald-600 text-white rounded-2xl font-black text-xs shadow-xl shadow-emerald-500/20 hover:bg-emerald-700 transition-all flex items-center gap-2 uppercase tracking-widest"
+                                                                    className="px-3 md:px-4 py-2 md:py-2.5 bg-emerald-600 text-white rounded-lg md:rounded-xl font-black text-[9px] md:text-[10px] shadow-lg shadow-emerald-500/20 hover:bg-emerald-700 transition-all flex items-center gap-1.5 uppercase tracking-widest"
                                                                 >
                                                                     ✅ Enable Quiz
                                                                 </button>
@@ -2263,9 +2357,9 @@ const OrganizerDashboard = () => {
                                                         {selectedEvent.type?.toLowerCase() === 'hackathon' && selectedEvent.isTeamEvent && (
                                                             <button
                                                                 onClick={() => handleOpenJudgingPanel(selectedEvent)}
-                                                                className="px-4 md:px-6 py-3 md:py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs shadow-xl shadow-purple-500/20 hover:from-purple-700 hover:to-indigo-700 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
+                                                                className="px-3 md:px-4 py-2 md:py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg md:rounded-xl font-black text-[9px] md:text-[10px] shadow-lg shadow-purple-500/20 hover:from-purple-700 hover:to-indigo-700 transition-all flex items-center justify-center gap-1.5 uppercase tracking-widest"
                                                             >
-                                                                <Award className="w-4 h-4 md:w-5 md:h-5" /> Judging Panel
+                                                                <Award className="w-3.5 h-3.5 md:w-4 md:h-4" /> Judging Panel
                                                             </button>
                                                         )}
                                                     </div>
@@ -2276,16 +2370,16 @@ const OrganizerDashboard = () => {
                                                         setIsExportModalOpen(true);
                                                     }}
                                                     disabled={registrations.length === 0}
-                                                    className="flex-1 md:flex-none px-4 md:px-6 py-3 md:py-3.5 bg-slate-900 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs shadow-xl shadow-slate-900/10 hover:bg-black transition-all flex items-center justify-center gap-2 uppercase tracking-widest disabled:opacity-30"
+                                                    className="flex-1 md:flex-none px-3 md:px-4 py-2 md:py-2.5 bg-slate-900 text-white rounded-lg md:rounded-xl font-black text-[9px] md:text-[10px] shadow-lg shadow-slate-900/10 hover:bg-black transition-all flex items-center justify-center gap-1.5 uppercase tracking-widest disabled:opacity-30"
                                                 >
-                                                    <FileText className="w-4 h-4 md:w-5 md:h-5" /> <span className="hidden sm:inline">Register</span> PDF
+                                                    <FileText className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden sm:inline">Register</span> PDF
                                                 </button>
                                                 <button
                                                     onClick={() => handleDownloadExcel(selectedEvent, 'REGISTRATION')}
                                                     disabled={registrations.length === 0}
-                                                    className="flex-1 md:flex-none px-4 md:px-6 py-3 md:py-3.5 bg-green-600 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs shadow-xl shadow-green-500/10 hover:bg-green-700 transition-all flex items-center justify-center gap-2 uppercase tracking-widest disabled:opacity-30"
+                                                    className="flex-1 md:flex-none px-3 md:px-4 py-2 md:py-2.5 bg-green-600 text-white rounded-lg md:rounded-xl font-black text-[9px] md:text-[10px] shadow-lg shadow-green-500/10 hover:bg-green-700 transition-all flex items-center justify-center gap-1.5 uppercase tracking-widest disabled:opacity-30"
                                                 >
-                                                    <Download className="w-4 h-4 md:w-5 md:h-5" /> <span className="hidden sm:inline">Excel</span> 📊
+                                                    <Download className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden sm:inline">Excel</span> 📊
                                                 </button>
                                                 <button
                                                     onClick={() => {
@@ -2293,18 +2387,18 @@ const OrganizerDashboard = () => {
                                                         setIsExportModalOpen(true);
                                                     }}
                                                     disabled={registrations.length === 0}
-                                                    className="flex-1 md:flex-none px-4 md:px-6 py-3 md:py-3.5 bg-emerald-600 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs shadow-xl shadow-emerald-500/10 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 uppercase tracking-widest disabled:opacity-30"
+                                                    className="flex-1 md:flex-none px-3 md:px-4 py-2 md:py-2.5 bg-emerald-600 text-white rounded-lg md:rounded-xl font-black text-[9px] md:text-[10px] shadow-lg shadow-emerald-500/10 hover:bg-emerald-700 transition-all flex items-center justify-center gap-1.5 uppercase tracking-widest disabled:opacity-30"
                                                 >
-                                                    <ShieldCheck className="w-4 h-4 md:w-5 md:h-5" /> <span className="hidden sm:inline">Attend</span> PDF
+                                                    <ShieldCheck className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden sm:inline">Attend</span> PDF
                                                 </button>
                                             </div>
                                         </header>
 
-                                        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                                            <div className="lg:col-span-1 space-y-6">
+                                        <div className="flex flex-col gap-8">
+                                            <div className="space-y-6">
                                                 <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm">
                                                     <h3 className="text-[11px] text-slate-400 font-black uppercase tracking-[0.2em] mb-6">Metrics & Logistics</h3>
-                                                    <div className="space-y-4">
+                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                                                         <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
                                                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1 flex items-center gap-2"><Clock className="w-3.5 h-3.5" /> Timeline</p>
                                                             <p className="text-sm font-black text-slate-800 uppercase">{selectedEvent.date}</p>
@@ -2327,7 +2421,7 @@ const OrganizerDashboard = () => {
                                                 </div>
                                             </div>
 
-                                            <div className="lg:col-span-3">
+                                            <div>
                                                 <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm overflow-hidden h-full flex flex-col">
                                                     {/* Search & Filter Bar */}
                                                     <div className="p-4 md:p-6 border-b border-slate-100 space-y-4">
@@ -2514,69 +2608,65 @@ const OrganizerDashboard = () => {
                                             <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] md:text-xs">Managing your commissioned missions</p>
                                         </header>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                                        <div className="flex flex-col gap-6">
                                             {events.map((event) => (
-                                                <div key={event.id} className="group bg-white border border-slate-200 rounded-[2rem] md:rounded-[3rem] p-6 md:p-8 hover:shadow-2xl hover:shadow-slate-200/50 hover:border-blue-500 transition-all duration-500 flex flex-col relative overflow-hidden">
-                                                    {/* Status Badges */}
-                                                    <div className="flex items-center justify-between mb-6">
-                                                        <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black rounded-lg uppercase tracking-widest">{event.type}</span>
-                                                        <div className="flex items-center gap-2">
+                                                <div key={event.id} className="group bg-white border border-slate-200 rounded-[2rem] p-6 hover:shadow-2xl hover:shadow-slate-200/50 hover:border-blue-500 transition-all duration-500 flex flex-col md:flex-row md:items-center gap-6 relative overflow-hidden">
+                                                    
+                                                    {/* Info Section (Left) */}
+                                                    <div className="flex-1 flex flex-col min-w-0">
+                                                        <div className="flex items-center gap-2 mb-3 flex-wrap">
+                                                            <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black rounded-lg uppercase tracking-widest">{event.type}</span>
                                                             {event.status === 'LIVE' && event.registrationOpen !== false && (
                                                                 <span className="px-2 py-0.5 bg-green-100 text-green-700 text-[8px] font-black rounded uppercase">REG OPEN</span>
                                                             )}
                                                             {event.status === 'LIVE' && event.registrationOpen === false && (
                                                                 <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-[8px] font-black rounded uppercase">REG CLOSED</span>
                                                             )}
-                                                            <span className={`px-3 py-1 text-[10px] font-black rounded-lg uppercase tracking-widest ${event.status === 'LIVE' ? 'bg-emerald-50 text-emerald-600' :
+                                                            <span className={`px-3 py-1 text-[10px] font-black rounded-lg uppercase tracking-widest ${
+                                                                event.status === 'LIVE' ? 'bg-emerald-50 text-emerald-600' :
                                                                 event.status === 'COMPLETED' ? 'bg-blue-50 text-blue-600' :
-                                                                    event.status === 'REJECTED' ? 'bg-red-50 text-red-600' :
-                                                                        event.status === 'DRAFT' ? 'bg-slate-100 text-slate-500' :
-                                                                            'bg-orange-50 text-orange-600'
-                                                                }`}>{event.status}</span>
+                                                                event.status === 'REJECTED' ? 'bg-red-50 text-red-600' :
+                                                                event.status === 'DRAFT' ? 'bg-slate-100 text-slate-500' :
+                                                                'bg-orange-50 text-orange-600'
+                                                            }`}>{event.status}</span>
+                                                        </div>
+
+                                                        <h3 className="text-xl md:text-2xl font-black text-slate-900 uppercase italic tracking-tighter leading-[1.1] mb-4 group-hover:text-blue-600 transition-colors truncate">{event.title}</h3>
+
+                                                        <div className="flex flex-wrap items-center gap-4">
+                                                            <div className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                                                                <Calendar className="w-4 h-4 text-blue-500" /> {event.date}
+                                                            </div>
+                                                            <div className="flex items-center gap-2 text-emerald-500 text-[10px] font-black uppercase tracking-[0.1em] bg-emerald-50/50 px-2 py-1 rounded-lg border border-emerald-100/50">
+                                                                <Activity className="w-4 h-4" />
+                                                                <span className="tabular-nums">
+                                                                    {allRegs.filter(r => r.eventId === event.id && (r.isAttended || r.status === 'Present')).length} IN
+                                                                </span>
+                                                                <span className="text-slate-300 mx-1">/</span>
+                                                                <span className="text-slate-400 tabular-nums">
+                                                                    {event.attendeesCount || 0} REGS
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     </div>
 
-                                                    <h3 className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter leading-[1.1] mb-6 min-h-[52px] group-hover:text-blue-600 transition-colors">{event.title}</h3>
-
-                                                    <div className="space-y-4 mb-8">
-                                                        <div className="flex items-center gap-3 text-slate-400 text-[10px] font-black uppercase tracking-widest">
-                                                            <Calendar className="w-4 h-4 text-blue-500" /> {event.date}
-                                                        </div>
-                                                        <div className="flex items-center gap-3 text-emerald-500 text-[10px] font-black uppercase tracking-[0.1em] bg-emerald-50/50 p-2 rounded-xl border border-emerald-100/50">
-                                                            <Activity className="w-4 h-4" />
-                                                            <span className="tabular-nums">
-                                                                {allRegs.filter(r => r.eventId === event.id && (r.isAttended || r.status === 'Present')).length} IN
-                                                            </span>
-                                                            <span className="text-slate-300 mx-1">/</span>
-                                                            <span className="text-slate-400 tabular-nums">
-                                                                {event.attendeesCount || 0} REGS
-                                                            </span>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="mt-auto pt-8 border-t border-slate-100 flex flex-col gap-3">
-                                                        {/* Rejected Event Feedback */}
+                                                    {/* Actions Section (Right) */}
+                                                    <div className="flex flex-col gap-3 shrink-0 md:w-64 border-t md:border-t-0 md:border-l border-slate-100 pt-6 md:pt-0 md:pl-6 mt-4 md:mt-0">
                                                         {event.status === 'REJECTED' && (
-                                                            <div className="mb-2 p-3 bg-red-50 rounded-xl border border-red-100">
-                                                                <p className="text-[9px] font-black text-red-600 uppercase mb-1">Admin Feedback</p>
-                                                                <p className="text-[10px] text-slate-600 font-medium italic">"{event.remarks}"</p>
+                                                            <div className="mb-2 p-2 bg-red-50 rounded-xl border border-red-100">
+                                                                <p className="text-[9px] font-black text-red-600 uppercase mb-0.5">Admin Feedback</p>
+                                                                <p className="text-[9px] text-slate-600 font-medium italic line-clamp-2">"{event.remarks}"</p>
                                                             </div>
                                                         )}
 
-                                                        {/* Main Action Button */}
-                                                        <button onClick={() => handleViewDetails(event)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all flex items-center justify-center gap-2">
+                                                        <button onClick={() => handleViewDetails(event)} className="w-full py-3 bg-slate-900 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all flex items-center justify-center gap-2">
                                                             ACCESS CONSOLE <ArrowRight className="w-4 h-4" />
                                                         </button>
 
-                                                        {/* Quick Actions Row */}
-                                                        <div className="flex flex-wrap items-center gap-3 px-1 mt-2">
-                                                            {/* DRAFT/REJECTED: Edit & Resubmit */}
+                                                        <div className="flex flex-wrap items-center justify-center gap-3 px-1 mt-1">
                                                             {(event.status === 'DRAFT' || event.status === 'REJECTED') && (
                                                                 <>
-                                                                    <button
-                                                                        onClick={() => handleEditEvent(event)}
-                                                                        className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline flex items-center gap-1"
-                                                                    >
+                                                                    <button onClick={() => handleEditEvent(event)} className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline flex items-center gap-1">
                                                                         <Settings className="w-3 h-3" /> Edit
                                                                     </button>
                                                                     <button onClick={async () => {
@@ -2585,60 +2675,48 @@ const OrganizerDashboard = () => {
                                                                     }} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">Resubmit</button>
                                                                 </>
                                                             )}
-
-                                                            {/* LIVE: Close/Reopen Registration & Mark Complete */}
+                                                            
                                                             {event.status === 'LIVE' && (
                                                                 <>
                                                                     {event.registrationOpen !== false ? (
-                                                                        <button
-                                                                            onClick={() => handleCloseRegistration(event.id)}
-                                                                            className="text-[10px] font-black text-orange-600 uppercase tracking-widest hover:underline flex items-center gap-1"
-                                                                        >
+                                                                        <button onClick={() => handleCloseRegistration(event.id)} className="text-[10px] font-black text-orange-600 uppercase tracking-widest hover:underline flex items-center gap-1">
                                                                             <X className="w-3 h-3" /> Close Reg
                                                                         </button>
                                                                     ) : (
-                                                                        <button
-                                                                            onClick={() => handleReopenRegistration(event.id)}
-                                                                            className="text-[10px] font-black text-green-600 uppercase tracking-widest hover:underline flex items-center gap-1"
-                                                                        >
+                                                                        <button onClick={() => handleReopenRegistration(event.id)} className="text-[10px] font-black text-green-600 uppercase tracking-widest hover:underline flex items-center gap-1">
                                                                             <CheckCircle className="w-3 h-3" /> Reopen Reg
                                                                         </button>
                                                                     )}
-                                                                    <button
-                                                                        onClick={() => handleMarkComplete(event.id)}
-                                                                        className="text-[10px] font-black text-purple-600 uppercase tracking-widest hover:underline flex items-center gap-1"
-                                                                    >
+                                                                    <button onClick={() => handleMarkComplete(event.id)} className="text-[10px] font-black text-purple-600 uppercase tracking-widest hover:underline flex items-center gap-1">
                                                                         <CheckCircle className="w-3 h-3" /> Complete
                                                                     </button>
-
                                                                     {event.type === 'Hackathon' && (
-                                                                        <button
-                                                                            onClick={() => handleOpenPSManager(event)}
-                                                                            className="text-[10px] font-black text-emerald-600 uppercase tracking-widest hover:underline flex items-center gap-1"
-                                                                        >
+                                                                        <button onClick={() => handleOpenPSManager(event)} className="text-[10px] font-black text-emerald-600 uppercase tracking-widest hover:underline flex items-center gap-1">
                                                                             <Brain className="w-3 h-3" /> Update PS
                                                                         </button>
                                                                     )}
                                                                 </>
                                                             )}
+                                                            
+                                                            {(event.status === 'DRAFT' || event.status === 'REJECTED') && (
+                                                                <button onClick={async () => {
+                                                                    if (!confirm("Delete this event?")) return;
+                                                                    await deleteDoc(doc(db, 'events', event.id));
+                                                                }} className="text-[10px] font-black text-red-600 uppercase tracking-widest hover:underline ml-auto">
+                                                                    Delete
+                                                                </button>
+                                                            )}
                                                         </div>
-
-                                                        {/* Quiz Enable/Disable Toggle - Prominent Button for Quiz type events */}
+                                                        
                                                         {event.status === 'LIVE' && event.type?.toLowerCase() === 'quiz' && (
                                                             <div className="mt-2">
                                                                 {event.quizEnabled ? (
-                                                                    <button
-                                                                        onClick={() => handleDisableQuiz(event.id)}
-                                                                        className="w-full py-3 bg-red-100 text-red-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-200 transition-all flex items-center justify-center gap-2 border border-red-200"
-                                                                    >
-                                                                        🚫 Disable Quiz (Students Cannot Start)
+                                                                    <button onClick={() => handleDisableQuiz(event.id)} className="w-full py-2 bg-red-100 text-red-600 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-red-200 transition-all flex items-center justify-center gap-1 border border-red-200">
+                                                                        🚫 Disable Quiz
                                                                     </button>
                                                                 ) : (
-                                                                    <button
-                                                                        onClick={() => handleEnableQuiz(event.id)}
-                                                                        className="w-full py-3 bg-emerald-100 text-emerald-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-200 transition-all flex items-center justify-center gap-2 border border-emerald-200"
-                                                                    >
-                                                                        ✅ Enable Quiz (Allow Students to Start)
+                                                                    <button onClick={() => handleEnableQuiz(event.id)} className="w-full py-2 bg-emerald-100 text-emerald-600 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-emerald-200 transition-all flex items-center justify-center gap-1 border border-emerald-200">
+                                                                        ✅ Enable Quiz
                                                                     </button>
                                                                 )}
                                                             </div>
@@ -2648,19 +2726,9 @@ const OrganizerDashboard = () => {
                                                         {event.status === 'COMPLETED' && (
                                                             <button
                                                                 onClick={() => handleViewFeedback(event.id)}
-                                                                className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline flex items-center gap-1 mt-4"
+                                                                className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline flex items-center gap-1 mt-1 justify-center"
                                                             >
                                                                 <Activity className="w-3 h-3" /> Pulse
-                                                            </button>
-                                                        )}
-
-                                                        {/* Delete for non-LIVE/non-COMPLETED events */}
-                                                        {(event.status === 'DRAFT' || event.status === 'REJECTED') && (
-                                                            <button
-                                                                onClick={() => handleDeleteEvent(event.id)}
-                                                                className="text-[10px] font-black text-red-400 uppercase tracking-widest hover:text-red-600 ml-auto mt-4"
-                                                            >
-                                                                Delete
                                                             </button>
                                                         )}
                                                     </div>
