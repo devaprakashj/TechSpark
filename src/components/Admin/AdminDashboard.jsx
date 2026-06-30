@@ -112,6 +112,13 @@ const AdminDashboard = () => {
     const [feedbackBase, setFeedbackBase] = useState([]);
     const [selectedEventDetails, setSelectedEventDetails] = useState(null);
     const [showEventDetailModal, setShowEventDetailModal] = useState(false);
+    const [drivePosterUrl, setDrivePosterUrl] = useState('');
+    const [driveImageUrl1, setDriveImageUrl1] = useState('');
+    const [driveImageUrl2, setDriveImageUrl2] = useState('');
+    const [driveImageUrl3, setDriveImageUrl3] = useState('');
+    const [driveImageUrl4, setDriveImageUrl4] = useState('');
+    const [driveApprovalUrl, setDriveApprovalUrl] = useState('');
+    const [driveReportUrl, setDriveReportUrl] = useState('');
     const [securityLogs, setSecurityLogs] = useState([]);
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isOrgModalOpen, setIsOrgModalOpen] = useState(false);
@@ -666,6 +673,148 @@ const AdminDashboard = () => {
             setEventImages([]);
         }
     }, [selectedEventId]);
+
+    useEffect(() => {
+        if (selectedEventDetails) {
+            setDrivePosterUrl(selectedEventDetails.posterDriveUrl || selectedEventDetails.posterUrl || '');
+            setDriveApprovalUrl(selectedEventDetails.approvalLetterDriveUrl || selectedEventDetails.approvalLetterUrl || '');
+            setDriveImageUrl1(selectedEventDetails.imageDriveUrl1 || (selectedEventDetails.photoUrls && selectedEventDetails.photoUrls[0]) || '');
+            setDriveImageUrl2(selectedEventDetails.imageDriveUrl2 || (selectedEventDetails.photoUrls && selectedEventDetails.photoUrls[1]) || '');
+            setDriveImageUrl3(selectedEventDetails.imageDriveUrl3 || (selectedEventDetails.photoUrls && selectedEventDetails.photoUrls[2]) || '');
+            setDriveImageUrl4(selectedEventDetails.imageDriveUrl4 || (selectedEventDetails.photoUrls && selectedEventDetails.photoUrls[3]) || '');
+            setDriveReportUrl(selectedEventDetails.reportDriveUrl || '');
+        } else {
+            setDrivePosterUrl('');
+            setDriveApprovalUrl('');
+            setDriveImageUrl1('');
+            setDriveImageUrl2('');
+            setDriveImageUrl3('');
+            setDriveImageUrl4('');
+            setDriveReportUrl('');
+        }
+    }, [selectedEventDetails]);
+
+    const handleSaveDriveLinks = async () => {
+        if (!selectedEventDetails) return;
+        try {
+            const eventRef = doc(db, 'events', selectedEventDetails.id);
+            const updateObj = {
+                posterDriveUrl,
+                approvalLetterDriveUrl: driveApprovalUrl,
+                imageDriveUrl1: driveImageUrl1,
+                imageDriveUrl2: driveImageUrl2,
+                imageDriveUrl3: driveImageUrl3,
+                imageDriveUrl4: driveImageUrl4,
+                reportDriveUrl
+            };
+            await updateDoc(eventRef, updateObj);
+            setSelectedEventDetails(prev => ({
+                ...prev,
+                ...updateObj
+            }));
+            setEvents(prev => prev.map(e => e.id === selectedEventDetails.id ? {
+                ...e,
+                ...updateObj
+            } : e));
+            alert("✅ Drive URLs updated successfully!");
+        } catch (error) {
+            console.error("Error saving drive links:", error);
+            alert("❌ Failed to save drive links.");
+        }
+    };
+
+    const handleVerifyDriveLink = async (type) => {
+        if (!selectedEventDetails) return;
+        try {
+            const eventRef = doc(db, 'events', selectedEventDetails.id);
+            const updateField = {};
+            if (type === 'poster') {
+                updateField.posterDriveVerified = true;
+                updateField.posterVerified = true;
+            }
+            if (type === 'approval') {
+                updateField.approvalLetterDriveVerified = true;
+                updateField.approvalVerified = true;
+            }
+            if (type === 'image') {
+                updateField.imageDriveVerified = true;
+                updateField.imageVerified = true;
+            }
+            if (type === 'report') {
+                updateField.reportDriveVerified = true;
+            }
+
+            await updateDoc(eventRef, updateField);
+            
+            setSelectedEventDetails(prev => ({
+                ...prev,
+                ...updateField
+            }));
+            setEvents(prev => prev.map(e => e.id === selectedEventDetails.id ? {
+                ...e,
+                ...updateField
+            } : e));
+            alert(`✅ ${type.toUpperCase()} submission has been Accepted & Verified!`);
+        } catch (error) {
+            console.error("Error verifying drive link:", error);
+            alert("❌ Failed to verify drive link.");
+        }
+    };
+
+    const handleRevokeDriveLink = async (type) => {
+        if (!selectedEventDetails) return;
+        try {
+            const eventRef = doc(db, 'events', selectedEventDetails.id);
+            const updateField = {};
+            if (type === 'poster') {
+                updateField.posterUrl = '';
+                updateField.posterDriveUrl = '';
+                updateField.posterDriveVerified = false;
+                updateField.posterVerified = false;
+                setDrivePosterUrl('');
+            }
+            if (type === 'approval') {
+                updateField.approvalLetterUrl = '';
+                updateField.approvalLetterDriveUrl = '';
+                updateField.approvalLetterDriveVerified = false;
+                updateField.approvalVerified = false;
+                setDriveApprovalUrl('');
+            }
+            if (type === 'image') {
+                updateField.photoUrls = [];
+                updateField.imageDriveUrl1 = '';
+                updateField.imageDriveUrl2 = '';
+                updateField.imageDriveUrl3 = '';
+                updateField.imageDriveUrl4 = '';
+                updateField.imageDriveVerified = false;
+                updateField.imageVerified = false;
+                setDriveImageUrl1('');
+                setDriveImageUrl2('');
+                setDriveImageUrl3('');
+                setDriveImageUrl4('');
+            }
+            if (type === 'report') {
+                updateField.reportDriveUrl = '';
+                updateField.reportDriveVerified = false;
+                setDriveReportUrl('');
+            }
+
+            await updateDoc(eventRef, updateField);
+            
+            setSelectedEventDetails(prev => ({
+                ...prev,
+                ...updateField
+            }));
+            setEvents(prev => prev.map(e => e.id === selectedEventDetails.id ? {
+                ...e,
+                ...updateField
+            } : e));
+            alert(`⚠️ ${type.toUpperCase()} submission revoked & cleared successfully.`);
+        } catch (error) {
+            console.error("Error revoking drive link:", error);
+            alert("❌ Failed to revoke drive link.");
+        }
+    };
 
     const downloadEventImpactReport = async () => {
         try {
@@ -1315,6 +1464,428 @@ const AdminDashboard = () => {
     };
 
 
+    const compileEventReportPDF = async (
+        event,
+        eventRegs,
+        eventFeedbacks,
+        poster,
+        approval,
+        images,
+        guestName,
+        guestDesig,
+        guestOrg,
+        writeupSections,
+        certificates
+    ) => {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.width;
+        const pageHeight = doc.internal.pageSize.height;
+
+        // Load Logos Helper
+        const loadImg = (path) => new Promise(res => {
+            const img = new Image();
+            img.onload = () => res(img);
+            img.onerror = () => res(null);
+            img.src = path;
+        });
+
+        const [rit, ts] = await Promise.all([loadImg(ritLogo), loadImg(techsparkLogo)]);
+
+        // Helper to draw standard header
+        const drawPageHeader = () => {
+            if (rit) doc.addImage(rit, 'PNG', 15, 10, 48, 11);
+            if (ts) doc.addImage(ts, 'PNG', pageWidth - 50, 8, 35, 15);
+            doc.setDrawColor(226, 232, 240);
+            doc.setLineWidth(0.8);
+            doc.line(15, 25, pageWidth - 15, 25);
+        };
+
+        // ================= PAGE 1: COVER PAGE (Clean & Formal) =================
+        drawPageHeader();
+
+        doc.setFont('times', 'bold');
+        doc.setFontSize(22);
+        doc.setTextColor(15, 23, 42); // slate-900
+        doc.text('TECHSPARK CLUB', pageWidth / 2, 60, { align: 'center' });
+
+        doc.setFont('times', 'italic');
+        doc.setFontSize(14);
+        doc.setTextColor(71, 85, 105); // slate-600
+        doc.text('OFFICIAL EVENT COMPLIANCE & IMPACT REPORT', pageWidth / 2, 70, { align: 'center' });
+
+        // Accent Line
+        doc.setFillColor(37, 99, 235); // blue-600
+        doc.rect(pageWidth / 2 - 25, 78, 50, 1, 'F');
+
+        // Metadata Box/Frame Table
+        const coverMeta = [
+            ['EVENT TITLE', (event.title || event.eventName || 'N/A').toUpperCase()],
+            ['DATE OF CONDUCT', event.date || 'N/A'],
+            ['EVENT VENUE', event.venue || 'N/A'],
+            ['CHIEF GUEST / SPEAKER', (guestName || 'N/A').toUpperCase()],
+            ['FACULTY COORDINATOR', 'DR. S. DEVAPRAKASH'],
+            ['ORGANIZING COMPLIANCE', 'TECHSPARK CLUB, RIT CHENNAI'],
+            ['DOCUMENT GENERATED', new Date().toLocaleDateString('en-US')]
+        ];
+
+        autoTable(doc, {
+            startY: 95,
+            margin: { left: 30, right: 30 },
+            body: coverMeta,
+            theme: 'plain',
+            styles: {
+                font: 'times',
+                fontSize: 10.5,
+                cellPadding: 5,
+                textColor: [51, 65, 85] // slate-700
+            },
+            columnStyles: {
+                0: { fontStyle: 'bold', textColor: [15, 23, 42], cellWidth: 55 }
+            },
+            didParseCell: (data) => {
+                data.cell.styles.cellPadding = 6;
+            }
+        });
+
+        // Frame border around metadata
+        const finalY = doc.lastAutoTable.finalY;
+        doc.setDrawColor(203, 213, 225); // slate-300
+        doc.setLineWidth(0.5);
+        doc.rect(30, 95, pageWidth - 60, finalY - 95);
+
+        // Footer
+        doc.setFont('times', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(148, 163, 184); // slate-400
+        doc.text('RAJALAKSHMI INSTITUTE OF TECHNOLOGY', pageWidth / 2, pageHeight - 15, { align: 'center' });
+
+        // ================= PAGE 2: METRICS MATRIX & GUEST PROFILE =================
+        doc.addPage();
+        drawPageHeader();
+
+        doc.setFont('times', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(15, 23, 42);
+        doc.text('EXECUTIVE METRICS MATRIX & SPEAKER PROFILE', pageWidth / 2, 35, { align: 'center' });
+
+        let currentY = 45;
+
+        // Guest Profile Card
+        if (guestName) {
+            doc.setFont('times', 'bold');
+            doc.setFontSize(12);
+            doc.setTextColor(37, 99, 235); // blue-600
+            doc.text('CHIEF GUEST / INVITED SPEAKER PROFILE', 15, currentY);
+
+            const guestMeta = [
+                ['GUEST NAME', guestName.toUpperCase()],
+                ['DESIGNATION', guestDesig || 'N/A'],
+                ['ORGANIZATION', guestOrg || 'N/A']
+            ];
+
+            autoTable(doc, {
+                startY: currentY + 4,
+                body: guestMeta,
+                theme: 'striped',
+                styles: { font: 'times', fontSize: 10, cellPadding: 5 },
+                columnStyles: {
+                    0: { fontStyle: 'bold', cellWidth: 40 }
+                }
+            });
+
+            currentY = doc.lastAutoTable.finalY + 15;
+        }
+
+        // Attendance and Registration Matrix
+        doc.setFont('times', 'bold');
+        doc.setFontSize(12);
+        doc.setTextColor(37, 99, 235);
+        doc.text('PARTICIPATION TELEMETRY MATRIX', 15, currentY);
+
+        const totalRegistered = eventRegs.length;
+        const attendedCount = eventRegs.filter(r => r.isAttended || r.status === 'Present').length;
+        const absentCount = totalRegistered - attendedCount;
+        const attendancePct = totalRegistered > 0 ? ((attendedCount / totalRegistered) * 100).toFixed(1) : '0.0';
+
+        const matrixData = [
+            ['TOTAL STUDENTS REGISTERED', totalRegistered.toString()],
+            ['VERIFIED ATTENDEES (PRESENT)', attendedCount.toString()],
+            ['ABSENT REGISTRATIONS', absentCount.toString()],
+            ['ATTENDANCE COMPLIANCE RATE', `${attendancePct}%`]
+        ];
+
+        autoTable(doc, {
+            startY: currentY + 4,
+            body: matrixData,
+            theme: 'grid',
+            styles: { font: 'times', fontSize: 10, cellPadding: 6 },
+            columnStyles: {
+                0: { fontStyle: 'bold', cellWidth: 80, fillColor: [248, 250, 252] },
+                1: { halign: 'center', fontStyle: 'bold' }
+            },
+            didParseCell: (data) => {
+                if (data.column.index === 1 && data.row.index === 3) {
+                    data.cell.styles.textColor = [22, 163, 74]; // green-600
+                    data.cell.styles.fillColor = [240, 253, 244];
+                }
+            }
+        });
+
+        // ================= PAGE 3: EVENT POSTER (If uploaded) =================
+        if (poster) {
+            doc.addPage();
+            drawPageHeader();
+
+            doc.setFont('times', 'bold');
+            doc.setFontSize(14);
+            doc.setTextColor(30, 41, 59);
+            doc.text('OFFICIAL EVENT POSTER', 15, 38);
+
+            try {
+                doc.addImage(poster, 'JPEG', 20, 46, 170, 230, undefined, 'FAST');
+            } catch (e) {
+                console.error('Error drawing poster:', e);
+                doc.setFont('times', 'italic');
+                doc.setFontSize(11);
+                doc.text('Failed to render poster image.', 15, 55);
+            }
+        }
+
+        // ================= PAGE 4: APPROVAL LETTER (If uploaded) =================
+        if (approval) {
+            doc.addPage();
+            drawPageHeader();
+
+            doc.setFont('times', 'bold');
+            doc.setFontSize(14);
+            doc.setTextColor(30, 41, 59);
+            doc.text('OFFICIAL EVENT APPROVAL REQUISITION', 15, 38);
+
+            try {
+                doc.addImage(approval, 'JPEG', 20, 46, 170, 230, undefined, 'FAST');
+            } catch (e) {
+                console.error('Error drawing approval:', e);
+                doc.setFont('times', 'italic');
+                doc.setFontSize(11);
+                doc.text('Failed to render approval letter image.', 15, 55);
+            }
+        }
+
+        // ================= PAGE 5: EVENT WRITE-UP & SUBHEADINGS =================
+        doc.addPage();
+        drawPageHeader();
+
+        doc.setFont('times', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(15, 23, 42);
+        doc.text('DETAILED EVENT EXECUTIVE REPORT', pageWidth / 2, 35, { align: 'center' });
+
+        let writeupY = 45;
+
+        writeupSections.forEach((section, sIdx) => {
+            // Measure section content to check if it fits, else add page
+            doc.setFont('times', 'bold');
+            doc.setFontSize(12);
+            const titleText = `${sIdx + 1}. ${section.title.toUpperCase()}`;
+            
+            // Add page if near bottom
+            if (writeupY > pageHeight - 35) {
+                doc.addPage();
+                drawPageHeader();
+                writeupY = 35;
+            }
+
+            doc.setTextColor(37, 99, 235);
+            doc.text(titleText, 15, writeupY);
+            writeupY += 7;
+
+            doc.setFont('times', 'normal');
+            doc.setFontSize(11);
+            doc.setTextColor(51, 65, 85);
+            
+            const splitContent = doc.splitTextToSize(section.content || 'No details provided for this section.', pageWidth - 30);
+            
+            splitContent.forEach(line => {
+                if (writeupY > pageHeight - 20) {
+                    doc.addPage();
+                    drawPageHeader();
+                    writeupY = 35;
+                    doc.setFont('times', 'normal');
+                    doc.setFontSize(11);
+                    doc.setTextColor(51, 65, 85);
+                }
+                doc.text(line, 15, writeupY);
+                writeupY += 6;
+            });
+
+            writeupY += 8; // Spacing between sections
+        });
+
+        // ================= PAGE 6: CERTIFICATE ISSUANCE TABLE =================
+        if (certificates && certificates.length > 0) {
+            doc.addPage();
+            drawPageHeader();
+
+            doc.setFont('times', 'bold');
+            doc.setFontSize(14);
+            doc.setTextColor(15, 23, 42);
+            doc.text('CERTIFICATE DISTRIBUTION REGISTER', pageWidth / 2, 35, { align: 'center' });
+
+            const certRows = certificates.map((c, idx) => [
+                idx + 1,
+                (c.rollNumber || '').toUpperCase(),
+                (c.name || '').toUpperCase(),
+                (c.role || '').toUpperCase(),
+                (c.certId || '').toUpperCase()
+            ]);
+
+            autoTable(doc, {
+                startY: 42,
+                theme: 'striped',
+                head: [['S.NO', 'ROLL NUMBER', 'STUDENT NAME', 'EVENT ROLE', 'CERTIFICATE ID']],
+                body: certRows,
+                headStyles: { fillColor: [79, 70, 229], font: 'times', fontStyle: 'bold', fontSize: 9.5 },
+                bodyStyles: { font: 'times', fontSize: 9 },
+                columnStyles: {
+                    0: { cellWidth: 15, halign: 'center' },
+                    1: { cellWidth: 35 },
+                    2: { cellWidth: 60 },
+                    3: { cellWidth: 35, fontStyle: 'bold' },
+                    4: { cellWidth: 40 }
+                }
+            });
+        }
+
+        // ================= PAGE 7: PARTICIPANT ATTENDANCE SHEET =================
+        doc.addPage();
+        drawPageHeader();
+
+        doc.setFont('times', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(15, 23, 42);
+        doc.text('PARTICIPANT ATTENDANCE LEDGER', pageWidth / 2, 35, { align: 'center' });
+
+        const tableRows = eventRegs.map((reg, index) => [
+            index + 1,
+            (reg.studentName || 'N/A').toUpperCase(),
+            reg.studentRoll || reg.rollNumber || 'N/A',
+            (reg.studentDept || reg.department || 'N/A').toUpperCase(),
+            reg.studentYear || reg.yearOfStudy || 'N/A',
+            reg.studentSection || reg.section || '-',
+            reg.isAttended || reg.status === 'Present' ? 'PRESENT' : 'ABSENT'
+        ]);
+
+        autoTable(doc, {
+            startY: 42,
+            theme: 'striped',
+            head: [['S.NO', 'STUDENT NAME', 'ROLL NUMBER', 'DEPT', 'YEAR', 'SEC', 'STATUS']],
+            body: tableRows,
+            styles: { font: 'times', fontSize: 8.5, cellPadding: 3.5 },
+            headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255] },
+            columnStyles: {
+                0: { halign: 'center' },
+                2: { halign: 'center' },
+                6: { fontStyle: 'bold' }
+            },
+            didParseCell: (data) => {
+                if (data.column.index === 6 && data.cell.section === 'body') {
+                    if (data.cell.text[0] === 'PRESENT') {
+                        data.cell.styles.textColor = [22, 163, 74];
+                    } else {
+                        data.cell.styles.textColor = [220, 38, 38];
+                    }
+                }
+            }
+        });
+
+        // ================= PAGE 8: FEEDBACK INTELLIGENCE =================
+        if (eventFeedbacks.length > 0) {
+            doc.addPage();
+            drawPageHeader();
+
+            doc.setFont('times', 'bold');
+            doc.setFontSize(14);
+            doc.setTextColor(15, 23, 42);
+            doc.text('PARTICIPANT FEEDBACK INTELLIGENCE', pageWidth / 2, 35, { align: 'center' });
+
+            const avgRating = (eventFeedbacks.reduce((acc, curr) => acc + (Number(curr.rating) || 0), 0) / (eventFeedbacks.length || 1)).toFixed(1);
+            
+            doc.setFont('times', 'bold');
+            doc.setFontSize(11);
+            doc.setTextColor(71, 85, 105);
+            doc.text(`Total Feedback Logs: ${eventFeedbacks.length}    |    Average Assessment Score: ${avgRating} / 5.0`, 15, 43);
+
+            // Feedback Highlights Table
+            const feedbackComments = eventFeedbacks
+                .filter(f => f.comment || f.feedback)
+                .map((f, index) => [
+                    index + 1,
+                    f.studentRoll || 'N/A',
+                    `★ ${f.rating || '-'}`,
+                    f.comment || f.feedback || 'N/A'
+                ]);
+
+            autoTable(doc, {
+                startY: 48,
+                theme: 'striped',
+                head: [['S.NO', 'ROLL NUMBER', 'RATING', 'STUDENT INSIGHTS & REMARKS']],
+                body: feedbackComments,
+                headStyles: { fillColor: [15, 23, 42], font: 'times', fontStyle: 'bold', fontSize: 9.5 },
+                bodyStyles: { font: 'times', fontSize: 9 },
+                columnStyles: {
+                    0: { cellWidth: 15, halign: 'center' },
+                    1: { cellWidth: 35 },
+                    2: { cellWidth: 20, fontStyle: 'bold', textColor: [234, 179, 8] },
+                    3: { cellWidth: 120 }
+                }
+            });
+        }
+
+        // ================= PAGE 9 & 10: PHOTOGRAPHS GALLERY =================
+        if (images && images.length > 0) {
+            const drawGalleryPage = (imagesSubset) => {
+                doc.addPage();
+                drawPageHeader();
+
+                doc.setFont('times', 'bold');
+                doc.setFontSize(14);
+                doc.setTextColor(30, 41, 59);
+                doc.text('EVENT PHOTOGRAPHS GALLERY', 15, 38);
+
+                const positions = [
+                    { x: 15, y: 46, w: 85, h: 90 },
+                    { x: 110, y: 46, w: 85, h: 90 },
+                    { x: 15, y: 150, w: 85, h: 90 },
+                    { x: 110, y: 150, w: 85, h: 90 }
+                ];
+
+                imagesSubset.forEach((imgBase64, idx) => {
+                    if (idx < positions.length) {
+                        const pos = positions[idx];
+                        try {
+                            doc.addImage(imgBase64, 'JPEG', pos.x, pos.y, pos.w, pos.h, undefined, 'FAST');
+                            doc.setDrawColor(200);
+                            doc.setLineWidth(0.2);
+                            doc.rect(pos.x, pos.y, pos.w, pos.h);
+                        } catch (e) {
+                            console.error('Error drawing gallery image:', e);
+                        }
+                    }
+                });
+            };
+
+            const chunks = [];
+            for (let i = 0; i < images.length; i += 4) {
+                chunks.push(images.slice(i, i + 4));
+            }
+            chunks.forEach((chunk) => {
+                drawGalleryPage(chunk);
+            });
+        }
+
+        doc.save(`Event_Report_${event.title.replace(/\s+/g, '_')}.pdf`);
+    };
+
     const downloadEventReportPDF = async () => {
         if (!selectedEventId) {
             alert('Please select an event first.');
@@ -1341,413 +1912,19 @@ const AdminDashboard = () => {
             );
             const eventFeedbacks = feedbackSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            const doc = new jsPDF();
-            const pageWidth = doc.internal.pageSize.width;
-            const pageHeight = doc.internal.pageSize.height;
-
-            // Load Logos Helper
-            const loadImg = (path) => new Promise(res => {
-                const img = new Image();
-                img.onload = () => res(img);
-                img.onerror = () => res(null);
-                img.src = path;
-            });
-
-            const [rit, ts] = await Promise.all([loadImg(ritLogo), loadImg(techsparkLogo)]);
-
-            // Helper to draw standard header
-            const drawPageHeader = () => {
-                if (rit) doc.addImage(rit, 'PNG', 15, 10, 48, 11);
-                if (ts) doc.addImage(ts, 'PNG', pageWidth - 50, 8, 35, 15);
-                doc.setDrawColor(226, 232, 240);
-                doc.setLineWidth(0.8);
-                doc.line(15, 25, pageWidth - 15, 25);
-            };
-
-            // ================= PAGE 1: COVER PAGE (Clean & Formal) =================
-            drawPageHeader();
-
-            doc.setFont('times', 'bold');
-            doc.setFontSize(22);
-            doc.setTextColor(15, 23, 42); // slate-900
-            doc.text('TECHSPARK CLUB', pageWidth / 2, 60, { align: 'center' });
-
-            doc.setFont('times', 'italic');
-            doc.setFontSize(14);
-            doc.setTextColor(71, 85, 105); // slate-600
-            doc.text('OFFICIAL EVENT COMPLIANCE & IMPACT REPORT', pageWidth / 2, 70, { align: 'center' });
-
-            // Accent Line
-            doc.setFillColor(37, 99, 235); // blue-600
-            doc.rect(pageWidth / 2 - 25, 78, 50, 1, 'F');
-
-            // Metadata Box/Frame Table
-            const coverMeta = [
-                ['EVENT TITLE', (event.title || event.eventName || 'N/A').toUpperCase()],
-                ['DATE OF CONDUCT', event.date || 'N/A'],
-                ['EVENT VENUE', event.venue || 'N/A'],
-                ['CHIEF GUEST / SPEAKER', (eventGuestName || 'N/A').toUpperCase()],
-                ['FACULTY COORDINATOR', 'DR. S. DEVAPRAKASH'],
-                ['ORGANIZING COMPLIANCE', 'TECHSPARK CLUB, RIT CHENNAI'],
-                ['DOCUMENT GENERATED', new Date().toLocaleDateString('en-US')]
-            ];
-
-            autoTable(doc, {
-                startY: 95,
-                margin: { left: 30, right: 30 },
-                body: coverMeta,
-                theme: 'plain',
-                styles: {
-                    font: 'times',
-                    fontSize: 10.5,
-                    cellPadding: 5,
-                    textColor: [51, 65, 85] // slate-700
-                },
-                columnStyles: {
-                    0: { fontStyle: 'bold', textColor: [15, 23, 42], cellWidth: 55 }
-                },
-                didParseCell: (data) => {
-                    data.cell.styles.cellPadding = 6;
-                }
-            });
-
-            // Frame border around metadata
-            const finalY = doc.lastAutoTable.finalY;
-            doc.setDrawColor(203, 213, 225); // slate-300
-            doc.setLineWidth(0.5);
-            doc.rect(30, 95, pageWidth - 60, finalY - 95);
-
-            // Footer
-            doc.setFont('times', 'normal');
-            doc.setFontSize(9);
-            doc.setTextColor(148, 163, 184); // slate-400
-            doc.text('RAJALAKSHMI INSTITUTE OF TECHNOLOGY', pageWidth / 2, pageHeight - 15, { align: 'center' });
-
-            // ================= PAGE 2: METRICS MATRIX & GUEST PROFILE =================
-            doc.addPage();
-            drawPageHeader();
-
-            doc.setFont('times', 'bold');
-            doc.setFontSize(14);
-            doc.setTextColor(15, 23, 42);
-            doc.text('EXECUTIVE METRICS MATRIX & SPEAKER PROFILE', pageWidth / 2, 35, { align: 'center' });
-
-            let currentY = 45;
-
-            // Guest Profile Card
-            if (eventGuestName) {
-                doc.setFont('times', 'bold');
-                doc.setFontSize(12);
-                doc.setTextColor(37, 99, 235); // blue-600
-                doc.text('CHIEF GUEST / INVITED SPEAKER PROFILE', 15, currentY);
-
-                const guestMeta = [
-                    ['GUEST NAME', eventGuestName.toUpperCase()],
-                    ['DESIGNATION', eventGuestDesig || 'N/A'],
-                    ['ORGANIZATION', eventGuestOrg || 'N/A']
-                ];
-
-                autoTable(doc, {
-                    startY: currentY + 4,
-                    body: guestMeta,
-                    theme: 'striped',
-                    styles: { font: 'times', fontSize: 10, cellPadding: 5 },
-                    columnStyles: {
-                        0: { fontStyle: 'bold', cellWidth: 40 }
-                    }
-                });
-
-                currentY = doc.lastAutoTable.finalY + 15;
-            }
-
-            // Attendance and Registration Matrix
-            doc.setFont('times', 'bold');
-            doc.setFontSize(12);
-            doc.setTextColor(37, 99, 235);
-            doc.text('PARTICIPATION TELEMETRY MATRIX', 15, currentY);
-
-            const totalRegistered = eventRegs.length;
-            const attendedCount = eventRegs.filter(r => r.isAttended || r.status === 'Present').length;
-            const absentCount = totalRegistered - attendedCount;
-            const attendancePct = totalRegistered > 0 ? ((attendedCount / totalRegistered) * 100).toFixed(1) : '0.0';
-
-            const matrixData = [
-                ['TOTAL STUDENTS REGISTERED', totalRegistered.toString()],
-                ['VERIFIED ATTENDEES (PRESENT)', attendedCount.toString()],
-                ['ABSENT REGISTRATIONS', absentCount.toString()],
-                ['ATTENDANCE COMPLIANCE RATE', `${attendancePct}%`]
-            ];
-
-            autoTable(doc, {
-                startY: currentY + 4,
-                body: matrixData,
-                theme: 'grid',
-                styles: { font: 'times', fontSize: 10, cellPadding: 6 },
-                columnStyles: {
-                    0: { fontStyle: 'bold', cellWidth: 80, fillColor: [248, 250, 252] },
-                    1: { halign: 'center', fontStyle: 'bold' }
-                },
-                didParseCell: (data) => {
-                    if (data.column.index === 1 && data.row.index === 3) {
-                        data.cell.styles.textColor = [22, 163, 74]; // green-600
-                        data.cell.styles.fillColor = [240, 253, 244];
-                    }
-                }
-            });
-
-            // ================= PAGE 3: EVENT POSTER (If uploaded) =================
-            if (eventPoster) {
-                doc.addPage();
-                drawPageHeader();
-
-                doc.setFont('times', 'bold');
-                doc.setFontSize(14);
-                doc.setTextColor(30, 41, 59);
-                doc.text('OFFICIAL EVENT POSTER', 15, 38);
-
-                try {
-                    doc.addImage(eventPoster, 'JPEG', 20, 46, 170, 230, undefined, 'FAST');
-                } catch (e) {
-                    console.error('Error drawing poster:', e);
-                    doc.setFont('times', 'italic');
-                    doc.setFontSize(11);
-                    doc.text('Failed to render poster image.', 15, 55);
-                }
-            }
-
-            // ================= PAGE 4: APPROVAL LETTER (If uploaded) =================
-            if (approvalLetter) {
-                doc.addPage();
-                drawPageHeader();
-
-                doc.setFont('times', 'bold');
-                doc.setFontSize(14);
-                doc.setTextColor(30, 41, 59);
-                doc.text('OFFICIAL EVENT APPROVAL REQUISITION', 15, 38);
-
-                try {
-                    doc.addImage(approvalLetter, 'JPEG', 20, 46, 170, 230, undefined, 'FAST');
-                } catch (e) {
-                    console.error('Error drawing approval:', e);
-                    doc.setFont('times', 'italic');
-                    doc.setFontSize(11);
-                    doc.text('Failed to render approval letter image.', 15, 55);
-                }
-            }
-
-            // ================= PAGE 5: EVENT WRITE-UP & SUBHEADINGS =================
-            doc.addPage();
-            drawPageHeader();
-
-            doc.setFont('times', 'bold');
-            doc.setFontSize(14);
-            doc.setTextColor(15, 23, 42);
-            doc.text('DETAILED EVENT EXECUTIVE REPORT', pageWidth / 2, 35, { align: 'center' });
-
-            let writeupY = 45;
-
-            eventWriteupSections.forEach((section, sIdx) => {
-                // Measure section content to check if it fits, else add page
-                doc.setFont('times', 'bold');
-                doc.setFontSize(12);
-                const titleText = `${sIdx + 1}. ${section.title.toUpperCase()}`;
-                
-                // Add page if near bottom
-                if (writeupY > pageHeight - 35) {
-                    doc.addPage();
-                    drawPageHeader();
-                    writeupY = 35;
-                }
-
-                doc.setTextColor(37, 99, 235);
-                doc.text(titleText, 15, writeupY);
-                writeupY += 7;
-
-                doc.setFont('times', 'normal');
-                doc.setFontSize(11);
-                doc.setTextColor(51, 65, 85);
-                
-                const splitContent = doc.splitTextToSize(section.content || 'No details provided for this section.', pageWidth - 30);
-                
-                splitContent.forEach(line => {
-                    if (writeupY > pageHeight - 20) {
-                        doc.addPage();
-                        drawPageHeader();
-                        writeupY = 35;
-                        doc.setFont('times', 'normal');
-                        doc.setFontSize(11);
-                        doc.setTextColor(51, 65, 85);
-                    }
-                    doc.text(line, 15, writeupY);
-                    writeupY += 6;
-                });
-
-                writeupY += 8; // Spacing between sections
-            });
-
-            // ================= PAGE 6: CERTIFICATE ISSUANCE TABLE =================
-            if (sheetCertificates.length > 0) {
-                doc.addPage();
-                drawPageHeader();
-
-                doc.setFont('times', 'bold');
-                doc.setFontSize(14);
-                doc.setTextColor(15, 23, 42);
-                doc.text('CERTIFICATE DISTRIBUTION REGISTER', pageWidth / 2, 35, { align: 'center' });
-
-                const certRows = sheetCertificates.map((c, idx) => [
-                    idx + 1,
-                    c.rollNumber.toUpperCase(),
-                    c.name.toUpperCase(),
-                    c.role.toUpperCase(),
-                    c.certId.toUpperCase()
-                ]);
-
-                autoTable(doc, {
-                    startY: 42,
-                    theme: 'striped',
-                    head: [['S.NO', 'ROLL NUMBER', 'STUDENT NAME', 'EVENT ROLE', 'CERTIFICATE ID']],
-                    body: certRows,
-                    headStyles: { fillColor: [79, 70, 229], font: 'times', fontStyle: 'bold', fontSize: 9.5 },
-                    bodyStyles: { font: 'times', fontSize: 9 },
-                    columnStyles: {
-                        0: { cellWidth: 15, halign: 'center' },
-                        1: { cellWidth: 35 },
-                        2: { cellWidth: 60 },
-                        3: { cellWidth: 35, fontStyle: 'bold' },
-                        4: { cellWidth: 40 }
-                    }
-                });
-            }
-
-            // ================= PAGE 7: PARTICIPANT ATTENDANCE SHEET =================
-            doc.addPage();
-            drawPageHeader();
-
-            doc.setFont('times', 'bold');
-            doc.setFontSize(14);
-            doc.setTextColor(15, 23, 42);
-            doc.text('PARTICIPANT ATTENDANCE LEDGER', pageWidth / 2, 35, { align: 'center' });
-
-            const tableRows = eventRegs.map((reg, index) => [
-                index + 1,
-                (reg.studentName || 'N/A').toUpperCase(),
-                reg.studentRoll || reg.rollNumber || 'N/A',
-                (reg.studentDept || reg.department || 'N/A').toUpperCase(),
-                reg.studentYear || reg.yearOfStudy || 'N/A',
-                reg.studentSection || reg.section || '-',
-                reg.isAttended || reg.status === 'Present' ? 'PRESENT' : 'ABSENT'
-            ]);
-
-            autoTable(doc, {
-                startY: 42,
-                theme: 'striped',
-                head: [['S.NO', 'STUDENT NAME', 'ROLL NUMBER', 'DEPT', 'YEAR', 'SEC', 'STATUS']],
-                body: tableRows,
-                styles: { font: 'times', fontSize: 8.5, cellPadding: 3.5 },
-                headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255] },
-                columnStyles: {
-                    0: { halign: 'center' },
-                    2: { halign: 'center' },
-                    6: { fontStyle: 'bold' }
-                },
-                didParseCell: (data) => {
-                    if (data.column.index === 6 && data.cell.section === 'body') {
-                        if (data.cell.text[0] === 'PRESENT') {
-                            data.cell.styles.textColor = [22, 163, 74];
-                        } else {
-                            data.cell.styles.textColor = [220, 38, 38];
-                        }
-                    }
-                }
-            });
-
-            // ================= PAGE 8: FEEDBACK INTELLIGENCE =================
-            if (eventFeedbacks.length > 0) {
-                doc.addPage();
-                drawPageHeader();
-
-                doc.setFont('times', 'bold');
-                doc.setFontSize(14);
-                doc.setTextColor(15, 23, 42);
-                doc.text('PARTICIPANT FEEDBACK INTELLIGENCE', pageWidth / 2, 35, { align: 'center' });
-
-                const avgRating = (eventFeedbacks.reduce((acc, curr) => acc + (Number(curr.rating) || 0), 0) / (eventFeedbacks.length || 1)).toFixed(1);
-                
-                doc.setFont('times', 'bold');
-                doc.setFontSize(11);
-                doc.setTextColor(71, 85, 105);
-                doc.text(`Total Feedback Logs: ${eventFeedbacks.length}    |    Average Assessment Score: ${avgRating} / 5.0`, 15, 43);
-
-                // Feedback Highlights Table
-                const feedbackComments = eventFeedbacks
-                    .filter(f => f.comment || f.feedback)
-                    .map((f, index) => [
-                        index + 1,
-                        f.studentRoll || 'N/A',
-                        `★ ${f.rating || '-'}`,
-                        f.comment || f.feedback || 'N/A'
-                    ]);
-
-                autoTable(doc, {
-                    startY: 48,
-                    theme: 'striped',
-                    head: [['S.NO', 'ROLL NUMBER', 'RATING', 'STUDENT INSIGHTS & REMARKS']],
-                    body: feedbackComments,
-                    headStyles: { fillColor: [15, 23, 42], font: 'times', fontStyle: 'bold', fontSize: 9.5 },
-                    bodyStyles: { font: 'times', fontSize: 9 },
-                    columnStyles: {
-                        0: { cellWidth: 15, halign: 'center' },
-                        1: { cellWidth: 35 },
-                        2: { cellWidth: 20, fontStyle: 'bold', textColor: [234, 179, 8] },
-                        3: { cellWidth: 120 }
-                    }
-                });
-            }
-
-            // ================= PAGE 9 & 10: PHOTOGRAPHS GALLERY =================
-            if (eventImages.length > 0) {
-                const drawGalleryPage = (imagesSubset) => {
-                    doc.addPage();
-                    drawPageHeader();
-
-                    doc.setFont('times', 'bold');
-                    doc.setFontSize(14);
-                    doc.setTextColor(30, 41, 59);
-                    doc.text('EVENT PHOTOGRAPHS GALLERY', 15, 38);
-
-                    const positions = [
-                        { x: 15, y: 46, w: 85, h: 90 },
-                        { x: 110, y: 46, w: 85, h: 90 },
-                        { x: 15, y: 150, w: 85, h: 90 },
-                        { x: 110, y: 150, w: 85, h: 90 }
-                    ];
-
-                    imagesSubset.forEach((imgBase64, idx) => {
-                        if (idx < positions.length) {
-                            const pos = positions[idx];
-                            try {
-                                doc.addImage(imgBase64, 'JPEG', pos.x, pos.y, pos.w, pos.h, undefined, 'FAST');
-                                doc.setDrawColor(200);
-                                doc.setLineWidth(0.2);
-                                doc.rect(pos.x, pos.y, pos.w, pos.h);
-                            } catch (e) {
-                                console.error('Error drawing gallery image:', e);
-                            }
-                        }
-                    });
-                };
-
-                const chunks = [];
-                for (let i = 0; i < eventImages.length; i += 4) {
-                    chunks.push(eventImages.slice(i, i + 4));
-                }
-                chunks.forEach((chunk) => {
-                    drawGalleryPage(chunk);
-                });
-            }
-
-            doc.save(`Event_Report_${event.title.replace(/\s+/g, '_')}.pdf`);
+            await compileEventReportPDF(
+                event,
+                eventRegs,
+                eventFeedbacks,
+                eventPoster,
+                approvalLetter,
+                eventImages,
+                eventGuestName,
+                eventGuestDesig,
+                eventGuestOrg,
+                eventWriteupSections,
+                sheetCertificates
+            );
             setIsGeneratingReport(false);
         } catch (error) {
             console.error('Error generating event report PDF:', error);
@@ -2572,522 +2749,85 @@ const AdminDashboard = () => {
 
     const handleDownloadFinalReport = async (event) => {
         if (!event) return;
-        console.log("INITIATING MASTER REPORT ASSEMBLY...", event.title);
-        const eventRegs = registrations.filter(r => r.eventId === event.id);
-        const eventFeedback = feedbackBase.filter(f => f.eventId === event.id);
-        const presentCount = eventRegs.filter(r => r.isAttended || r.status === 'Present').length;
-        const absentCount = eventRegs.length - presentCount;
-        const attendanceRate = ((presentCount / (eventRegs.length || 1)) * 100).toFixed(1);
-
-        // helper for analysis
-        const getAnalysis = (data) => {
-            const depts = {}, years = {};
-            data.forEach(r => {
-                depts[r.studentDept] = (depts[r.studentDept] || 0) + 1;
-                years[r.studentYear] = (years[r.studentYear] || 0) + 1;
-            });
-            return { depts, years };
-        };
-
-        const analysis = getAnalysis(eventRegs);
-        const topDept = Object.entries(analysis.depts).sort((a, b) => b[1] - a[1])[0];
-        const topYear = Object.entries(analysis.years).sort((a, b) => b[1] - a[1])[0];
-        const avgRating = (eventFeedback.reduce((acc, curr) => acc + (curr.rating || 0), 0) / (eventFeedback.length || 1)).toFixed(1);
-
+        console.log("INITIATING COMPLIANCE REPORT GENERATION...", event.title);
+        
         try {
-            const doc = new jsPDF();
-            const pageWidth = doc.internal.pageSize.width;
-            const pageHeight = doc.internal.pageSize.height;
-            const reportId = `TS-MASTER-${event.id.slice(0, 5).toUpperCase()}-${Math.floor(Date.now() / 10000)}`;
+            // Fetch registrations for this event
+            const regsSnap = await getDocs(
+                query(collection(db, 'registrations'), where('eventId', '==', event.id))
+            );
+            const eventRegs = regsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            const drawBranding = () => {
-                doc.setFillColor(15, 23, 42); // Navy Dark
-                doc.rect(0, 0, 5, pageHeight, 'F');
-                doc.setDrawColor(226, 232, 240);
-                doc.line(10, 25, pageWidth - 10, 25);
-            };
+            // Fetch feedback for this event
+            const feedbackSnap = await getDocs(
+                query(collection(db, 'feedback'), where('eventId', '==', event.id))
+            );
+            const eventFeedbacks = feedbackSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            const addLogos = async () => {
-                const loadImg = (path) => new Promise(res => {
-                    const img = new Image();
-                    img.onload = () => res(img);
-                    img.onerror = () => res(null);
-                    img.src = path;
-                });
-                const [rit, ts] = await Promise.all([loadImg(ritLogo), loadImg(techsparkLogo)]);
-                if (rit) doc.addImage(rit, 'PNG', 10, 8, 52, 12);
-                if (ts) doc.addImage(ts, 'PNG', pageWidth - 55, 8, 41, 12);
-            };
+            // Fetch latest event document to ensure we have URLs
+            const eventDocRef = doc(db, 'events', event.id);
+            const eventSnap = await getDoc(eventDocRef);
+            let eventObj = event;
+            let posterB64 = null;
+            let approvalB64 = null;
+            let imagesB64s = [];
 
-            const addWatermark = (text = 'OFFICIAL AUDIT') => {
-                doc.saveGraphicsState();
-                doc.setGState(new doc.GState({ opacity: 0.03 }));
-                doc.setFontSize(40);
-                doc.setTextColor(150);
-                doc.setFont('helvetica', 'bold');
-                doc.text(text, pageWidth / 2, pageHeight / 2, { align: 'center', angle: 45 });
-                doc.restoreGraphicsState();
-            };
-
-            const addPageFooter = (pageNum) => {
-                doc.setFontSize(7);
-                doc.setTextColor(160);
-                doc.text(`OFFICIAL EVENT REPORT | ID: ${reportId} | PAGE ${pageNum}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
-            };
-
-            const drawSectionHeader = (title, pageNum) => {
-                doc.setFillColor(241, 245, 249); // light blue-gray background
-                doc.rect(15, 38, pageWidth - 30, 10, 'F');
-                doc.setDrawColor(37, 99, 235); // Blue-600
-                doc.setLineWidth(1);
-                doc.line(15, 38, 15, 48); // Accent line
-
-                doc.setFontSize(14);
-                doc.setTextColor(30, 41, 59); // slate-800
-                doc.setFont('helvetica', 'bold');
-                doc.text(title, 20, 44.5);
-
-                addPageFooter(pageNum);
-            };
-
-            await addLogos();
-            drawBranding();
-
-            // --- PAGE 1: ENHANCED COVER PAGE ---
-
-            // Main Title
-            doc.setTextColor(30, 41, 59); // Dark slate
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(40);
-            doc.text('TECHSPARK CLUB', pageWidth / 2, 80, { align: 'center' });
-
-            // Subtitle
-            doc.setFontSize(24);
-            doc.setTextColor(59, 130, 246); // Blue-500
-            doc.text('EVENT FINAL REPORT', pageWidth / 2, 100, { align: 'center' });
-
-            // Decorative line
-            doc.setDrawColor(59, 130, 246);
-            doc.setLineWidth(1.5);
-            doc.line(pageWidth / 2 - 60, 108, pageWidth / 2 + 60, 108);
-
-            // Event Title
-            doc.setFontSize(18);
-            doc.setTextColor(15, 23, 42);
-            doc.setFont('helvetica', 'bold');
-            const eventTitle = event.title.toUpperCase();
-            const titleLines = doc.splitTextToSize(eventTitle, pageWidth - 60);
-            doc.text(titleLines, pageWidth / 2, 130, { align: 'center' });
-
-            // Info Box
-            const boxY = 155;
-            doc.setFillColor(248, 250, 252); // Gray-50
-            doc.setDrawColor(226, 232, 240); // Gray-200
-            doc.setLineWidth(0.5);
-            doc.roundedRect(30, boxY, pageWidth - 60, 45, 3, 3, 'FD');
-
-            // Info Box Content
-            doc.setFontSize(9);
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(71, 85, 105); // Gray-600
-
-            const infoY = boxY + 12;
-            doc.text(`Event Date: ${event.date}`, 40, infoY);
-            doc.text(`Venue: ${event.venue || 'RIT Campus'}`, 40, infoY + 8);
-            doc.text(`Total Registrations: ${eventRegs.length}`, 40, infoY + 16);
-            doc.text(`Attendance Rate: ${attendanceRate}%`, 40, infoY + 24);
-
-            doc.text(`Event Type: ${event.type || 'General'}`, pageWidth / 2 + 10, infoY);
-            doc.text(`Avg Rating: ${avgRating}/5.0`, pageWidth / 2 + 10, infoY + 8);
-            doc.text(`Report ID: ${reportId}`, pageWidth / 2 + 10, infoY + 16);
-            doc.text(`Generated: ${new Date().toLocaleDateString('en-IN')}`, pageWidth / 2 + 10, infoY + 24);
-
-            // Confidential Notice
-            doc.setFontSize(8);
-            doc.setFont('helvetica', 'italic');
-            doc.setTextColor(107, 114, 128); // Gray-500
-            doc.text('CONFIDENTIAL - For Internal Use Only', pageWidth / 2, 220, { align: 'center' });
-
-            // Authorization
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(37, 99, 235);
-            doc.text('Authorized by TechSpark Club Administration', pageWidth / 2, 240, { align: 'center' });
-
-            addPageFooter(1);
-
-            // --- PAGE 2: EXECUTIVE INTELLIGENCE SUMMARY ---
-            doc.addPage();
-            drawBranding();
-            await addLogos();
-            addWatermark('EXECUTIVE SUMMARY');
-
-            drawSectionHeader('I. EXECUTIVE SUMMARY', 2);
-
-            autoTable(doc, {
-                startY: 55,
-                body: [
-                    ['EVENT STATUS', 'COMPLETED SUCCESSFULLY'],
-                    ['TOTAL REGISTRATIONS', eventRegs.length.toString()],
-                    ['ATTENDANCE COUNT', presentCount.toString()],
-                    ['ATTENDANCE RATE', `${attendanceRate}%`],
-                    ['DEPARTMENTS REPRESENTED', `${Object.keys(analysis.depts).length} Departments`],
-                    ['TOP CONTRIBUTING DEPT', `${topDept?.[0] || 'N/A'} (${topDept?.[1] || 0} Students)`],
-                    ['PRIMARY YEAR GROUP', `${topYear?.[0] || 'N/A'} Year (${topYear?.[1] || 0} Students)`],
-                    ['BENCHMARK FEEDBACK', `${avgRating} / 5.0`]
-                ],
-                theme: 'striped',
-                styles: { fontSize: 10, cellPadding: 8, textColor: [51, 65, 85] },
-                headStyles: { fillColor: [30, 41, 59] },
-                columnStyles: {
-                    0: { fontStyle: 'bold', cellWidth: 100, textColor: [30, 41, 59] }
-                },
-                alternateRowStyles: { fillColor: [248, 250, 252] }
-            });
-
-            // --- PAGE 3: PARTICIPANT MANIFEST ---
-            doc.addPage();
-            drawBranding();
-            await addLogos();
-            addWatermark('REGISTRATION LOG');
-
-            drawSectionHeader('II. REGISTRATION MANIFEST', 3);
-
-            const regTableData = eventRegs.map((r, i) => [
-                i + 1,
-                (r.studentName || 'N/A').toUpperCase(),
-                r.studentRoll,
-                r.studentDept,
-                r.registeredAt?.toDate ? new Date(r.registeredAt.toDate()).toLocaleDateString() : 'N/A'
-            ]);
-
-            autoTable(doc, {
-                startY: 55,
-                head: [['#', 'STUDENT NAME', 'ROLL NUMBER', 'DEPARTMENT', 'REGISTRATION DATE']],
-                body: regTableData,
-                headStyles: { fillColor: [30, 41, 59], fontSize: 8, halign: 'center' },
-                styles: { fontSize: 7, textColor: [71, 85, 105] },
-                columnStyles: {
-                    0: { halign: 'center' },
-                    2: { halign: 'center' },
-                    4: { halign: 'center' }
+            if (eventSnap.exists()) {
+                eventObj = { id: eventSnap.id, ...eventSnap.data() };
+                
+                if (eventObj.posterUrl) {
+                    posterB64 = await loadImageAsBase64(eventObj.posterUrl);
                 }
-            });
-
-            // --- PAGE 4: ATTENDANCE AUDIT ---
-            doc.addPage();
-            drawBranding();
-            await addLogos();
-            addWatermark('ATTENDANCE AUDIT');
-
-            drawSectionHeader('III. ATTENDANCE AUDIT', 4);
-
-            const attendedList = eventRegs.filter(r => r.isAttended || r.status === 'Present').map((r, i) => [
-                i + 1,
-                (r.studentName || 'N/A').toUpperCase(),
-                r.studentRoll,
-                r.studentDept,
-                'PRESENT'
-            ]);
-
-            const absentList = eventRegs.filter(r => !(r.isAttended || r.status === 'Present')).map((r, i) => [
-                i + 1,
-                (r.studentName || 'N/A').toUpperCase(),
-                r.studentRoll,
-                r.studentDept,
-                'ABSENT'
-            ]);
-
-            autoTable(doc, {
-                startY: 55,
-                head: [['#', 'STUDENT NAME', 'ROLL NUMBER', 'DEPARTMENT', 'STATUS']],
-                body: attendedList,
-                headStyles: { fillColor: [16, 185, 129] }, // Emerald-500
-                styles: { fontSize: 7, textColor: [30, 41, 59] }
-            });
-
-            if (absentList.length > 0) {
-                let currentY = doc.lastAutoTable.finalY + 15;
-                if (currentY > 230) {
-                    doc.addPage();
-                    drawBranding();
-                    await addLogos();
-                    drawSectionHeader('III. ATTENDANCE AUDIT (CONTINUED)', 4);
-                    currentY = 55;
+                if (eventObj.approvalLetterUrl) {
+                    approvalB64 = await loadImageAsBase64(eventObj.approvalLetterUrl);
+                }
+                const urlsToFetch = [];
+                if (eventObj.imageDriveUrl1) urlsToFetch.push(eventObj.imageDriveUrl1);
+                if (eventObj.imageDriveUrl2) urlsToFetch.push(eventObj.imageDriveUrl2);
+                if (eventObj.imageDriveUrl3) urlsToFetch.push(eventObj.imageDriveUrl3);
+                if (eventObj.imageDriveUrl4) urlsToFetch.push(eventObj.imageDriveUrl4);
+                
+                if (urlsToFetch.length === 0 && eventObj.photoUrls && Array.isArray(eventObj.photoUrls)) {
+                    urlsToFetch.push(...eventObj.photoUrls);
                 }
 
-                doc.setFontSize(11);
-                doc.setTextColor(220, 38, 38);
-                doc.setFont('helvetica', 'bold');
-                doc.text('NON-ATTENDANCE LIST:', 15, currentY);
-
-                autoTable(doc, {
-                    startY: currentY + 5,
-                    head: [['#', 'STUDENT NAME', 'ROLL NO', 'DEPT', 'STATUS']],
-                    body: absentList,
-                    headStyles: { fillColor: [220, 38, 38] }, // Red-600
-                    styles: { fontSize: 7, textColor: [30, 41, 59] }
-                });
-            }
-
-            // --- PAGE 5: FEEDBACK INTELLIGENCE ---
-            doc.addPage();
-            drawBranding();
-            await addLogos();
-            addWatermark('FEEDBACK INSIGHTS');
-
-            drawSectionHeader('IV. FEEDBACK INTELLIGENCE', 5);
-
-            const recommendationRate = ((eventFeedback.filter(f => f.rating >= 4).length / (eventFeedback.length || 1)) * 100).toFixed(1);
-
-            autoTable(doc, {
-                startY: 55,
-                head: [['SATISFACTION METRIC', 'VALUE', 'RATING']],
-                body: [
-                    ['OVERALL SATISFACTION SCORE', `${avgRating} / 5.0`, '★'.repeat(Math.round(avgRating))],
-                    ['PARTICIPANT APPROVAL RATE', `${recommendationRate}%`, 'HIGH VALIDITY'],
-                    ['TOTAL VERIFIED RESPONSES', eventFeedback.length.toString(), 'SYSTEM LOGGED']
-                ],
-                headStyles: { fillColor: [124, 58, 237] }, // Violet-600
-                styles: { fontSize: 9, textColor: [30, 41, 59] }
-            });
-
-            let feedbackY = doc.lastAutoTable.finalY + 15;
-            doc.setFontSize(11);
-            doc.setTextColor(37, 99, 235);
-            doc.setFont('helvetica', 'bold');
-            doc.text('QUALITATIVE FEEDBACK HIGHLIGHTS', 15, feedbackY);
-
-            feedbackY += 10;
-            doc.setFontSize(9);
-            doc.setFont('helvetica', 'italic');
-            doc.setTextColor(100, 116, 139); // slate-500
-
-            const highlights = eventFeedback.filter(f => f.rating >= 4).slice(0, 5);
-            if (highlights.length > 0) {
-                highlights.forEach(f => {
-                    const comment = f.comment || f.feedback || 'Incredible experience!';
-                    const textLines = doc.splitTextToSize(`" ${comment} "`, pageWidth - 40);
-                    doc.text(textLines, 15, feedbackY);
-                    feedbackY += (textLines.length * 5) + 3;
-                });
-            } else {
-                doc.text('No qualitative highlights available for this reporting period.', 15, feedbackY);
-            }
-
-            // --- HACKATHON JUDGE SCORES (Only for Hackathon events) ---
-            if (event.type === 'Hackathon' || event.isTeamEvent) {
-                try {
-                    // Fetch hackathon scores
-                    const scoresQuery = query(
-                        collection(db, 'hackathonScores'),
-                        where('eventId', '==', event.id)
-                    );
-                    const scoresSnap = await getDocs(scoresQuery);
-                    const scores = scoresSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-                    if (scores.length > 0) {
-                        // Group by team and calculate averages
-                        const teamScores = new Map();
-                        scores.forEach(score => {
-                            if (!teamScores.has(score.teamCode)) {
-                                teamScores.set(score.teamCode, {
-                                    teamCode: score.teamCode,
-                                    teamName: score.teamName || score.teamCode,
-                                    problemStatement: score.problemStatement || 'N/A',
-                                    scores: [],
-                                    totalScore: 0,
-                                    averageScore: 0
-                                });
-                            }
-                            teamScores.get(score.teamCode).scores.push({
-                                judgeName: score.judgeName || 'Anonymous Judge',
-                                totalScore: score.totalScore || 0,
-                                criteria: score.criteria || {}
-                            });
-                        });
-
-                        // Calculate averages and sort
-                        const rankedTeams = Array.from(teamScores.values())
-                            .map(team => {
-                                const total = team.scores.reduce((sum, s) => sum + s.totalScore, 0);
-                                team.totalScore = total;
-                                team.averageScore = total / team.scores.length;
-                                return team;
-                            })
-                            .sort((a, b) => b.averageScore - a.averageScore);
-
-                        // Add Judge Scores Page
-                        doc.addPage();
-                        drawBranding();
-                        await addLogos();
-                        addWatermark('JUDGING RESULTS');
-
-                        drawSectionHeader('V. COMPETITIVE EVALUATION', 6);
-
-                        // Winners Podium
-                        let currentY = 60;
-                        const medals = ['[GOLD]', '[SILVER]', '[BRONZE]'];
-                        const colors = [[255, 215, 0], [192, 192, 192], [205, 127, 50]];
-
-                        rankedTeams.slice(0, 3).forEach((team, idx) => {
-                            doc.setFillColor(...colors[idx]);
-                            doc.roundedRect(20, currentY, pageWidth - 40, 25, 2, 2, 'F');
-
-                            doc.setFontSize(11);
-                            doc.setTextColor(0);
-                            doc.setFont('helvetica', 'bold');
-                            doc.text(`${medals[idx]} ${idx + 1}${idx === 0 ? 'ST' : idx === 1 ? 'ND' : 'RD'} PLACE`, 25, currentY + 8);
-                            doc.setFontSize(9);
-                            doc.text(`Team: ${team.teamName}`, 25, currentY + 15);
-                            doc.setFontSize(8);
-                            doc.setFont('helvetica', 'normal');
-                            doc.text(`Average Score: ${team.averageScore.toFixed(2)} | Judges: ${team.scores.length}`, 25, currentY + 21);
-
-                            currentY += 30;
-                        });
-
-                        // Detailed Scoring Table
-                        currentY += 10;
-                        doc.setFontSize(12);
-                        doc.setFont('helvetica', 'bold');
-                        doc.setTextColor(15, 23, 42);
-                        doc.text('Detailed Judge Evaluations', 20, currentY);
-
-                        const judgeTableData = [];
-                        rankedTeams.forEach((team, idx) => {
-                            // Text-based rating
-                            let rating = 'FAIR';
-                            if (team.averageScore >= 45) rating = 'EXCELLENT';
-                            else if (team.averageScore >= 40) rating = 'VERY GOOD';
-                            else if (team.averageScore >= 35) rating = 'GOOD';
-
-                            judgeTableData.push([
-                                `${idx + 1}`,
-                                team.teamName,
-                                team.averageScore.toFixed(2),
-                                team.scores.length,
-                                rating
-                            ]);
-                        });
-
-                        autoTable(doc, {
-                            startY: currentY + 5,
-                            head: [['Rank', 'Team Name', 'Avg Score', 'Judges', 'Rating']],
-                            body: judgeTableData,
-                            headStyles: { fillColor: [99, 102, 241], fontSize: 9 },
-                            styles: { fontSize: 8 },
-                            columnStyles: {
-                                0: { cellWidth: 15 },
-                                1: { cellWidth: 70 },
-                                2: { cellWidth: 30 },
-                                3: { cellWidth: 20 },
-                                4: { cellWidth: 30 }
-                            }
-                        });
-
-                        // Individual Judge Scores (for top 3)
-                        currentY = doc.lastAutoTable.finalY + 15;
-                        if (currentY > 240) {
-                            doc.addPage();
-                            drawBranding();
-                            await addLogos();
-                            currentY = 50;
-                        }
-
-                        doc.setFontSize(12);
-                        doc.setFont('helvetica', 'bold');
-                        doc.text('Individual Judge Scores (Top 3 Teams)', 20, currentY);
-                        currentY += 10;
-                        rankedTeams.slice(0, 3).forEach((team, teamIdx) => {
-                            if (currentY > 250) {
-                                doc.addPage();
-                                drawBranding();
-                                addLogos();
-                                currentY = 50;
-                            }
-
-                            doc.setFontSize(10);
-                            doc.setFont('helvetica', 'bold');
-                            doc.setTextColor(37, 99, 235);
-                            doc.text(`${medals[teamIdx]} ${team.teamName}`, 20, currentY);
-                            currentY += 5;
-
-                            const judgeData = team.scores.map(s => [
-                                s.judgeName,
-                                s.totalScore.toFixed(1)
-                            ]);
-
-                            autoTable(doc, {
-                                startY: currentY,
-                                head: [['Judge Name', 'Score']],
-                                body: judgeData,
-                                headStyles: { fillColor: [71, 85, 105], fontSize: 8 },
-                                styles: { fontSize: 7 },
-                                margin: { left: 25 }
-                            });
-
-                            currentY = doc.lastAutoTable.finalY + 10;
-                        });
-
-                        addPageFooter(6);
-                    }
-                } catch (err) {
-                    console.log('No hackathon scores found:', err);
+                if (urlsToFetch.length > 0) {
+                    const promises = urlsToFetch.map(url => loadImageAsBase64(url));
+                    const base64s = await Promise.all(promises);
+                    imagesB64s = base64s.filter(Boolean);
                 }
             }
 
-            // --- LAST PAGE: OFFICIAL ATTESTATION ---
-            doc.addPage();
-            drawBranding();
-            await addLogos();
+            // Guest Details fallbacks
+            const guestName = eventObj.guestName || eventObj.eventGuestName || '';
+            const guestDesig = eventObj.guestDesig || eventObj.eventGuestDesig || '';
+            const guestOrg = eventObj.guestOrg || eventObj.eventGuestOrg || '';
 
-            drawSectionHeader('VI. OFFICIAL ATTESTATION', 7);
+            // Write-up Sections fallbacks
+            const writeupSections = eventObj.writeupSections || [
+                { title: 'Abstract/Objective', content: eventObj.description || eventObj.shortDescription || 'No details provided.' },
+                { title: 'Technical Session Summary', content: eventObj.detailedDescription || 'No details provided.' }
+            ];
 
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(51, 65, 85);
-            const declarationText = 'This comprehensive Event Report constitutes the official administrative record of the activity organized under the auspices of TechSpark Club, RIT Chennai. All data pertaining to registration, attendance, and feedback has been programmatically captured and verified via QR-based telemetry. This document is intended for institutional archiving, audit compliance, and organizational performance assessment.';
+            // Certificates fallback
+            const certificates = eventObj.sheetCertificates || [];
 
-            const declarationLines = doc.splitTextToSize(declarationText, pageWidth - 40);
-            doc.text(declarationLines, 20, 60);
-
-            doc.setFillColor(248, 250, 252);
-            doc.roundedRect(20, 95, pageWidth - 40, 12, 1, 1, 'F');
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(30, 41, 59);
-            doc.text('ADMINISTRATIVE STATUS: FINALIZED & VERIFIED', pageWidth / 2, 103, { align: 'center' });
-
-            // Signature Blocks
-            const sigY = 145;
-            const sigWidth = 50;
-            const sigGap = (pageWidth - 40 - (sigWidth * 3)) / 2;
-
-            const drawSig = (x, label) => {
-                doc.setDrawColor(203, 213, 225); // slate-300
-                doc.line(x, sigY, x + sigWidth, sigY);
-                doc.setFontSize(7);
-                doc.setFont('helvetica', 'bold');
-                doc.setTextColor(100, 116, 139);
-                doc.text(label.toUpperCase(), x + (sigWidth / 2), sigY + 6, { align: 'center' });
-            };
-
-            drawSig(20, 'Club Coordinator');
-            drawSig(20 + sigWidth + sigGap, 'Faculty Coordinator');
-            drawSig(pageWidth - 20 - sigWidth, 'Principal / HoD');
-
-            doc.setFontSize(11);
-            doc.setTextColor(37, 99, 235);
-            doc.text('TECHSPARK CLUB ADMINISTRATION', pageWidth / 2, 260, { align: 'center' });
-            doc.setFontSize(8);
-            doc.setTextColor(148, 163, 184);
-            doc.text('RAJALAKSHMI INSTITUTE OF TECHNOLOGY, CHENNAI', pageWidth / 2, 268, { align: 'center' });
-
-            // FINAL SAVE
-            doc.save(`${event.title.replace(/\s+/g, '_')}_Final_Report.pdf`);
+            await compileEventReportPDF(
+                eventObj,
+                eventRegs,
+                eventFeedbacks,
+                posterB64,
+                approvalB64,
+                imagesB64s,
+                guestName,
+                guestDesig,
+                guestOrg,
+                writeupSections,
+                certificates
+            );
         } catch (error) {
-            console.error("MASTER REPORT FAILURE:", error);
-            alert("The Master Report assembly system encountered a terminal error.");
+            console.error('Error generating event final report:', error);
+            alert('An error occurred during final report generation. Please try again.');
         }
     };
 
@@ -6774,6 +6514,420 @@ const AdminDashboard = () => {
                                             </div>
                                         </div>
                                     ))}
+                                </div>
+
+                                {/* Event Lifecycle Progress Tracker */}
+                                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm mb-8 text-left">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                                        <div>
+                                            <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest italic">Event Lifecycle & Progress Workflow</h4>
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Real-time status tracking of event tasks and deliverables</p>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-xs font-black text-slate-400 uppercase tracking-wider">Overall Progress:</span>
+                                            <span className="px-3.5 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-xs font-black uppercase tracking-wider border border-blue-100 animate-pulse">
+                                                {Math.round(((() => {
+                                                    let completed = 1;
+                                                    if (selectedEventDetails.status === 'LIVE') completed++;
+                                                    if (selectedEventDetails.posterVerified) completed++;
+                                                    if (selectedEventDetails.approvalVerified) completed++;
+                                                    if (registrations.some(r => r.eventId === selectedEventDetails.id && (r.isAttended || r.status === 'Present'))) completed++;
+                                                    if (selectedEventDetails.imageVerified) completed++;
+                                                    if (registrations.some(r => r.eventId === selectedEventDetails.id && r.feedbackSubmitted)) completed++;
+                                                    if (selectedEventDetails.reportDriveVerified) completed++;
+                                                    return completed;
+                                                })() / 8) * 100)}%
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Animated Progress Bar */}
+                                    <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden mb-8 relative">
+                                        <div 
+                                            className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500 transition-all duration-1000 ease-out" 
+                                            style={{ 
+                                                width: `${((() => {
+                                                    let completed = 1;
+                                                    if (selectedEventDetails.status === 'LIVE') completed++;
+                                                    if (selectedEventDetails.posterVerified) completed++;
+                                                    if (selectedEventDetails.approvalVerified) completed++;
+                                                    if (registrations.some(r => r.eventId === selectedEventDetails.id && (r.isAttended || r.status === 'Present'))) completed++;
+                                                    if (selectedEventDetails.imageVerified) completed++;
+                                                    if (registrations.some(r => r.eventId === selectedEventDetails.id && r.feedbackSubmitted)) completed++;
+                                                    if (selectedEventDetails.reportDriveVerified) completed++;
+                                                    return completed;
+                                                })() / 8) * 100}%` 
+                                            }}
+                                        />
+                                    </div>
+
+                                    {/* Workflow Timeline Steps - Vertical Layout */}
+                                    <div className="space-y-3">
+                                        {[
+                                            {
+                                                title: "1. Proposal",
+                                                desc: "Event proposal submitted",
+                                                isDone: true,
+                                                isPendingApproval: false,
+                                                responsible: selectedEventDetails.createdBy || "Event Organiser",
+                                                pendingText: ""
+                                            },
+                                            {
+                                                title: "2. Approval",
+                                                desc: "Admin technical authorization",
+                                                isDone: selectedEventDetails.status === 'LIVE',
+                                                isPendingApproval: false,
+                                                responsible: "Super Admin",
+                                                pendingText: "Awaiting Super Admin approval to make event LIVE"
+                                            },
+                                            {
+                                                title: "3. Poster",
+                                                desc: "Official poster work completed",
+                                                isDone: !!selectedEventDetails.posterVerified,
+                                                isPendingApproval: !selectedEventDetails.posterVerified && !!(selectedEventDetails.posterUrl || selectedEventDetails.posterDriveUrl),
+                                                responsible: "Creative Head & Graphic Designer",
+                                                pendingText: !(selectedEventDetails.posterUrl || selectedEventDetails.posterDriveUrl) ? "Creative Head needs to upload poster/design URL" : "Awaiting Admin confirmation/approval"
+                                            },
+                                            {
+                                                title: "4. Requisition",
+                                                desc: "Signed approval letter uploaded",
+                                                isDone: !!selectedEventDetails.approvalVerified,
+                                                isPendingApproval: !selectedEventDetails.approvalVerified && !!(selectedEventDetails.approvalLetterUrl || selectedEventDetails.approvalLetterDriveUrl),
+                                                responsible: "President, Vice President & Event Organiser",
+                                                pendingText: !(selectedEventDetails.approvalLetterUrl || selectedEventDetails.approvalLetterDriveUrl) ? "Awaiting signed approval letter upload" : "Awaiting Admin confirmation/approval"
+                                            },
+                                            {
+                                                title: "5. Attendance",
+                                                desc: "Participant check-in logs taken",
+                                                isDone: registrations.some(r => r.eventId === selectedEventDetails.id && (r.isAttended || r.status === 'Present')),
+                                                isPendingApproval: false,
+                                                responsible: "Check-in Lead / Organizer",
+                                                pendingText: "Attendance logging is pending during event"
+                                            },
+                                            {
+                                                title: "6. Photos",
+                                                desc: "Event gallery photos uploaded",
+                                                isDone: !!selectedEventDetails.imageVerified,
+                                                isPendingApproval: !selectedEventDetails.imageVerified && !!((selectedEventDetails.photoUrls && selectedEventDetails.photoUrls.length > 0) || selectedEventDetails.imageDriveUrl1 || selectedEventDetails.imageDriveUrl2 || selectedEventDetails.imageDriveUrl3 || selectedEventDetails.imageDriveUrl4),
+                                                responsible: "Photography Head",
+                                                pendingText: !((selectedEventDetails.photoUrls && selectedEventDetails.photoUrls.length > 0) || selectedEventDetails.imageDriveUrl1 || selectedEventDetails.imageDriveUrl2 || selectedEventDetails.imageDriveUrl3 || selectedEventDetails.imageDriveUrl4) ? "Photography Head needs to upload event photos" : "Awaiting Admin confirmation/approval"
+                                            },
+                                            {
+                                                title: "7. Feedback",
+                                                desc: "Participant feedback collected",
+                                                isDone: registrations.some(r => r.eventId === selectedEventDetails.id && r.feedbackSubmitted),
+                                                isPendingApproval: false,
+                                                responsible: "Registered Students",
+                                                pendingText: "Awaiting feedback submission from attendees"
+                                            },
+                                            {
+                                                title: "8. Report",
+                                                desc: "Final compliance report submitted",
+                                                isDone: !!selectedEventDetails.reportDriveVerified,
+                                                isPendingApproval: !selectedEventDetails.reportDriveVerified && !!selectedEventDetails.reportDriveUrl,
+                                                responsible: "Admin & Report Head",
+                                                pendingText: !selectedEventDetails.reportDriveUrl ? "Report Head needs to submit final report link" : "Awaiting Admin confirmation/approval"
+                                            }
+                                        ].map((step, idx) => (
+                                            <div 
+                                                key={idx} 
+                                                className={`flex flex-col md:flex-row gap-4 md:items-center justify-between p-4 rounded-2xl border transition-all duration-300 ${
+                                                    step.isDone 
+                                                        ? 'bg-emerald-50/30 border-emerald-100 hover:border-emerald-200' 
+                                                        : step.isPendingApproval
+                                                        ? 'bg-amber-50/30 border-amber-100 hover:border-amber-200'
+                                                        : 'bg-slate-50 border-slate-200/40 hover:border-slate-300'
+                                                }`}
+                                            >
+                                                {/* Left side: Status badge & Title */}
+                                                <div className="flex items-center gap-3 md:w-1/3">
+                                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 font-black text-[10px] ${
+                                                        step.isDone ? 'bg-emerald-500 text-white' : step.isPendingApproval ? 'bg-amber-500 text-white' : 'bg-slate-200 text-slate-500'
+                                                    }`}>
+                                                        {step.isDone ? (
+                                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
+                                                            </svg>
+                                                        ) : step.isPendingApproval ? (
+                                                            "!"
+                                                        ) : (
+                                                            idx + 1
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <span className={`text-[8px] font-black uppercase tracking-widest block ${
+                                                            step.isDone ? 'text-emerald-700' : step.isPendingApproval ? 'text-amber-700' : 'text-slate-500'
+                                                        }`}>
+                                                            {step.title}
+                                                        </span>
+                                                        <h5 className="text-[11px] font-black text-slate-800 uppercase tracking-tight leading-tight mt-0.5">{step.desc}</h5>
+                                                    </div>
+                                                </div>
+
+                                                {/* Middle: Responsibility */}
+                                                <div className="md:w-1/4">
+                                                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest block">Responsible Role:</span>
+                                                    <span className="text-[10px] font-bold text-slate-700 uppercase tracking-tight leading-tight block mt-0.5">{step.responsible}</span>
+                                                </div>
+
+                                                {/* Right: Pending Task / Status Details */}
+                                                <div className="md:w-5/12 flex justify-end">
+                                                    {step.isDone ? (
+                                                        <span className="px-3 py-1.5 bg-emerald-100 text-emerald-800 rounded-xl text-[8px] font-black uppercase tracking-wider">Accepted & Verified</span>
+                                                    ) : (
+                                                        <div className={`w-full p-2 rounded-xl border text-left ${
+                                                            step.isPendingApproval 
+                                                                ? 'bg-amber-50/50 text-amber-900 border-amber-100' 
+                                                                : 'bg-slate-100/50 text-slate-600 border-slate-200/50'
+                                                        }`}>
+                                                            <span className="text-[7px] font-black uppercase tracking-widest block mb-0.5">
+                                                                {step.isPendingApproval ? 'Awaiting Admin Action' : 'Action Required'}
+                                                            </span>
+                                                            <p className="text-[9px] font-bold leading-normal">{step.pendingText}</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Drive Link & Verification Management Panel */}
+                                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm mb-8 text-left">
+                                    <div className="border-b pb-4 mb-6">
+                                        <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest italic">Drive Asset Verification Console</h4>
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Submit, view, verify, or revoke google drive link assets for institutional compliance</p>
+                                    </div>
+
+                                    <div className="space-y-6">
+                                        {/* Poster Link */}
+                                        <div className="grid grid-cols-1 lg:grid-cols-4 items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <h5 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">1. Poster Submission</h5>
+                                                    {selectedEventDetails.posterVerified ? (
+                                                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[7px] font-black uppercase">Accepted</span>
+                                                    ) : (selectedEventDetails.posterUrl || selectedEventDetails.posterDriveUrl) ? (
+                                                        <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-[7px] font-black uppercase">Pending Approval</span>
+                                                    ) : (
+                                                        <span className="px-2 py-0.5 bg-slate-100 text-slate-400 rounded text-[7px] font-black uppercase">Missing</span>
+                                                    )}
+                                                </div>
+                                                <p className="text-[9px] text-slate-400 font-medium mt-0.5">Creative Head & Graphic Designer</p>
+                                            </div>
+                                            <div className="lg:col-span-2 flex gap-2">
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Paste Poster Google Drive URL..." 
+                                                    value={drivePosterUrl}
+                                                    onChange={(e) => setDrivePosterUrl(e.target.value)}
+                                                    className="flex-1 px-4 py-2 text-xs bg-white border border-slate-200 rounded-xl font-bold outline-none"
+                                                />
+                                                {(selectedEventDetails.posterDriveUrl || selectedEventDetails.posterUrl) && (
+                                                    <a 
+                                                        href={selectedEventDetails.posterDriveUrl || selectedEventDetails.posterUrl} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer" 
+                                                        className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center"
+                                                    >
+                                                        Open link
+                                                    </a>
+                                                )}
+                                            </div>
+                                            <div className="flex gap-2 justify-end">
+                                                <button 
+                                                    onClick={() => handleVerifyDriveLink('poster')}
+                                                    disabled={!(selectedEventDetails.posterUrl || selectedEventDetails.posterDriveUrl) || selectedEventDetails.posterVerified}
+                                                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
+                                                >
+                                                    Accept
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleRevokeDriveLink('poster')}
+                                                    disabled={!(selectedEventDetails.posterUrl || selectedEventDetails.posterDriveUrl)}
+                                                    className="px-4 py-2 bg-red-50 hover:bg-red-100 disabled:opacity-50 text-red-600 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
+                                                >
+                                                    Revoke
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Signed Approval Letter Link */}
+                                        <div className="grid grid-cols-1 lg:grid-cols-4 items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <h5 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">2. Approval Letter</h5>
+                                                    {selectedEventDetails.approvalVerified ? (
+                                                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[7px] font-black uppercase">Accepted</span>
+                                                    ) : (selectedEventDetails.approvalLetterUrl || selectedEventDetails.approvalLetterDriveUrl) ? (
+                                                        <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-[7px] font-black uppercase">Pending Approval</span>
+                                                    ) : (
+                                                        <span className="px-2 py-0.5 bg-slate-100 text-slate-400 rounded text-[7px] font-black uppercase">Missing</span>
+                                                    )}
+                                                </div>
+                                                <p className="text-[9px] text-slate-400 font-medium mt-0.5">President, Vice President & Organiser</p>
+                                            </div>
+                                            <div className="lg:col-span-2 flex gap-2">
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Paste Approval Letter Drive URL..." 
+                                                    value={driveApprovalUrl}
+                                                    onChange={(e) => setDriveApprovalUrl(e.target.value)}
+                                                    className="flex-1 px-4 py-2 text-xs bg-white border border-slate-200 rounded-xl font-bold outline-none"
+                                                />
+                                                {(selectedEventDetails.approvalLetterDriveUrl || selectedEventDetails.approvalLetterUrl) && (
+                                                    <a 
+                                                        href={selectedEventDetails.approvalLetterDriveUrl || selectedEventDetails.approvalLetterUrl} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer" 
+                                                        className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center"
+                                                    >
+                                                        Open link
+                                                    </a>
+                                                )}
+                                            </div>
+                                            <div className="flex gap-2 justify-end">
+                                                <button 
+                                                    onClick={() => handleVerifyDriveLink('approval')}
+                                                    disabled={!(selectedEventDetails.approvalLetterUrl || selectedEventDetails.approvalLetterDriveUrl) || selectedEventDetails.approvalVerified}
+                                                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
+                                                >
+                                                    Accept
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleRevokeDriveLink('approval')}
+                                                    disabled={!(selectedEventDetails.approvalLetterUrl || selectedEventDetails.approvalLetterDriveUrl)}
+                                                    className="px-4 py-2 bg-red-50 hover:bg-red-100 disabled:opacity-50 text-red-600 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
+                                                >
+                                                    Revoke
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Image/Photo Gallery Link */}
+                                        <div className="grid grid-cols-1 lg:grid-cols-4 items-start gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <h5 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">3. Photo Gallery</h5>
+                                                    {selectedEventDetails.imageVerified ? (
+                                                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[7px] font-black uppercase">Accepted</span>
+                                                    ) : (selectedEventDetails.imageDriveUrl1 || selectedEventDetails.imageDriveUrl2 || selectedEventDetails.imageDriveUrl3 || selectedEventDetails.imageDriveUrl4 || (selectedEventDetails.photoUrls && selectedEventDetails.photoUrls.length > 0)) ? (
+                                                        <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-[7px] font-black uppercase">Pending Approval</span>
+                                                    ) : (
+                                                        <span className="px-2 py-0.5 bg-slate-100 text-slate-400 rounded text-[7px] font-black uppercase">Missing</span>
+                                                    )}
+                                                </div>
+                                                <p className="text-[9px] text-slate-400 font-medium mt-0.5">Photography Head</p>
+                                            </div>
+                                            <div className="lg:col-span-2 space-y-3">
+                                                {[
+                                                    { val: driveImageUrl1, setVal: setDriveImageUrl1, orig: selectedEventDetails.imageDriveUrl1 || (selectedEventDetails.photoUrls && selectedEventDetails.photoUrls[0]), label: "Link 1" },
+                                                    { val: driveImageUrl2, setVal: setDriveImageUrl2, orig: selectedEventDetails.imageDriveUrl2 || (selectedEventDetails.photoUrls && selectedEventDetails.photoUrls[1]), label: "Link 2" },
+                                                    { val: driveImageUrl3, setVal: setDriveImageUrl3, orig: selectedEventDetails.imageDriveUrl3 || (selectedEventDetails.photoUrls && selectedEventDetails.photoUrls[2]), label: "Link 3" },
+                                                    { val: driveImageUrl4, setVal: setDriveImageUrl4, orig: selectedEventDetails.imageDriveUrl4 || (selectedEventDetails.photoUrls && selectedEventDetails.photoUrls[3]), label: "Link 4" }
+                                                ].map((linkObj, idx) => (
+                                                    <div key={idx} className="flex gap-2 items-center">
+                                                        <span className="text-[9px] font-black text-slate-400 uppercase w-10 shrink-0">{linkObj.label}:</span>
+                                                        <input 
+                                                            type="text" 
+                                                            placeholder={`Paste Photo ${idx+1} Drive URL...`} 
+                                                            value={linkObj.val}
+                                                            onChange={(e) => linkObj.setVal(e.target.value)}
+                                                            className="flex-1 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl font-bold outline-none"
+                                                        />
+                                                        {linkObj.orig && (
+                                                            <a 
+                                                                href={linkObj.orig} 
+                                                                target="_blank" 
+                                                                rel="noopener noreferrer" 
+                                                                className="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-center whitespace-nowrap"
+                                                            >
+                                                                Open
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="flex gap-2 justify-end lg:mt-2">
+                                                <button 
+                                                    onClick={() => handleVerifyDriveLink('image')}
+                                                    disabled={!(selectedEventDetails.imageDriveUrl1 || selectedEventDetails.imageDriveUrl2 || selectedEventDetails.imageDriveUrl3 || selectedEventDetails.imageDriveUrl4 || (selectedEventDetails.photoUrls && selectedEventDetails.photoUrls.length > 0)) || selectedEventDetails.imageVerified}
+                                                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
+                                                >
+                                                    Accept
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleRevokeDriveLink('image')}
+                                                    disabled={!(selectedEventDetails.imageDriveUrl1 || selectedEventDetails.imageDriveUrl2 || selectedEventDetails.imageDriveUrl3 || selectedEventDetails.imageDriveUrl4 || (selectedEventDetails.photoUrls && selectedEventDetails.photoUrls.length > 0))}
+                                                    className="px-4 py-2 bg-red-50 hover:bg-red-100 disabled:opacity-50 text-red-600 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
+                                                >
+                                                    Revoke
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Final Compliance Report Link */}
+                                        <div className="grid grid-cols-1 lg:grid-cols-4 items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <h5 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">4. Final Report</h5>
+                                                    {selectedEventDetails.reportDriveVerified ? (
+                                                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[7px] font-black uppercase">Accepted</span>
+                                                    ) : selectedEventDetails.reportDriveUrl ? (
+                                                        <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-[7px] font-black uppercase">Pending Approval</span>
+                                                    ) : (
+                                                        <span className="px-2 py-0.5 bg-slate-100 text-slate-400 rounded text-[7px] font-black uppercase">Missing</span>
+                                                    )}
+                                                </div>
+                                                <p className="text-[9px] text-slate-400 font-medium mt-0.5">Admin & Report Head</p>
+                                            </div>
+                                            <div className="lg:col-span-2 flex gap-2">
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Paste Final Compliance Report Drive URL..." 
+                                                    value={driveReportUrl}
+                                                    onChange={(e) => setDriveReportUrl(e.target.value)}
+                                                    className="flex-1 px-4 py-2 text-xs bg-white border border-slate-200 rounded-xl font-bold outline-none"
+                                                />
+                                                {selectedEventDetails.reportDriveUrl && (
+                                                    <a 
+                                                        href={selectedEventDetails.reportDriveUrl} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer" 
+                                                        className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center"
+                                                    >
+                                                        Open link
+                                                    </a>
+                                                )}
+                                            </div>
+                                            <div className="flex gap-2 justify-end">
+                                                <button 
+                                                    onClick={() => handleVerifyDriveLink('report')}
+                                                    disabled={!selectedEventDetails.reportDriveUrl || selectedEventDetails.reportDriveVerified}
+                                                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
+                                                >
+                                                    Accept
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleRevokeDriveLink('report')}
+                                                    disabled={!selectedEventDetails.reportDriveUrl}
+                                                    className="px-4 py-2 bg-red-50 hover:bg-red-100 disabled:opacity-50 text-red-600 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
+                                                >
+                                                    Revoke
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Action to Save Links */}
+                                    <div className="mt-6 flex justify-end">
+                                        <button 
+                                            onClick={handleSaveDriveLinks}
+                                            className="px-6 py-3 bg-slate-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all"
+                                        >
+                                            Save Link Submissions
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {/* Granular Reports Hub */}
