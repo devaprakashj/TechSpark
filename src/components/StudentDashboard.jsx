@@ -1521,7 +1521,7 @@ const StudentDashboard = () => {
 
                     <div className="relative z-10 flex-1 text-center md:text-left space-y-3">
                         <h1 className="text-3xl font-bold text-slate-900 leading-tight">
-                            Welcome back, <span className="text-blue-600">{user.fullName?.split(' ')[0]}!</span>
+                            Welcome back, <span className="text-blue-600">{user.fullName?.split(' ')[0]}</span>
                         </h1>
                         <div className="flex flex-wrap items-center justify-center md:justify-start gap-y-3 gap-x-4">
                             <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-lg uppercase tracking-wider border border-slate-200/50">
