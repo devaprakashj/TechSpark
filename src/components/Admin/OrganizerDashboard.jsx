@@ -2008,7 +2008,7 @@ const OrganizerDashboard = () => {
         return (
             <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
                 <div className="text-center space-y-4">
-                    <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+                    <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
                     <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest">Validating Tactical Credentials...</p>
                 </div>
             </div>
@@ -2263,11 +2263,11 @@ const OrganizerDashboard = () => {
                                                 <h3 className="text-[10px] md:text-[11px] text-slate-400 font-black uppercase tracking-[0.2em]">Recent Operations</h3>
                                                 <button onClick={() => setCurrentView('my_events')} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">View All Registry</button>
                                             </div>
-                                            <div className="space-y-4">
+                                            <div className="space-y-3">
                                                 {events.slice(0, 3).map(event => (
                                                     <div key={event.id} className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between group cursor-pointer hover:bg-white transition-all overflow-hidden" onClick={() => { setSelectedEvent(event); setCurrentView('my_events'); }}>
                                                         <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
-                                                            <div className="w-8 h-8 md:w-10 md:h-10 bg-white rounded-xl flex items-center justify-center font-black text-slate-300 group-hover:text-blue-600 border border-slate-100 shrink-0">{event.title.charAt(0)}</div>
+                                                            <div className="w-7 h-7 md:w-10 md:h-10 bg-white rounded-xl flex items-center justify-center font-black text-slate-300 group-hover:text-blue-600 border border-slate-100 shrink-0">{event.title.charAt(0)}</div>
                                                             <div className="truncate">
                                                                 <h4 className="text-xs md:text-sm font-black text-slate-800 uppercase italic leading-none mb-1 truncate">{event.title}</h4>
                                                                 <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase">{event.date}</p>
@@ -2282,7 +2282,7 @@ const OrganizerDashboard = () => {
                                         </div>
                                         <div className="bg-slate-900 border border-slate-800 rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 text-white">
                                             <h3 className="text-[10px] md:text-[11px] text-slate-500 font-black uppercase tracking-[0.2em] mb-6">Authorization Alerts</h3>
-                                            <div className="space-y-4">
+                                            <div className="space-y-3">
                                                 {events.filter(e => e.status === 'REJECTED').slice(0, 2).map(e => (
                                                     <div key={e.id} className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
                                                         <p className="text-[9px] font-black text-red-500 uppercase mb-1">REJECTED: {e.title}</p>
@@ -2297,7 +2297,7 @@ const OrganizerDashboard = () => {
                                                 )}
                                                 {events.filter(e => e.status === 'REJECTED').length === 0 && events.filter(e => e.status === 'PENDING').length === 0 && (
                                                     <div className="h-32 flex flex-col items-center justify-center border-2 border-dashed border-slate-800 rounded-2xl opacity-40">
-                                                        <CheckCircle className="w-8 h-8 mb-2" />
+                                                        <CheckCircle className="w-7 h-7 mb-2" />
                                                         <p className="text-[10px] font-black uppercase">All Clear</p>
                                                     </div>
                                                 )}
@@ -2312,7 +2312,7 @@ const OrganizerDashboard = () => {
                                     <div className="space-y-12 text-left">
                                         <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 md:gap-6 pb-6 border-b border-slate-200">
                                             <div className="flex items-start lg:items-center gap-3 md:gap-4">
-                                                <button onClick={() => setSelectedEvent(null)} className="w-8 h-8 md:w-10 md:h-10 bg-white border border-slate-200 rounded-lg md:rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-900 transition-all shadow-sm shrink-0 mt-1 lg:mt-0">
+                                                <button onClick={() => setSelectedEvent(null)} className="w-7 h-7 md:w-10 md:h-10 bg-white border border-slate-200 rounded-lg md:rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-900 transition-all shadow-sm shrink-0 mt-1 lg:mt-0">
                                                     <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
                                                 </button>
                                                 <div>
@@ -2395,7 +2395,7 @@ const OrganizerDashboard = () => {
                                         </header>
 
                                         <div className="flex flex-col gap-8">
-                                            <div className="space-y-6">
+                                            <div className="space-y-3">
                                                 <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm">
                                                     <h3 className="text-[11px] text-slate-400 font-black uppercase tracking-[0.2em] mb-6">Metrics & Logistics</h3>
                                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
@@ -2447,7 +2447,7 @@ const OrganizerDashboard = () => {
                                                                     placeholder="Search name/roll..."
                                                                     value={regSearchQuery}
                                                                     onChange={(e) => setRegSearchQuery(e.target.value)}
-                                                                    className="w-full px-4 py-2.5 md:px-5 md:py-3 pl-10 md:pl-12 pr-10 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                                                                    className="w-full px-3.5 py-2 md:px-5 md:py-3 pl-10 md:pl-12 pr-10 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
                                                                 />
                                                                 <Search className="absolute left-3.5 md:left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400" />
                                                                 <button
@@ -2590,7 +2590,7 @@ const OrganizerDashboard = () => {
                                                             </div>
                                                         )) : (
                                                             <div className="h-64 flex flex-col items-center justify-center gap-4 opacity-30">
-                                                                <Users className="w-12 h-12 text-slate-300" />
+                                                                <Users className="w-8 h-8 text-slate-300" />
                                                                 <p className="text-xs font-black uppercase tracking-widest">
                                                                     {registrations.length === 0 ? 'No Registrations Yet' : 'No Matching Results'}
                                                                 </p>
@@ -2843,7 +2843,7 @@ const OrganizerDashboard = () => {
 
                                     {loadingSubmissions ? (
                                         <div className="h-64 flex flex-col items-center justify-center gap-4">
-                                            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                                            <div className="w-7 h-7 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
                                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Intercepting Incoming Packets...</p>
                                         </div>
                                     ) : (
@@ -2985,7 +2985,7 @@ const OrganizerDashboard = () => {
                                                 <p className="text-[10px] font-black text-slate-800 uppercase italic">Authorization Password</p>
                                                 <p className="text-[9px] text-slate-400 font-medium uppercase tracking-widest mt-1">Last rotated 14 cycles ago</p>
                                             </div>
-                                            <button className="px-6 py-3 bg-white border border-slate-200 text-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all">Change Passkey</button>
+                                            <button className="px-5 py-2 bg-white border border-slate-200 text-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all">Change Passkey</button>
                                         </div>
                                     </div>
                                 </div>
@@ -2997,113 +2997,106 @@ const OrganizerDashboard = () => {
                                 exit={{ opacity: 0, x: -20 }}
                                 className="max-w-4xl mx-auto"
                             >
-                                <div className="mb-12 text-left">
+                                <div className="flex items-center justify-between mb-6">
+                                    <div>
+                                        <h1 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight">
+                                            {editingEventId ? 'Modify' : 'Create'} <span className="text-blue-600">{editingEventId ? 'Event' : 'Event'}</span>
+                                        </h1>
+                                        <p className="text-slate-500 font-medium text-xs mt-1">
+                                            {editingEventId ? 'Update details' : 'Fill details below'}
+                                        </p>
+                                    </div>
                                     <button
                                         onClick={() => resetFormAndGoBack()}
-                                        className="flex items-center gap-2 text-slate-400 font-bold uppercase tracking-widest text-xs hover:text-slate-900 transition-colors mb-4"
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 rounded-lg text-slate-500 font-semibold text-xs hover:text-slate-900 hover:bg-slate-200 transition-colors"
                                     >
-                                        <ChevronLeft className="w-4 h-4" /> {editingEventId ? 'CANCEL EDITING' : 'REVERT TO DASHBOARD'}
+                                        <ChevronLeft className="w-3 h-3" /> Back
                                     </button>
-                                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic">
-                                        {editingEventId ? 'Modify' : 'Strategic Event'} <span className="text-blue-600">{editingEventId ? 'Event' : 'Creation'}</span>
-                                    </h1>
-                                    <p className="text-slate-400 font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] mt-2">
-                                        {editingEventId ? 'Update event details and resubmit for approval' : 'Authorization Workflow Protocol v2.4'}
-                                    </p>
                                 </div>
 
                                 {renderStepIndicator()}
 
-                                <div className="bg-white border border-slate-200 rounded-[2rem] md:rounded-[3rem] shadow-2xl p-6 md:p-12 text-left relative overflow-hidden">
+                                <div className="bg-white border border-slate-200 rounded-2xl shadow-xl p-4 md:p-6 text-left relative overflow-hidden">
                                     {/* Step 1: Basic Details */}
                                     {activeStep === 1 && (
-                                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-                                            <div className="flex items-center gap-4 p-6 bg-blue-50 rounded-3xl border border-blue-100">
-                                                <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-                                                    <Info className="w-6 h-6 text-white" />
-                                                </div>
-                                                <div>
-                                                    <h4 className="text-sm font-black text-blue-900 uppercase">Core Identification</h4>
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-6">
-                                                <div className="space-y-2">
-                                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Event Title *</label>
+                                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+                                            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                                                <div className="col-span-2 md:col-span-1 space-y-1">
+                                                    <label className="block text-xs font-semibold text-slate-700 ml-1">Event Title *</label>
                                                     <input
                                                         type="text"
-                                                        placeholder="e.g. QUANTUM COMPUTING HACKATHON"
+                                                        placeholder="e.g. Quantum Computing Hackathon"
                                                         value={formData.title}
                                                         onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                                        className="w-full px-6 py-5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 outline-none font-black text-slate-800 uppercase italic transition-all"
+                                                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-medium text-slate-800 text-xs transition-all shadow-sm"
                                                     />
                                                 </div>
 
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                    <div className="space-y-2">
-                                                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Event Type *</label>
-                                                        <select
-                                                            value={formData.type}
-                                                            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                                                            className="w-full px-5 md:px-6 py-4 md:py-5 bg-slate-50 border border-slate-200 rounded-xl md:rounded-2xl focus:ring-4 focus:ring-blue-500/5 outline-none font-black text-slate-800 transition-all uppercase text-sm"
-                                                        >
-                                                            <option>Workshop</option>
-                                                            <option>Seminar</option>
-                                                            <option>Hackathon</option>
-                                                            <option>Quiz</option>
-                                                            <option>Webinar</option>
-                                                            <option>Expo</option>
-                                                        </select>
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Operation Poster (URL)</label>
-                                                        <div className="relative">
-                                                            <input
-                                                                type="text"
-                                                                placeholder="IMAGE_ASSET_LINK"
-                                                                value={formData.posterUrl}
-                                                                onChange={(e) => setFormData({ ...formData, posterUrl: e.target.value })}
-                                                                className="w-full px-5 md:px-6 py-4 md:py-5 bg-slate-50 border border-slate-200 rounded-xl md:rounded-2xl focus:ring-4 focus:ring-blue-500/5 outline-none font-black text-slate-800 transition-all text-sm"
-                                                            />
-                                                            <Upload className="absolute right-6 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-                                                        </div>
-                                                    </div>
+                                                <div className="col-span-2 md:col-span-1 space-y-1">
+                                                    <label className="block text-xs font-semibold text-slate-700 ml-1">Event Type *</label>
+                                                    <select
+                                                        value={formData.type}
+                                                        onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                                                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-medium text-slate-800 text-xs transition-all shadow-sm appearance-none"
+                                                    >
+                                                        <option>Workshop</option>
+                                                        <option>Seminar</option>
+                                                        <option>Hackathon</option>
+                                                        <option>Quiz</option>
+                                                        <option>Webinar</option>
+                                                        <option>Expo</option>
+                                                    </select>
                                                 </div>
 
-                                                <div className="space-y-2">
-                                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Mission Briefing (Short Abstract) *</label>
+                                                <div className="col-span-2 md:col-span-1 space-y-1">
+                                                    <label className="block text-xs font-semibold text-slate-700 ml-1">Short Description *</label>
                                                     <textarea
-                                                        rows="2"
+                                                        rows={1}
                                                         placeholder="1-2 lines summarizing the event scope..."
                                                         value={formData.shortDescription}
                                                         onChange={(e) => setFormData({ ...formData, shortDescription: e.target.value })}
-                                                        className="w-full px-6 py-5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 outline-none font-bold text-slate-800 transition-all resize-none"
+                                                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-medium text-slate-800 text-xs transition-all shadow-sm resize-none placeholder:text-slate-400"
                                                     />
                                                 </div>
+                                                
+                                                <div className="col-span-2 md:col-span-1 space-y-1">
+                                                    <label className="block text-xs font-semibold text-slate-700 ml-1">Event Poster (URL)</label>
+                                                    <div className="relative">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="https://example.com/poster.jpg"
+                                                            value={formData.posterUrl}
+                                                            onChange={(e) => setFormData({ ...formData, posterUrl: e.target.value })}
+                                                            className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-medium text-slate-800 text-xs transition-all shadow-sm placeholder:text-slate-400"
+                                                        />
+                                                        <Upload className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-300" />
+                                                    </div>
+                                                </div>
 
-                                                <div className="space-y-2">
-                                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Detailed Operational Scope *</label>
+                                                <div className="col-span-2 space-y-1">
+                                                    <label className="block text-xs font-semibold text-slate-700 ml-1">Detailed Description *</label>
                                                     <textarea
-                                                        rows="5"
+                                                        rows={2}
                                                         placeholder="Describe modules, learning paths, and technical depth..."
                                                         value={formData.detailedDescription}
                                                         onChange={(e) => setFormData({ ...formData, detailedDescription: e.target.value })}
-                                                        className="w-full px-6 py-5 bg-slate-50 border border-slate-200 rounded-[2rem] focus:ring-4 focus:ring-blue-500/5 outline-none font-medium text-slate-800 transition-all"
+                                                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-medium text-slate-800 text-xs transition-all shadow-sm placeholder:text-slate-400"
                                                     />
                                                 </div>
+                                            </div>
 
-                                                {/* Hackathon Specific: Problem Statements */}
-                                                {formData.type === 'Hackathon' && (
-                                                    <motion.div
-                                                        initial={{ opacity: 0, height: 0 }}
-                                                        animate={{ opacity: 1, height: 'auto' }}
-                                                        className="pt-6 border-t border-slate-100 space-y-6"
-                                                    >
-                                                        <div className="flex items-center justify-between">
-                                                            <div>
-                                                                <h4 className="text-sm font-black text-slate-900 uppercase italic">Problem Statement Repository</h4>
-                                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Define challenges or enable open innovation</p>
-                                                            </div>
+                                            {/* Hackathon Specific: Problem Statements */}
+                                            {formData.type === 'Hackathon' && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, height: 0 }}
+                                                    animate={{ opacity: 1, height: 'auto' }}
+                                                    className="pt-6 border-t border-slate-100 space-y-6"
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <h4 className="text-sm font-bold text-slate-900">Problem Statements</h4>
+                                                            <p className="text-xs text-slate-500 mt-0.5">Define challenges for teams to choose from</p>
+                                                        </div>
                                                             <div className="flex items-center gap-6">
                                                                 <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-xl border border-slate-200">
                                                                     <input
@@ -3113,7 +3106,7 @@ const OrganizerDashboard = () => {
                                                                         onChange={(e) => setFormData({ ...formData, allowOpenStatement: e.target.checked })}
                                                                         className="w-4 h-4 rounded accent-blue-600"
                                                                     />
-                                                                    <label htmlFor="allowOpenStatement" className="text-[10px] font-black text-slate-600 uppercase tracking-tight cursor-pointer">Allow Open Innovation</label>
+                                                                    <label htmlFor="allowOpenStatement" className="text-xs font-semibold text-slate-700 cursor-pointer">Allow Custom Topic</label>
                                                                 </div>
 
                                                                 <div className="flex items-center gap-3 bg-amber-50 px-4 py-2 rounded-xl border border-amber-200">
@@ -3124,12 +3117,12 @@ const OrganizerDashboard = () => {
                                                                         onChange={(e) => setFormData({ ...formData, isOnSpotPS: e.target.checked })}
                                                                         className="w-4 h-4 rounded accent-amber-600"
                                                                     />
-                                                                    <label htmlFor="isOnSpotPS" className="text-[10px] font-black text-amber-700 uppercase tracking-tight cursor-pointer">On-Spot PS Allocation</label>
+                                                                    <label htmlFor="isOnSpotPS" className="text-xs font-semibold text-amber-800 cursor-pointer">Allocate On-Spot</label>
                                                                 </div>
                                                             </div>
                                                         </div>
 
-                                                        <div className="space-y-4">
+                                                        <div className="space-y-3">
                                                             {(formData.problemStatements || []).map((ps, idx) => (
                                                                 <div key={idx} className="flex gap-2">
                                                                     <div className="flex-1 flex items-center gap-4 bg-slate-50 border border-slate-200 px-6 py-4 rounded-2xl">
@@ -3176,17 +3169,17 @@ const OrganizerDashboard = () => {
                                                     >
                                                         <div className="flex items-center gap-4 p-5 bg-purple-50 rounded-2xl border border-purple-100">
                                                             <div className="w-10 h-10 bg-purple-600 rounded-xl flex items-center justify-center">
-                                                                <FileText className="w-5 h-5 text-white" />
+                                                                <FileText className="w-4 h-4 text-white" />
                                                             </div>
                                                             <div>
-                                                                <h4 className="text-sm font-black text-purple-900 uppercase italic">Quiz Integration Setup</h4>
+                                                                <h4 className="text-sm font-bold text-purple-900">Quiz Integration</h4>
                                                                 <p className="text-[10px] text-purple-500 font-bold">Connect your Google Form for automated student verification</p>
                                                             </div>
                                                         </div>
 
-                                                        <div className="space-y-4">
+                                                        <div className="space-y-3">
                                                             <div className="space-y-2">
-                                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Google Form URL *</label>
+                                                                <label className="block text-sm font-semibold text-slate-700 ml-1">Google Form URL *</label>
                                                                 <div className="relative">
                                                                     <input
                                                                         type="text"
@@ -3251,10 +3244,10 @@ const OrganizerDashboard = () => {
                                                             </div>
 
                                                             <div className="p-5 bg-slate-900 rounded-2xl space-y-4">
-                                                                <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Pre-fill Entry IDs (from Google Form's "Get pre-filled link")</p>
+                                                                <p className="text-sm font-bold text-blue-400">Pre-fill Entry IDs (from Google Form's "Get pre-filled link")</p>
                                                                 <div className="grid grid-cols-2 gap-4">
                                                                     <div className="space-y-1">
-                                                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Name Field Entry ID</label>
+                                                                        <label className="text-xs font-semibold text-slate-400">Name Field Entry ID</label>
                                                                         <input
                                                                             type="text"
                                                                             placeholder="entry.123456789"
@@ -3264,7 +3257,7 @@ const OrganizerDashboard = () => {
                                                                         />
                                                                     </div>
                                                                     <div className="space-y-1">
-                                                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Roll Number Entry ID</label>
+                                                                        <label className="text-xs font-semibold text-slate-400">Roll Number Entry ID</label>
                                                                         <input
                                                                             type="text"
                                                                             placeholder="entry.987654321"
@@ -3274,7 +3267,7 @@ const OrganizerDashboard = () => {
                                                                         />
                                                                     </div>
                                                                     <div className="space-y-1">
-                                                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Department Entry ID</label>
+                                                                        <label className="text-xs font-semibold text-slate-400">Department Entry ID</label>
                                                                         <input
                                                                             type="text"
                                                                             placeholder="entry.111222333"
@@ -3284,7 +3277,7 @@ const OrganizerDashboard = () => {
                                                                         />
                                                                     </div>
                                                                     <div className="space-y-1">
-                                                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Year Entry ID</label>
+                                                                        <label className="text-xs font-semibold text-slate-400">Year Entry ID</label>
                                                                         <input
                                                                             type="text"
                                                                             placeholder="entry.444555666"
@@ -3294,7 +3287,7 @@ const OrganizerDashboard = () => {
                                                                         />
                                                                     </div>
                                                                     <div className="space-y-1">
-                                                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Section Entry ID</label>
+                                                                        <label className="text-xs font-semibold text-slate-400">Section Entry ID</label>
                                                                         <input
                                                                             type="text"
                                                                             placeholder="entry.777888999"
@@ -3304,7 +3297,7 @@ const OrganizerDashboard = () => {
                                                                         />
                                                                     </div>
                                                                     <div className="space-y-1">
-                                                                        <label className="text-[9px] font-bold text-slate-500 uppercase">Mobile Entry ID</label>
+                                                                        <label className="text-xs font-semibold text-slate-400">Mobile Entry ID</label>
                                                                         <input
                                                                             type="text"
                                                                             placeholder="entry.000111222"
@@ -3319,72 +3312,66 @@ const OrganizerDashboard = () => {
                                                         </div>
                                                     </motion.div>
                                                 )}
-                                            </div>
                                         </motion.div>
                                     )}
 
                                     {/* Step 2: Date & Venue */}
                                     {activeStep === 2 && (
-                                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-                                            <div className="flex items-center gap-4 p-6 bg-indigo-50 rounded-3xl border border-indigo-100">
-                                                <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                                                    <MapPin className="w-6 h-6 text-white" />
+                                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+                                            <div className="flex items-center gap-3 p-3 bg-indigo-50/80 rounded-xl border border-indigo-100/50">
+                                                <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center shadow-md shadow-indigo-600/20">
+                                                    <MapPin className="w-4 h-4 text-white" />
                                                 </div>
                                                 <div>
-                                                    <h4 className="text-sm font-black text-indigo-900 uppercase">Spatiotemporal Logistics</h4>
-                                                    <p className="text-xs text-indigo-600 font-medium">Configuring mission timeline and base location</p>
+                                                    <h4 className="text-sm font-bold text-indigo-900">Date & Location</h4>
+                                                    <p className="text-xs text-indigo-600/80 mt-0.5">When and where is this happening?</p>
                                                 </div>
                                             </div>
 
                                             <div className="grid grid-cols-2 gap-8">
-                                                <div className="space-y-6">
+                                                <div className="space-y-3">
                                                     <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100">
-                                                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2 font-black italic">
-                                                            <Clock className="w-4 h-4" /> Start Phase
-                                                        </h5>
-                                                        <div className="space-y-6">
+                                                        <h5 className="text-sm font-bold text-slate-700 mb-6 flex items-center gap-2"><Clock className="w-4 h-4" /> Start Time</h5>
+                                                        <div className="space-y-3">
                                                             <div className="space-y-2">
-                                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Date</label>
-                                                                <input type="date" value={formData.startDate} onChange={(e) => setFormData({ ...formData, startDate: e.target.value })} className="w-full px-5 py-4 bg-white border border-slate-200 rounded-xl font-black text-sm text-slate-800 outline-none" />
+                                                                <label className="block text-sm font-semibold text-slate-700 ml-1">Date</label>
+                                                                <input type="date" value={formData.startDate} onChange={(e) => setFormData({ ...formData, startDate: e.target.value })} className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-lg focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-medium text-slate-800 text-sm transition-all shadow-sm" />
                                                             </div>
                                                             <div className="space-y-2">
-                                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Time</label>
-                                                                <input type="time" value={formData.startTime} onChange={(e) => setFormData({ ...formData, startTime: e.target.value })} className="w-full px-5 py-4 bg-white border border-slate-200 rounded-xl font-black text-sm text-slate-800 outline-none" />
+                                                                <label className="block text-sm font-semibold text-slate-700 ml-1">Time</label>
+                                                                <input type="time" value={formData.startTime} onChange={(e) => setFormData({ ...formData, startTime: e.target.value })} className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-lg focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-medium text-slate-800 text-sm transition-all shadow-sm" />
                                                             </div>
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="space-y-6">
+                                                <div className="space-y-3">
                                                     <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100">
-                                                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2 font-black italic">
-                                                            <Clock className="w-4 h-4" /> Termination Phase
-                                                        </h5>
-                                                        <div className="space-y-6">
+                                                        <h5 className="text-sm font-bold text-slate-700 mb-6 flex items-center gap-2"><Clock className="w-4 h-4" /> End Time</h5>
+                                                        <div className="space-y-3">
                                                             <div className="space-y-2">
-                                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Date</label>
-                                                                <input type="date" value={formData.endDate} onChange={(e) => setFormData({ ...formData, endDate: e.target.value })} className="w-full px-5 py-4 bg-white border border-slate-200 rounded-xl font-black text-sm text-slate-800 outline-none" />
+                                                                <label className="block text-sm font-semibold text-slate-700 ml-1">Date</label>
+                                                                <input type="date" value={formData.endDate} onChange={(e) => setFormData({ ...formData, endDate: e.target.value })} className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-lg focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-medium text-slate-800 text-sm transition-all shadow-sm" />
                                                             </div>
                                                             <div className="space-y-2">
-                                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Time</label>
-                                                                <input type="time" value={formData.endTime} onChange={(e) => setFormData({ ...formData, endTime: e.target.value })} className="w-full px-5 py-4 bg-white border border-slate-200 rounded-xl font-black text-sm text-slate-800 outline-none" />
+                                                                <label className="block text-sm font-semibold text-slate-700 ml-1">Time</label>
+                                                                <input type="time" value={formData.endTime} onChange={(e) => setFormData({ ...formData, endTime: e.target.value })} className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-lg focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-medium text-slate-800 text-sm transition-all shadow-sm" />
                                                             </div>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <div className="space-y-6">
+                                            <div className="space-y-3">
                                                 <div className="flex items-center gap-8 p-8 bg-slate-900 rounded-[2.5rem] shadow-xl">
                                                     <div className="flex flex-col gap-4">
-                                                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Base Type</label>
+                                                        <label className="block text-sm font-semibold text-slate-400 ml-1">Event Mode</label>
                                                         <div className="flex gap-4">
                                                             {['Offline', 'Online', 'Hybrid'].map((v) => (
                                                                 <button
                                                                     key={v}
                                                                     type="button"
                                                                     onClick={() => setFormData({ ...formData, venueType: v })}
-                                                                    className={`px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${formData.venueType === v ? 'bg-blue-600 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
-                                                                        }`}
+                                                                    className={`px-5 py-2.5 rounded-lg font-semibold text-sm transition-all ${formData.venueType === v ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
                                                                 >
                                                                     {v}
                                                                 </button>
@@ -3392,13 +3379,13 @@ const OrganizerDashboard = () => {
                                                         </div>
                                                     </div>
                                                     <div className="flex-1 space-y-2">
-                                                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Venue Designation / Platform Link</label>
+                                                        <label className="block text-sm font-semibold text-slate-400 ml-1">Venue / Platform Link</label>
                                                         <input
                                                             type="text"
                                                             placeholder={formData.venueType === 'Online' ? "ZOOM / MEET LINK" : "BLOCK-B, LAB 402"}
                                                             value={formData.venueName}
                                                             onChange={(e) => setFormData({ ...formData, venueName: e.target.value })}
-                                                            className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl outline-none font-black text-sm text-white placeholder:text-slate-700"
+                                                            className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-medium text-white transition-all shadow-sm placeholder:text-slate-500"
                                                         />
                                                     </div>
                                                 </div>
@@ -3408,28 +3395,28 @@ const OrganizerDashboard = () => {
 
                                     {/* Step 3: Audience & Registration */}
                                     {activeStep === 3 && (
-                                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-                                            <div className="flex items-center gap-4 p-6 bg-emerald-50 rounded-3xl border border-emerald-100">
-                                                <div className="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                                                    <Users className="w-6 h-6 text-white" />
+                                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+                                            <div className="flex items-center gap-3 p-3 bg-emerald-50/80 rounded-xl border border-emerald-100/50">
+                                                <div className="w-7 h-7 bg-emerald-600 rounded-lg flex items-center justify-center shadow-md shadow-emerald-600/20">
+                                                    <Users className="w-4 h-4 text-white" />
                                                 </div>
                                                 <div>
-                                                    <h4 className="text-sm font-black text-emerald-900 uppercase">Target Audience Protocol</h4>
-                                                    <p className="text-xs text-emerald-600 font-medium">Calibrating accessibility and capacity metrics</p>
+                                                    <h4 className="text-sm font-bold text-emerald-900">Audience & Registration</h4>
+                                                    <p className="text-xs text-emerald-600/80 mt-0.5">Who can attend and registration rules</p>
                                                 </div>
                                             </div>
 
                                             <div className="grid grid-cols-2 gap-8">
-                                                <div className="space-y-6">
+                                                <div className="space-y-3">
                                                     <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100">
-                                                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Eligibility Scope</h5>
-                                                        <div className="space-y-4">
+                                                        <h5 className="text-sm font-bold text-slate-700 mb-6">Eligibility</h5>
+                                                        <div className="space-y-3">
                                                             <div className="space-y-2">
-                                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Audience Class</label>
+                                                                <label className="block text-sm font-semibold text-slate-700 ml-1">Audience Level</label>
                                                                 <select
                                                                     value={formData.audienceType}
                                                                     onChange={(e) => setFormData({ ...formData, audienceType: e.target.value })}
-                                                                    className="w-full px-5 py-4 bg-white border border-slate-200 rounded-xl font-black text-sm text-slate-800 outline-none"
+                                                                    className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-lg focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-medium text-slate-800 text-sm transition-all shadow-sm"
                                                                 >
                                                                     <option>Whole College</option>
                                                                     <option>Department Wise</option>
@@ -3440,7 +3427,7 @@ const OrganizerDashboard = () => {
                                                             </div>
                                                             {formData.audienceType === 'Department Wise' && (
                                                                 <div className="space-y-3">
-                                                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Select Departments</label>
+                                                                    <label className="block text-sm font-semibold text-slate-700 ml-1">Select Departments</label>
                                                                     <div className="flex flex-wrap gap-2">
                                                                         {globalDemographics.departments.map(dept => (
                                                                             <button
@@ -3464,7 +3451,7 @@ const OrganizerDashboard = () => {
 
                                                             {formData.audienceType === 'Year Wise' && (
                                                                 <div className="space-y-3">
-                                                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Target Years</label>
+                                                                    <label className="block text-sm font-semibold text-slate-700 ml-1">Target Years</label>
                                                                     <div className="flex gap-3 flex-wrap">
                                                                         {globalDemographics.years.map(year => (
                                                                             <button
@@ -3487,7 +3474,7 @@ const OrganizerDashboard = () => {
                                                             )}
 
                                                             {(formData.audienceType === 'Section Wise' || formData.audienceType === 'Custom') && (
-                                                                <div className="space-y-4">
+                                                                <div className="space-y-3">
                                                                     <div className="grid grid-cols-2 gap-3">
                                                                         <select
                                                                             value={formData.departments[0] || ""}
@@ -3543,8 +3530,8 @@ const OrganizerDashboard = () => {
                                                             )}
 
                                                             <div className="p-4 bg-slate-900 rounded-2xl border border-white/5">
-                                                                <p className="text-[9px] font-black text-blue-400 uppercase mb-2">Target Eligibility Summary</p>
-                                                                <p className="text-[10px] font-bold text-slate-400 italic">
+                                                                <p className="text-xs font-bold text-blue-400 mb-2">Eligibility Summary</p>
+                                                                <p className="text-xs font-medium text-slate-300">
                                                                     {formData.audienceType === 'Whole College' ? 'OPEN ACCESS TO ALL STUDENTS' : (
                                                                         `RESTRICTED TO: ${formData.departments.join(', ') || 'ALL'} ${formData.years.length ? `(YEAR ${formData.years.join(', ')})` : ''} ${formData.sections.length ? `[SEC ${formData.sections.join(', ')}]` : ''}`
                                                                     )}
@@ -3553,12 +3540,12 @@ const OrganizerDashboard = () => {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="space-y-6">
+                                                <div className="space-y-3">
                                                     <div className="p-8 bg-slate-900 rounded-[2.5rem] shadow-xl text-white">
-                                                        <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">Capacity Terminal</h5>
-                                                        <div className="space-y-6">
+                                                        <h5 className="text-sm font-bold text-slate-400 mb-6">Registration Rules</h5>
+                                                        <div className="space-y-3">
                                                             <div className="flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-all cursor-pointer group" onClick={() => setFormData({ ...formData, registrationRequired: !formData.registrationRequired })}>
-                                                                <label className="text-[10px] font-black uppercase tracking-widest cursor-pointer group-hover:text-blue-400 transition-colors">Entry Registration</label>
+                                                                <label className="text-sm font-semibold text-slate-200 cursor-pointer group-hover:text-white transition-colors">Require Registration</label>
                                                                 <div
                                                                     className={`w-12 h-6 rounded-full transition-all relative ${formData.registrationRequired ? 'bg-blue-600 shadow-lg shadow-blue-500/20' : 'bg-slate-700'}`}
                                                                 >
@@ -3566,7 +3553,7 @@ const OrganizerDashboard = () => {
                                                                 </div>
                                                             </div>
                                                             <div className="space-y-2">
-                                                                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Max Deployment Units (Participants)</label>
+                                                                <label className="block text-sm font-semibold text-slate-400 ml-1">Max Participants</label>
                                                                 <div className="relative">
                                                                     <input
                                                                         type="number"
@@ -3594,7 +3581,7 @@ const OrganizerDashboard = () => {
                                                                 </div>
                                                             </div>
                                                             <div className="flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-all cursor-pointer group" onClick={() => setFormData({ ...formData, waitingList: !formData.waitingList })}>
-                                                                <label className="text-[10px] font-black uppercase tracking-widest cursor-pointer group-hover:text-indigo-400 transition-colors">Enable Awaiting List</label>
+                                                                <label className="text-sm font-semibold text-slate-200 cursor-pointer group-hover:text-white transition-colors">Enable Waiting List</label>
                                                                 <div
                                                                     className={`w-12 h-6 rounded-full transition-all relative ${formData.waitingList ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20' : 'bg-slate-700'}`}
                                                                 >
@@ -3605,8 +3592,8 @@ const OrganizerDashboard = () => {
                                                             <div className="pt-4 mt-4 border-t border-white/10 space-y-6">
                                                                 <div className="flex items-center justify-between p-2 hover:bg-white/5 rounded-xl transition-all cursor-pointer group" onClick={() => setFormData({ ...formData, isTeamEvent: !formData.isTeamEvent })}>
                                                                     <div>
-                                                                        <label className="text-[10px] font-black uppercase tracking-widest block text-blue-400 cursor-pointer group-hover:text-emerald-400 transition-colors">Team Participation</label>
-                                                                        <p className="text-[9px] text-slate-500 font-medium">Require students to register as teams</p>
+                                                                        <label className="text-sm font-semibold text-blue-400 cursor-pointer group-hover:text-blue-300 transition-colors block">Team Participation</label>
+                                                                        <p className="text-xs text-slate-400 font-medium mt-0.5">Require students to register as teams</p>
                                                                     </div>
                                                                     <div
                                                                         className={`w-12 h-6 rounded-full transition-all relative ${formData.isTeamEvent ? 'bg-emerald-600 shadow-lg shadow-emerald-500/20' : 'bg-slate-700'}`}
@@ -3618,7 +3605,7 @@ const OrganizerDashboard = () => {
                                                                 {formData.isTeamEvent && (
                                                                     <div className="grid grid-cols-2 gap-4 animate-fade-in">
                                                                         <div className="space-y-2">
-                                                                            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Min Team Size</label>
+                                                                            <label className="block text-sm font-semibold text-slate-400 ml-1">Min Team Size</label>
                                                                             <input
                                                                                 type="number"
                                                                                 value={formData.minTeamSize}
@@ -3627,7 +3614,7 @@ const OrganizerDashboard = () => {
                                                                             />
                                                                         </div>
                                                                         <div className="space-y-2">
-                                                                            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Max Team Size</label>
+                                                                            <label className="block text-sm font-semibold text-slate-400 ml-1">Max Team Size</label>
                                                                             <input
                                                                                 type="number"
                                                                                 value={formData.maxTeamSize}
@@ -3647,46 +3634,46 @@ const OrganizerDashboard = () => {
 
                                     {/* Step 4: Finalize */}
                                     {activeStep === 4 && (
-                                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-                                            <div className="flex items-center gap-4 p-6 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl">
-                                                <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+                                            <div className="flex items-center gap-3 p-3 bg-slate-900 rounded-xl border border-slate-800 shadow-xl">
+                                                <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center shadow-md shadow-blue-600/20">
                                                     <Shield className="w-6 h-6 text-white" />
                                                 </div>
                                                 <div>
-                                                    <h4 className="text-sm font-black text-white uppercase tracking-tight italic">Authorization Transmission</h4>
-                                                    <p className="text-xs text-slate-500 font-medium uppercase tracking-widest">FinalIZING Operation Control parameters</p>
+                                                    <h4 className="text-sm font-bold text-white">Final Review</h4>
+                                                    <p className="text-xs text-slate-400 font-medium mt-0.5">Finalize event details before submission</p>
                                                 </div>
                                             </div>
 
                                             <div className="grid grid-cols-2 gap-8">
-                                                <div className="space-y-6">
+                                                <div className="space-y-3">
                                                     <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100">
-                                                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Mission Coordinator</h5>
-                                                        <div className="space-y-4">
+                                                        <h5 className="text-sm font-bold text-slate-700 mb-6">Coordinator Details</h5>
+                                                        <div className="space-y-3">
                                                             <div className="space-y-1">
-                                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Full Designation Name</label>
+                                                                <label className="block text-sm font-semibold text-slate-700 ml-1">Coordinator Name</label>
                                                                 <input type="text" value={formData.coordinatorName} onChange={(e) => setFormData({ ...formData, coordinatorName: e.target.value })} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-800 outline-none" />
                                                             </div>
                                                             <div className="space-y-1">
-                                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Communication Channel (Phone)</label>
+                                                                <label className="block text-sm font-semibold text-slate-700 ml-1">Contact Phone</label>
                                                                 <input type="text" value={formData.coordinatorPhone} onChange={(e) => setFormData({ ...formData, coordinatorPhone: e.target.value })} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-800 outline-none" />
                                                             </div>
                                                             <div className="flex items-center gap-3 py-2">
                                                                 <input type="checkbox" checked={formData.displayCoordinator} onChange={(e) => setFormData({ ...formData, displayCoordinator: e.target.checked })} className="w-5 h-5 rounded-lg accent-blue-600" />
-                                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Publically Project Identity</label>
+                                                                <label className="text-sm font-semibold text-slate-600">Display Contact Publicly</label>
                                                             </div>
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="space-y-6">
+                                                <div className="space-y-3">
                                                     <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 h-full flex flex-col">
-                                                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Internal Intel</h5>
+                                                        <h5 className="text-sm font-bold text-slate-700 mb-6">Internal Notes</h5>
                                                         <textarea
                                                             rows="6"
-                                                            placeholder="Private notes for Super Admin and internal tracking..."
+                                                            placeholder="Optional private notes for Super Admins..."
                                                             value={formData.internalNotes}
                                                             onChange={(e) => setFormData({ ...formData, internalNotes: e.target.value })}
-                                                            className="w-full flex-1 px-5 py-4 bg-white border border-slate-200 rounded-2xl outline-none font-medium text-slate-600 resize-none italic text-sm"
+                                                            className="w-full flex-1 px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-medium text-slate-800 resize-none text-sm transition-all shadow-sm placeholder:text-slate-400"
                                                         />
                                                     </div>
                                                 </div>
@@ -3702,8 +3689,8 @@ const OrganizerDashboard = () => {
                                                         className="mt-1 w-6 h-6 rounded-lg accent-white bg-transparent border-2 border-white/30"
                                                     />
                                                     <div>
-                                                        <label htmlFor="terms" className="text-sm font-black uppercase italic tracking-tighter">I certify that this operation adheres to the club's technical standards and college policy.</label>
-                                                        <p className="text-[10px] text-white/60 font-medium mt-1">Submission will lock specific fields until Authorization Review is complete.</p>
+                                                        <label htmlFor="terms" className="text-sm font-semibold text-white cursor-pointer">I certify that this event complies with all guidelines.</label>
+                                                        <p className="text-xs text-blue-200 mt-1">Event will be submitted for admin approval.</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -3716,34 +3703,34 @@ const OrganizerDashboard = () => {
                                             {activeStep === 1 ? (
                                                 <button
                                                     onClick={() => { if (confirm("Discard all draft data?")) setCurrentView('dashboard'); }}
-                                                    className="px-8 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-50 hover:text-red-500 transition-all"
+                                                    className="px-5 py-2 bg-slate-100 text-slate-600 rounded-xl font-semibold text-sm hover:bg-red-50 hover:text-red-600 transition-all"
                                                 >
                                                     Discard
                                                 </button>
                                             ) : (
                                                 <button
                                                     onClick={() => setActiveStep(prev => prev - 1)}
-                                                    className="px-8 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center gap-2"
+                                                    className="px-5 py-2 bg-slate-100 text-slate-600 rounded-xl font-semibold text-sm hover:bg-slate-200 transition-all flex items-center gap-2"
                                                 >
                                                     <ChevronLeft className="w-4 h-4" /> Previous Step
                                                 </button>
                                             )}
                                             <button
                                                 onClick={() => handleCreateEvent('DRAFT')}
-                                                className="px-8 py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:shadow-lg transition-all flex items-center gap-2"
+                                                className="px-5 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl font-semibold text-sm hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm"
                                             >
                                                 <Save className="w-4 h-4" /> Save as Draft
                                             </button>
                                         </div>
 
                                         <div className="flex gap-4">
-                                            <button className="px-8 py-4 bg-slate-50 text-slate-500 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-white border border-slate-200 transition-all flex items-center gap-2">
+                                            <button className="px-5 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl font-semibold text-sm hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm">
                                                 <Eye className="w-4 h-4 text-blue-500" /> Preview
                                             </button>
                                             {activeStep < 4 ? (
                                                 <button
                                                     onClick={() => setActiveStep(prev => prev + 1)}
-                                                    className="px-10 py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
+                                                    className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-semibold text-sm shadow-md shadow-blue-600/20 hover:bg-blue-700 transition-all flex items-center gap-2"
                                                 >
                                                     Progress Next <ChevronRight className="w-4 h-4" />
                                                 </button>
@@ -3751,9 +3738,9 @@ const OrganizerDashboard = () => {
                                                 <button
                                                     onClick={() => handleCreateEvent('PENDING')}
                                                     disabled={isSubmitting}
-                                                    className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl shadow-slate-900/20 hover:scale-[1.05] active:scale-[0.95] transition-all flex items-center gap-2 disabled:bg-slate-400"
+                                                    className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-semibold text-sm shadow-md shadow-slate-900/20 hover:bg-slate-800 transition-all flex items-center gap-2 disabled:opacity-50"
                                                 >
-                                                    {isSubmitting ? 'TRANSMITTING...' : 'SUBMIT FOR APPROVAL'} <Send className="w-4 h-4" />
+                                                    {isSubmitting ? 'Submitting...' : 'Submit Event'} <Send className="w-4 h-4" />
                                                 </button>
                                             )}
                                         </div>
@@ -3819,7 +3806,7 @@ const OrganizerDashboard = () => {
                                     <X className="w-5 h-5 text-slate-400" />
                                 </button>
                                 <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                                    <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center shadow-md shadow-blue-600/20">
                                         <Activity className="w-6 h-6" />
                                     </div>
                                     <div className="flex-1">
@@ -3842,12 +3829,12 @@ const OrganizerDashboard = () => {
                             <div className="flex-1 overflow-y-auto p-8 pt-0 custom-scrollbar">
                                 {loadingFeedback ? (
                                     <div className="py-20 flex flex-col items-center gap-4 opacity-50">
-                                        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                                        <div className="w-7 h-7 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
                                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Decrypting Response Cloud...</p>
                                     </div>
                                 ) : selectedEventFeedback.length === 0 ? (
                                     <div className="py-20 flex flex-col items-center gap-4 opacity-30">
-                                        <Zap className="w-12 h-12 text-slate-400" />
+                                        <Zap className="w-8 h-8 text-slate-400" />
                                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">No tactical feedback received yet</p>
                                     </div>
                                 ) : (
@@ -3869,7 +3856,7 @@ const OrganizerDashboard = () => {
                                             </div>
                                         </div>
 
-                                        <div className="space-y-4">
+                                        <div className="space-y-3">
                                             {selectedEventFeedback.map((item, idx) => (
                                                 <motion.div
                                                     key={item.id}
@@ -3935,7 +3922,7 @@ const OrganizerDashboard = () => {
                                     <div className="flex items-center justify-between relative z-10">
                                         <div className="flex items-center gap-6">
                                             <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/20 ring-4 ring-blue-500/10">
-                                                <Download className="w-8 h-8 text-white" />
+                                                <Download className="w-7 h-7 text-white" />
                                             </div>
                                             <div>
                                                 <h3 className="text-2xl font-black uppercase italic tracking-tight mb-1">Export Matrix Configuration</h3>
@@ -3944,7 +3931,7 @@ const OrganizerDashboard = () => {
                                         </div>
                                         <button
                                             onClick={() => setIsExportModalOpen(false)}
-                                            className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all border border-white/10 group"
+                                            className="w-8 h-8 rounded-2xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all border border-white/10 group"
                                         >
                                             <X className="w-6 h-6 text-slate-400 group-hover:text-white transition-colors" />
                                         </button>
@@ -4169,7 +4156,7 @@ const OrganizerDashboard = () => {
                                         rel="noopener noreferrer"
                                         className="p-4 bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-2xl flex items-center gap-4 hover:border-purple-400 transition-all group"
                                     >
-                                        <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center text-white">
+                                        <div className="w-8 h-8 bg-purple-500 rounded-xl flex items-center justify-center text-white">
                                             <Award className="w-6 h-6" />
                                         </div>
                                         <div className="flex-1">
@@ -4184,7 +4171,7 @@ const OrganizerDashboard = () => {
                                         rel="noopener noreferrer"
                                         className="p-4 bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-200 rounded-2xl flex items-center gap-4 hover:border-emerald-400 transition-all group"
                                     >
-                                        <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center text-white">
+                                        <div className="w-8 h-8 bg-emerald-500 rounded-xl flex items-center justify-center text-white">
                                             <Trophy className="w-6 h-6" />
                                         </div>
                                         <div className="flex-1">
@@ -4260,7 +4247,7 @@ const OrganizerDashboard = () => {
                                             </h3>
                                             {judges.length === 0 ? (
                                                 <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center">
-                                                    <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                                                    <Users className="w-8 h-8 text-slate-300 mx-auto mb-4" />
                                                     <p className="text-sm font-bold text-slate-400">No judges added yet</p>
                                                     <p className="text-xs text-slate-400 mt-1">Add judges above to enable scoring</p>
                                                 </div>
@@ -4272,7 +4259,7 @@ const OrganizerDashboard = () => {
                                                             className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center justify-between hover:border-purple-200 transition-all"
                                                         >
                                                             <div className="flex items-center gap-4">
-                                                                <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-xl flex items-center justify-center text-lg font-black text-purple-600">
+                                                                <div className="w-8 h-8 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-xl flex items-center justify-center text-lg font-black text-purple-600">
                                                                     {judge.name.charAt(0)}
                                                                 </div>
                                                                 <div>
@@ -4377,7 +4364,7 @@ const OrganizerDashboard = () => {
                                             </div>
                                         ) : teamScores.length === 0 ? (
                                             <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center">
-                                                <Trophy className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                                                <Trophy className="w-8 h-8 text-slate-300 mx-auto mb-4" />
                                                 <p className="text-sm font-bold text-slate-400">No scores yet</p>
                                                 <p className="text-xs text-slate-400 mt-1">Scores will appear here when judges start scoring</p>
                                             </div>
@@ -4451,7 +4438,7 @@ const OrganizerDashboard = () => {
                                                                         {team.scores.map((score) => (
                                                                             <div key={score.id} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-100 group">
                                                                                 <div className="flex items-center gap-3">
-                                                                                    <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+                                                                                    <div className="w-7 h-7 bg-blue-50 rounded-lg flex items-center justify-center">
                                                                                         <Star className="w-4 h-4 text-blue-500 fill-blue-500" />
                                                                                     </div>
                                                                                     <div>
@@ -4513,7 +4500,7 @@ const OrganizerDashboard = () => {
                             <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6 md:p-8">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                                        <div className="w-8 h-8 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
                                             <Brain className="w-6 h-6 text-white" />
                                         </div>
                                         <div>
@@ -4595,7 +4582,7 @@ const OrganizerDashboard = () => {
                                 <button
                                     onClick={handleSaveQuickPS}
                                     disabled={isSavingPS}
-                                    className="px-8 py-3 bg-slate-900 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-xl shadow-xl shadow-slate-200 hover:bg-black transition-all flex items-center gap-2"
+                                    className="px-6 py-2.5 bg-slate-900 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-xl shadow-xl shadow-slate-200 hover:bg-black transition-all flex items-center gap-2"
                                 >
                                     {isSavingPS ? (
                                         <>
