@@ -1,86 +1,42 @@
 import { useState, useEffect } from 'react';
-import { Users, ExternalLink, Heart, MessageSquare } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Users, ExternalLink, Heart, Star, Code2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { db } from '../firebase';
-import { doc, onSnapshot, setDoc, updateDoc, increment, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, setDoc, updateDoc, increment } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 
 const Projects = () => {
     const { isAuthenticated, openAuthModal } = useAuth();
+    const [projects, setProjects] = useState([]);
     const [projectLikes, setProjectLikes] = useState({});
-
-    const projects = [
-        {
-            id: 'smart-campus',
-            title: 'Smart Campus App',
-            emoji: '🚀',
-            description: 'Comprehensive mobile application for campus navigation, event management, and student services integration',
-            team: 'Team Alpha',
-            status: 'Ongoing',
-            statusColor: 'yellow',
-            featured: true,
-            bgGradient: 'from-blue-50 to-cyan-50',
-        },
-        {
-            id: 'ai-study-buddy',
-            title: 'AI Study Buddy',
-            emoji: '🤖',
-            description: 'ML-powered personalized learning assistant that adapts to individual study patterns',
-            team: 'Team Beta',
-            status: 'Completed',
-            statusColor: 'green',
-            featured: false,
-            bgGradient: 'white',
-        },
-        {
-            id: 'eco-track',
-            title: 'EcoTrack',
-            emoji: '🌱',
-            description: 'Carbon footprint tracker and sustainability recommendation engine',
-            team: 'Team Gamma',
-            status: 'Ongoing',
-            statusColor: 'yellow',
-            featured: false,
-            bgGradient: 'white',
-        },
-        {
-            id: 'code-collab',
-            title: 'CodeCollab',
-            emoji: '💻',
-            description: 'Real-time collaborative coding platform with integrated version control',
-            team: 'Team Delta',
-            status: 'Planning',
-            statusColor: 'blue',
-            featured: false,
-            bgGradient: 'white',
-        },
-        {
-            id: 'health-hub',
-            title: 'HealthHub',
-            emoji: '❤️',
-            description: 'Student wellness dashboard tracking mental health, fitness, fitness, and nutrition',
-            team: 'Team Epsilon',
-            status: 'Completed',
-            statusColor: 'green',
-            featured: false,
-            bgGradient: 'from-purple-50 to-pink-50',
-        },
-    ];
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribes = projects.map(project => {
-            const docRef = doc(db, 'project_stats', project.id);
-            return onSnapshot(docRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    setProjectLikes(prev => ({ ...prev, [project.id]: docSnap.data().likes || 0 }));
-                } else {
-                    // Initialize if doesn't exist
-                    setDoc(docRef, { likes: 0 }, { merge: true });
-                }
+        const qProjects = query(collection(db, 'ts_projects'), where('status', 'in', ['in_progress', 'completed']));
+        
+        const unsubProjects = onSnapshot(qProjects, (snapshot) => {
+            const fetchedProjects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setProjects(fetchedProjects);
+            setLoading(false);
+
+            // Setup listeners for likes dynamically based on fetched projects
+            const unsubLikes = fetchedProjects.map(project => {
+                const docRef = doc(db, 'project_stats', project.id);
+                return onSnapshot(docRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        setProjectLikes(prev => ({ ...prev, [project.id]: docSnap.data().likes || 0 }));
+                    } else {
+                        // Initialize if doesn't exist
+                        setDoc(docRef, { likes: 0 }, { merge: true });
+                    }
+                });
             });
+
+            // Cleanup likes listeners on project change
+            return () => unsubLikes.forEach(unsub => unsub());
         });
 
-        return () => unsubscribes.forEach(unsub => unsub());
+        return () => unsubProjects();
     }, []);
 
     const handleLike = async (projectId) => {
@@ -99,13 +55,10 @@ const Projects = () => {
         }
     };
 
-    const getStatusClasses = (color) => {
-        const classes = {
-            yellow: 'bg-yellow-100/80 text-yellow-700',
-            green: 'bg-green-100/80 text-green-700',
-            blue: 'bg-blue-100/80 text-blue-700',
-        };
-        return classes[color] || classes.blue;
+    const getStatusClasses = (status) => {
+        if (status === 'completed') return 'bg-emerald-100/80 text-emerald-700';
+        if (status === 'in_progress') return 'bg-blue-100/80 text-blue-700';
+        return 'bg-slate-100/80 text-slate-700';
     };
 
     return (
@@ -125,73 +78,107 @@ const Projects = () => {
                             Innovation <span className="text-blue-600">Hub</span>
                         </h2>
                         <p className="text-lg text-slate-500 max-w-2xl mx-auto font-medium">
-                            Explore cutting-edge solutions built by TechSpark members. Support your favorites!
+                            Explore cutting-edge solutions built by TechSpark Core Team.
                         </p>
                     </motion.div>
                 </div>
 
-                {/* Grid */}
-                <div className="grid md:grid-cols-3 gap-8">
-                    {projects.map((project, index) => (
-                        <motion.div
-                            key={project.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true }}
-                            transition={{ delay: index * 0.1 }}
-                            className={`${project.featured ? 'md:col-span-2' : ''} ${project.bgGradient === 'white' ? 'bg-white' : `bg-gradient-to-br ${project.bgGradient}`
-                                } p-8 lg:p-10 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-500 relative group overflow-hidden`}
-                        >
-                            {/* Decorative Grid Pattern */}
-                            <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:20px_20px]" />
+                {loading ? (
+                    <div className="flex justify-center p-20">
+                        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                ) : projects.length === 0 ? (
+                    <div className="text-center p-20 bg-white rounded-3xl border border-slate-200 shadow-sm">
+                        <Code2 className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                        <h3 className="text-xl font-bold text-slate-800">No Projects Yet</h3>
+                        <p className="text-slate-500 mt-2">Our team is brewing some fresh ideas!</p>
+                    </div>
+                ) : (
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {projects.map((project, index) => {
+                            const isFeatured = index === 0; // Highlight the first project
+                            
+                            return (
+                                <motion.div
+                                    key={project.id}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    whileInView={{ opacity: 1, y: 0 }}
+                                    viewport={{ once: true }}
+                                    transition={{ delay: index * 0.1 }}
+                                    className={`${isFeatured ? 'md:col-span-2 lg:col-span-2 bg-gradient-to-br from-blue-50 to-indigo-50' : 'bg-white'} 
+                                        p-8 lg:p-10 rounded-[2.5rem] border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-500 relative group overflow-hidden flex flex-col`}
+                                >
+                                    <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:20px_20px]" />
 
-                            <div className="relative z-10 h-full flex flex-col">
-                                <div className="flex justify-between items-start mb-8">
-                                    <div className={`${project.featured ? 'text-7xl' : 'text-5xl'} transform group-hover:scale-110 group-hover:rotate-6 transition-transform duration-500`}>
-                                        {project.emoji}
+                                    <div className="flex justify-between items-start mb-6 relative z-10">
+                                        <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${getStatusClasses(project.status)}`}>
+                                            {project.status.replace('_', ' ')}
+                                        </span>
+                                        <div className="flex gap-2">
+                                            {project.githubUrl && (
+                                                <a href={project.githubUrl} target="_blank" rel="noreferrer" className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-slate-200 text-slate-600 transition-all"><Code2 className="w-4 h-4" /></a>
+                                            )}
+                                            {project.liveUrl && (
+                                                <a href={project.liveUrl} target="_blank" rel="noreferrer" className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center hover:bg-blue-600 hover:text-white text-blue-600 transition-all"><ExternalLink className="w-4 h-4" /></a>
+                                            )}
+                                        </div>
                                     </div>
-                                    <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${getStatusClasses(project.statusColor)}`}>
-                                        {project.status}
-                                    </span>
-                                </div>
 
-                                <h3 className={`${project.featured ? 'text-3xl lg:text-4xl' : 'text-2xl'} font-black mb-4 text-slate-900 uppercase italic tracking-tight`}>
-                                    {project.title}
-                                </h3>
+                                    <h3 className={`${isFeatured ? 'text-3xl lg:text-4xl' : 'text-2xl'} font-black mb-3 text-slate-900 uppercase tracking-tight relative z-10`}>
+                                        {project.title}
+                                    </h3>
 
-                                <p className={`text-slate-600 mb-8 leading-relaxed font-medium ${project.featured ? 'max-w-2xl text-lg' : 'text-sm'}`}>
-                                    {project.description}
-                                </p>
+                                    <p className={`text-slate-600 mb-6 font-medium relative z-10 ${isFeatured ? 'max-w-2xl text-lg' : 'text-sm'}`}>
+                                        {project.description}
+                                    </p>
 
-                                <div className="mt-auto flex items-center justify-between">
-                                    <div className="flex items-center gap-4">
-                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-xl text-[11px] font-bold text-slate-500">
-                                            <Users className="w-3.5 h-3.5" />
-                                            {project.team}
+                                    {/* Team Details */}
+                                    <div className="mt-auto relative z-10 space-y-4">
+                                        <div className="bg-white/60 p-4 rounded-2xl border border-white/40">
+                                            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Project Team</h4>
+                                            
+                                            {/* Team Lead */}
+                                            {project.teamMembers?.filter(m => m.uid === project.teamLead).map((lead, i) => (
+                                                <div key={`lead-${i}`} className="flex items-center gap-2 mb-2">
+                                                    <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                                                    <span className="text-xs font-bold text-slate-800">{lead.name}</span>
+                                                    <span className="text-[10px] text-slate-500 uppercase tracking-wider bg-slate-200/50 px-2 py-0.5 rounded-md">Lead</span>
+                                                </div>
+                                            ))}
+                                            
+                                            {/* Members */}
+                                            <div className="flex flex-wrap gap-2 mt-2">
+                                                {project.teamMembers?.filter(m => m.uid !== project.teamLead).map((member, i) => (
+                                                    <div key={`member-${i}`} className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-lg">
+                                                        <Users className="w-3 h-3 text-blue-500" />
+                                                        <span className="text-[11px] font-bold text-slate-700">{member.name}</span>
+                                                    </div>
+                                                ))}
+                                                {(!project.teamMembers || project.teamMembers.length === 0) && (
+                                                    <span className="text-xs text-slate-400 italic font-medium">Recruiting team...</span>
+                                                )}
+                                            </div>
                                         </div>
 
-                                        <button
-                                            onClick={() => handleLike(project.id)}
-                                            className="flex items-center gap-2 group/like active:scale-90 transition-all"
-                                        >
-                                            <div className="w-9 h-9 bg-pink-50 rounded-xl flex items-center justify-center text-pink-500 group-hover/like:bg-pink-500 group-hover/like:text-white transition-all">
-                                                <Heart className={`w-4 h-4 ${projectLikes[project.id] > 0 ? 'fill-current' : ''}`} />
-                                            </div>
-                                            <span className="text-xs font-black text-slate-400 group-hover/like:text-pink-500">
-                                                {projectLikes[project.id] || 0}
-                                            </span>
-                                        </button>
+                                        <div className="flex items-center justify-between pt-2">
+                                            <button
+                                                onClick={() => handleLike(project.id)}
+                                                className="flex items-center gap-2 group/like active:scale-90 transition-all bg-white shadow-sm border border-slate-100 px-4 py-2 rounded-xl hover:border-pink-200"
+                                            >
+                                                <div className="w-6 h-6 bg-pink-50 rounded-lg flex items-center justify-center text-pink-500 group-hover/like:bg-pink-500 group-hover/like:text-white transition-all">
+                                                    <Heart className={`w-3.5 h-3.5 ${projectLikes[project.id] > 0 ? 'fill-current' : ''}`} />
+                                                </div>
+                                                <span className="text-xs font-black text-slate-500 group-hover/like:text-pink-600">
+                                                    {projectLikes[project.id] || 0}
+                                                </span>
+                                            </button>
+                                        </div>
                                     </div>
-
-                                    <button className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0 transition-all duration-300 hover:bg-blue-600">
-                                        <ExternalLink className="w-5 h-5" />
-                                    </button>
-                                </div>
-                            </div>
-                        </motion.div>
-                    ))}
-                </div>
-
+                                </motion.div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
         </section>
     );

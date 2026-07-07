@@ -46,6 +46,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
+import StudentRecruitmentSection from './StudentRecruitmentSection';
+import MyActiveProjects from './MyActiveProjects';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, onSnapshot, orderBy, doc, getDoc, setDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
 
@@ -2390,6 +2392,8 @@ const StudentDashboard = () => {
 
                     {/* Right Column */}
                     <div className="space-y-8">
+                        <MyActiveProjects user={user} />
+                        <StudentRecruitmentSection user={user} />
                         <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
                             <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
                                 <BookOpen className="w-5 h-5 text-blue-600" />
@@ -2525,58 +2529,79 @@ const StudentDashboard = () => {
 
             {/* HIDDEN ID CARD TEMPLATE */}
             <div className="fixed -left-[2000px] top-0 pointer-events-none">
-                <div ref={idCardRef} className="w-[400px] h-[600px] bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col relative" style={{ fontFamily: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}>
-                    <div className="h-40 bg-gradient-to-br from-blue-700 to-indigo-900 p-6 flex flex-col justify-between items-center relative overflow-hidden text-center">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
-                        <div className="relative z-10 flex items-center justify-between w-full bg-white px-4 py-3 rounded-xl shadow-md border border-white/50">
-                            <img src={ritLogo} alt="RIT" className="h-6 w-auto" />
-                            <div className="w-px h-6 bg-slate-200 mx-2" />
-                            <img src={tsLogo} alt="TechSpark" className="h-6 w-auto" />
-                        </div>
-                        <h2 className="relative z-10 text-white text-xs font-bold tracking-[0.2em] uppercase mt-4">OFFICIAL MEMBER IDENTITY</h2>
+                <div ref={idCardRef} className="w-[380px] h-[580px] bg-slate-50 rounded-3xl overflow-hidden shadow-2xl flex flex-col relative border border-slate-200" style={{ fontFamily: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}>
+                    
+                    {/* Header Logos */}
+                    <div className="px-6 py-4 bg-white flex justify-between items-center relative z-10 border-b border-slate-100">
+                        <img src={ritLogo} alt="RIT" className="h-6 w-auto" />
+                        <div className="w-px h-5 bg-slate-200" />
+                        <img src={tsLogo} alt="TechSpark" className="h-5 w-auto" />
                     </div>
-                    <div className="flex flex-col items-center -mt-14 relative z-20">
-                        <div className="w-28 h-28 bg-white p-1 rounded-2xl shadow-xl">
-                            <div className="w-full h-full bg-slate-100 rounded-xl flex items-center justify-center text-blue-600 font-bold text-3xl overflow-hidden border border-slate-50 uppercase">
+
+                    {/* Gradient Profile Section */}
+                    <div className="bg-gradient-to-br from-blue-600 to-indigo-800 p-6 flex flex-col items-center justify-center relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
+                        <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-400/20 rounded-full translate-y-1/2 -translate-x-1/2 blur-xl" />
+                        
+                        <div className="w-20 h-20 bg-white/20 rounded-full p-1.5 relative z-10 mb-3 backdrop-blur-sm shadow-xl">
+                            <div className="w-full h-full bg-white rounded-full flex items-center justify-center text-blue-600 font-black text-3xl uppercase shadow-inner">
                                 {user.fullName?.charAt(0)}
                             </div>
                         </div>
-                        <h1 className="text-xl font-extrabold text-slate-800 mt-4 uppercase">{user.fullName}</h1>
-                        <p className="text-blue-600 text-[10px] font-bold tracking-widest uppercase">TECHSPARK CLUB MEMBER</p>
+                        <h1 className="text-xl font-black text-white uppercase tracking-tight text-center relative z-10">{user.fullName}</h1>
+                        <p className="text-blue-200 text-[10px] font-bold tracking-[0.2em] uppercase mt-1 relative z-10">TechSpark Club Member</p>
                     </div>
-                    <div className="flex-1 p-8 pt-6 space-y-5">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1 text-left">
-                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Register Number</p>
-                                <p className="text-sm text-slate-700 font-bold flex items-center gap-1.5"><Hash className="w-3 h-3 text-blue-600" /> {user.rollNumber}</p>
+
+                    {/* Details Content */}
+                    <div className="flex-1 px-6 pt-5 flex flex-col">
+                        <div className="grid grid-cols-2 gap-3 mb-5">
+                            <div className="col-span-2 bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Hash className="w-4 h-4 text-blue-600" />
+                                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Reg No</span>
+                                </div>
+                                <span className="text-sm text-slate-800 font-black font-mono">{user.rollNumber}</span>
                             </div>
-                            <div className="space-y-1 text-left">
-                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Admission Year</p>
-                                <p className="text-sm text-slate-700 font-bold flex items-center gap-1.5"><Calendar className="w-3 h-3 text-blue-600" /> {user.admissionYear}</p>
+                            
+                            <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-1.5">
+                                <div className="flex items-center gap-1.5">
+                                    <Building2 className="w-3.5 h-3.5 text-blue-600" />
+                                    <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Dept</span>
+                                </div>
+                                <span className="text-xs text-slate-800 font-black uppercase truncate">{user.department}</span>
                             </div>
-                            <div className="space-y-1 text-left">
-                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Department</p>
-                                <p className="text-sm text-slate-700 font-bold flex items-center gap-1.5 uppercase"><Building2 className="w-3 h-3 text-blue-600" /> {user.department}</p>
-                            </div>
-                            <div className="space-y-1 text-left">
-                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Section</p>
-                                <p className="text-sm text-slate-700 font-bold flex items-center gap-1.5 uppercase"><CheckCircle className="w-3 h-3 text-blue-600" /> {user.section}</p>
+
+                            <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-1.5">
+                                <div className="flex items-center gap-1.5">
+                                    <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                                    <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Year/Sec</span>
+                                </div>
+                                <span className="text-xs text-slate-800 font-black uppercase">{user.admissionYear} - {user.section}</span>
                             </div>
                         </div>
-                        <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                            <div className="space-y-1 text-left">
-                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Verification ID</p>
-                                <p className="text-[11px] text-slate-900 font-mono">TS-IDENTITY-{user.rollNumber?.slice(-4)}</p>
+
+                        {/* Centered Large QR Code */}
+                        <div className="flex-1 flex flex-col items-center justify-center pb-2">
+                            <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 ring-4 ring-white/50">
+                                <QRCodeSVG 
+                                    value={user.rollNumber || "TECHSPARK-GUEST"} 
+                                    size={100}
+                                    bgColor={"#ffffff"}
+                                    fgColor={"#0f172a"}
+                                    level={"H"}
+                                    imageSettings={{ src: tsLogo, height: 20, width: 20, excavate: true }}
+                                />
                             </div>
-                            <div className="w-14 h-14 bg-slate-50 border border-slate-100 rounded-lg flex items-center justify-center p-1 opacity-60">
-                                <QrCode className="w-full h-full text-slate-400" />
-                            </div>
+                            <p className="text-[9px] text-slate-400 font-bold tracking-[0.25em] uppercase mt-4">Scan for digital entry</p>
                         </div>
                     </div>
-                    <div className="bg-slate-50 p-4 text-center border-t border-slate-100">
-                        <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest flex items-center justify-center gap-1">
-                            <Zap className="w-2.5 h-2.5 text-blue-600" /> IGNITING INNOVATION @ RIT CHENNAI
-                        </p>
+
+                    {/* Dark Footer */}
+                    <div className="bg-slate-900 px-6 py-4 flex items-center justify-between text-center border-t-4 border-blue-600 relative z-20">
+                        <p className="text-[10px] text-slate-300 font-black font-mono tracking-widest">TS-{user.rollNumber?.slice(-4)}</p>
+                        <div className="flex items-center gap-1.5 text-[8px] font-bold text-slate-400 uppercase tracking-[0.2em]">
+                            <Zap className="w-3 h-3 text-blue-500 fill-blue-500" /> RIT CHENNAI
+                        </div>
                     </div>
                 </div>
             </div>

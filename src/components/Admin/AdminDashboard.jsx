@@ -55,6 +55,7 @@ import emailjs from '@emailjs/browser';
 import ritLogo from '../../assets/rit-logo.png';
 import techsparkLogo from '../../assets/techspark-logo.png';
 import iqacLogo from '../../assets/iqac-logo.png';
+import ProjectRecruitmentTab from './ProjectRecruitmentTab';
 
 const AdminDashboard = () => {
     const [admin, setAdmin] = useState(null);
@@ -150,6 +151,7 @@ const AdminDashboard = () => {
         localStorage.getItem('certApiUrl') || 'https://script.google.com/macros/s/AKfycbxZvWwaHjkFrS_yK3akleByW1FtmnWu7ht-UYt6ztPbTTnWUuGUmhjZ_HsOWdu5aHruFw/exec'
     );
     const [isTestingApi, setIsTestingApi] = useState(false);
+    const [apiTestMessage, setApiTestMessage] = useState(null);
     // Student Management State
     const [isEditStudentModalOpen, setIsEditStudentModalOpen] = useState(false);
     const [isManageStudentModalOpen, setIsManageStudentModalOpen] = useState(false);
@@ -3023,6 +3025,8 @@ const AdminDashboard = () => {
         }
 
         switch (activeTab) {
+            case 'projects':
+                return <ProjectRecruitmentTab />;
             case 'overview':
                 return (
                     <div className="space-y-8 animate-in fade-in duration-500">
@@ -3408,30 +3412,30 @@ const AdminDashboard = () => {
                                                             event.status === 'PENDING' ? 'bg-orange-100 text-orange-700' :
                                                                 'bg-slate-200 text-slate-600'
                                                             }`}>
-                                                            {event.status}
+                                                            {event.status || 'UNKNOWN'}
                                                         </span>
                                                         <span className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase ${event.type === 'WORKSHOP' ? 'bg-blue-100 text-blue-700' :
                                                             event.type === 'HACKATHON' ? 'bg-purple-100 text-purple-700' :
                                                                 event.type === 'SEMINAR' ? 'bg-emerald-100 text-emerald-700' :
                                                                     'bg-pink-100 text-pink-700'
                                                             }`}>
-                                                            {event.type}
+                                                            {event.type || 'EVENT'}
                                                         </span>
                                                     </div>
-                                                    <h4 className="text-sm font-black text-slate-800 uppercase mb-2 leading-tight">
-                                                        {event.title}
+                                                    <h4 className="text-sm font-black text-slate-800 uppercase mb-2 leading-tight min-h-[1.25rem]">
+                                                        {event.title || 'Untitled Event'}
                                                     </h4>
                                                     <p className="text-xs text-slate-600 mb-4">
                                                         Organizer: <span className="font-bold">{event.createdBy || 'Admin'}</span>
                                                     </p>
-                                                    <div className="flex items-center justify-between pt-4 border-t border-slate-200">
-                                                        <div className="flex items-center gap-2">
+                                                    <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-200">
+                                                        <div className="flex items-center gap-2 whitespace-nowrap">
                                                             <Users className="w-4 h-4 text-slate-400" />
                                                             <span className="text-xs font-bold text-slate-600">
                                                                 {event.attendeesCount || 0} Regs
                                                             </span>
                                                         </div>
-                                                        <div className="flex items-center gap-2">
+                                                        <div className="flex flex-wrap items-center gap-2">
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); handleOpenEditOrganizer(event); }}
                                                                 className="px-3 py-2 bg-indigo-100 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-all duration-300 hover:scale-105 flex items-center gap-2"
@@ -6069,6 +6073,7 @@ const AdminDashboard = () => {
         { id: 'core-team', icon: <Award className="w-5 h-5" />, label: 'Core Team', desc: 'Club Co-ordinators' },
         { id: 'organizers', icon: <UserCog className="w-5 h-5" />, label: 'Organizers', desc: 'Team Management', badge: organizers.length },
         { id: 'approvals', icon: <CalendarCheck className="w-5 h-5" />, label: 'Approvals', desc: 'Event Authorization', badge: events.filter(e => e.status === 'PENDING').length, badgeColor: 'orange' },
+        { id: 'projects', icon: <Briefcase className="w-5 h-5" />, label: 'Recruitment', desc: 'Team Building' },
         { id: 'all_events', icon: <Calendar className="w-5 h-5" />, label: 'All Events', desc: 'Complete Registry' },
         { id: 'registrations', icon: <ClipboardList className="w-5 h-5" />, label: 'Registrations', desc: 'Participant Data' },
         { id: 'reports', icon: <PieChart className="w-5 h-5" />, label: 'Reports & Requisitions', desc: 'PDF Intelligence' },
@@ -6243,6 +6248,7 @@ const AdminDashboard = () => {
                                 {activeTab === 'core-team' && <Award className="w-5 h-5 text-white" />}
                                 {activeTab === 'organizers' && <UserCog className="w-5 h-5 text-white" />}
                                 {activeTab === 'approvals' && <CalendarCheck className="w-5 h-5 text-white" />}
+                                {activeTab === 'projects' && <Briefcase className="w-5 h-5 text-white" />}
                                 {activeTab === 'all_events' && <Calendar className="w-5 h-5 text-white" />}
                                 {activeTab === 'registrations' && <ClipboardList className="w-5 h-5 text-white" />}
                                 {activeTab === 'reports' && <PieChart className="w-5 h-5 text-white" />}
