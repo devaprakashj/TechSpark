@@ -5732,7 +5732,7 @@ const AdminDashboard = () => {
                                                                 </span>
                                                                 <div className="hidden md:block group-hover:opacity-75 transition-opacity">
                                                                     <p className="text-sm font-black text-slate-800 uppercase">{assigned.fullName}</p>
-                                                                    <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">{assigned.department}{assigned.yearOfStudy ? ` ΓÇó ${assigned.yearOfStudy} YEAR` : ''}</p>
+                                                                    <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">{assigned.department}{assigned.yearOfStudy ? ` • ${assigned.yearOfStudy} YEAR` : ''}</p>
                                                                 </div>
                                                             </div>
                                                         ) : (
