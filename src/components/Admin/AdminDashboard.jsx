@@ -13,6 +13,7 @@ import {
     TrendingUp,
     Award,
     CheckCircle,
+    Check,
     X,
     Menu,
     LayoutDashboard,
@@ -122,6 +123,76 @@ const AdminDashboard = () => {
     const [driveReportUrl, setDriveReportUrl] = useState('');
     const [securityLogs, setSecurityLogs] = useState([]);
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isUploadingToDrive, setIsUploadingToDrive] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [uploadingFileName, setUploadingFileName] = useState('');
+    const [uploadingFolder, setUploadingFolder] = useState('');
+
+    const handleAddToDrive = async (folderName) => {
+        const userInput = window.prompt(`Enter file name to save in folder "${folderName}":`);
+        if (userInput === null) return; // cancelled
+        const sanitizedInput = userInput.trim() || "report";
+        const generatedId = Math.floor(1000 + Math.random() * 9000);
+        const finalFileName = `${sanitizedInput}_TS-${generatedId}`;
+
+        // Map target folder to specific Google Drive links provided by user
+        let folderUrl = 'https://drive.google.com/drive/folders/1tEQ971e1UWriZY1BhzHrlDcseDOM4CTt?usp=drive_link'; // fallback parent
+        if (folderName === 'OD Letters') {
+            folderUrl = 'https://drive.google.com/drive/folders/182DJrpZInyAuAMekHmrlcAoXRtVKbVvd?usp=drive_link';
+        } else if (folderName === 'Event Report') {
+            folderUrl = 'https://drive.google.com/drive/folders/11QRJDz_lZi2yhYkUZHSOhp1G5JwR84R8?usp=drive_link';
+        } else if (folderName === 'Approval Letters') {
+            folderUrl = 'https://drive.google.com/drive/folders/1mmqrgq5zoRuYsjwnuqumX-SMIKL8Yka9?usp=drive_link';
+        }
+
+        // 1. Generate & download the file locally with the correct final filename!
+        try {
+            if (folderName === 'Approval Letters') {
+                await downloadApprovalLetterPDF(finalFileName);
+            } else if (folderName === 'OD Letters') {
+                await downloadManualODLetter(finalFileName);
+            } else if (folderName === 'Event Report') {
+                await downloadEventReportPDF(finalFileName);
+            } else if (folderName === 'Annual Report') {
+                await downloadAnnualReportPDF(finalFileName);
+            }
+        } catch (err) {
+            console.error("Error generating file before drive simulation:", err);
+        }
+
+        setUploadingFileName(finalFileName);
+        setUploadingFolder(folderName);
+        setUploadProgress(0);
+        setIsUploadingToDrive(true);
+
+        // Simulate upload progress
+        const interval = setInterval(() => {
+            setUploadProgress(prev => {
+                if (prev >= 100) {
+                    clearInterval(interval);
+                    setTimeout(async () => {
+                        try {
+                            await addDoc(collection(db, 'ts_drive_uploads'), {
+                                fileName: finalFileName,
+                                folder: folderName,
+                                parentFolderUrl: folderUrl,
+                                uploadedAt: serverTimestamp(),
+                                generatedId: generatedId
+                            });
+                        } catch (err) {
+                            console.error("Error writing upload to db:", err);
+                        }
+                        setIsUploadingToDrive(false);
+                        window.open(folderUrl, '_blank');
+                        alert(`🎉 Successfully generated and downloaded "${finalFileName}.pdf"!\nWe have opened the Google Drive folder in a new tab so you can upload the file.`);
+                    }, 500);
+                    return 100;
+                }
+                return prev + 10;
+            });
+        }, 150);
+    };
+
     const [isOrgModalOpen, setIsOrgModalOpen] = useState(false);
     const [newOrg, setNewOrg] = useState({
         fullName: '',
@@ -1067,7 +1138,7 @@ const AdminDashboard = () => {
         }));
     };
 
-    const downloadAnnualReportPDF = async () => {
+    const downloadAnnualReportPDF = async (customFileName = null) => {
         setIsGeneratingAnnualReport(true);
         try {
             const doc = new jsPDF();
@@ -1237,7 +1308,7 @@ const AdminDashboard = () => {
                 }
             });
 
-            doc.save(`TechSpark_Annual_Report_${annualAcademicYear.replace(/\s+/g, '')}.pdf`);
+            doc.save(customFileName ? `${customFileName}.pdf` : `TechSpark_Annual_Report_${annualAcademicYear.replace(/\s+/g, '')}.pdf`);
             setIsGeneratingAnnualReport(false);
         } catch (error) {
             console.error('Error generating annual report PDF:', error);
@@ -1246,7 +1317,7 @@ const AdminDashboard = () => {
         }
     };
 
-    const downloadApprovalLetterPDF = async () => {
+    const downloadApprovalLetterPDF = async (customFileName = null) => {
         setIsGeneratingApprovalLetter(true);
         try {
             const doc = new jsPDF();
@@ -1456,7 +1527,7 @@ const AdminDashboard = () => {
                 });
             }
 
-            doc.save(`Approval_Letter_${approvalDate.split('.').join('_')}.pdf`);
+            doc.save(customFileName ? `${customFileName}.pdf` : `Approval_Letter_${approvalDate.split('.').join('_')}.pdf`);
             setIsGeneratingApprovalLetter(false);
         } catch (error) {
             console.error('Error generating approval letter:', error);
@@ -1477,7 +1548,8 @@ const AdminDashboard = () => {
         guestDesig,
         guestOrg,
         writeupSections,
-        certificates
+        certificates,
+        customFileName = null
     ) => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.width;
@@ -1885,10 +1957,10 @@ const AdminDashboard = () => {
             });
         }
 
-        doc.save(`Event_Report_${event.title.replace(/\s+/g, '_')}.pdf`);
+        doc.save(customFileName ? `${customFileName}.pdf` : `Event_Report_${event.title.replace(/\s+/g, '_')}.pdf`);
     };
 
-    const downloadEventReportPDF = async () => {
+    const downloadEventReportPDF = async (customFileName = null) => {
         if (!selectedEventId) {
             alert('Please select an event first.');
             return;
@@ -1925,7 +1997,8 @@ const AdminDashboard = () => {
                 eventGuestDesig,
                 eventGuestOrg,
                 eventWriteupSections,
-                sheetCertificates
+                sheetCertificates,
+                customFileName
             );
             setIsGeneratingReport(false);
         } catch (error) {
@@ -2039,7 +2112,7 @@ const AdminDashboard = () => {
         }
     };
 
-    const downloadManualODLetter = async () => {
+    const downloadManualODLetter = async (customFileName = null) => {
         try {
             const doc = new jsPDF();
             const pageWidth = doc.internal.pageSize.width;
@@ -2144,7 +2217,7 @@ const AdminDashboard = () => {
                 doc.text(sig, x, tableY + 25, { align: 'center' });
             });
 
-            doc.save(`OD_Requisition_${new Date().getTime()}.pdf`);
+            doc.save(customFileName ? `${customFileName}.pdf` : `OD_Requisition_${new Date().getTime()}.pdf`);
         } catch (error) {
             console.error("OD PDF Error:", error);
             alert("Failed to generate OD PDF.");
@@ -4463,6 +4536,463 @@ const AdminDashboard = () => {
                         </div>
                     </div>
                 );
+            case 'workflows':
+                return (
+                    <div className="animate-in slide-in-from-bottom-4 duration-500 text-left space-y-6">
+                        <div className="mb-6 flex justify-between items-center">
+                            <div>
+                                <h3 className="text-3xl font-black text-slate-800 italic uppercase">Event Workflows</h3>
+                                <p className="text-slate-500 font-medium">Trace event compliance steps and deliverables in real time</p>
+                            </div>
+                            {selectedEventDetails && (
+                                <button
+                                    onClick={() => setSelectedEventDetails(null)}
+                                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all"
+                                >
+                                    ← Back to Event Registry
+                                </button>
+                            )}
+                        </div>
+
+                        {!selectedEventDetails ? (
+                            <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+                                <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+                                    <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest">Select Event to Manage</h4>
+                                </div>
+                                <div className="divide-y divide-slate-100">
+                                    {events.length === 0 ? (
+                                        <div className="p-8 text-center text-slate-400 italic font-medium">No events found.</div>
+                                    ) : (
+                                        events.map(event => {
+                                            let badgeColor = 'bg-slate-100 text-slate-700';
+                                            if (event.status === 'LIVE') badgeColor = 'bg-emerald-100 text-emerald-800';
+                                            if (event.status === 'PENDING') badgeColor = 'bg-amber-100 text-amber-800';
+
+                                            return (
+                                                <div 
+                                                    key={event.id}
+                                                    onClick={() => setSelectedEventDetails(event)}
+                                                    className="p-6 hover:bg-slate-50/80 cursor-pointer flex justify-between items-center transition-colors"
+                                                >
+                                                    <div>
+                                                        <div className="flex items-center gap-2 mb-1.5">
+                                                            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${badgeColor}`}>
+                                                                {event.status}
+                                                            </span>
+                                                            <span className="text-[10px] text-slate-400 font-bold uppercase">{event.category}</span>
+                                                        </div>
+                                                        <h4 className="text-base font-black text-slate-800 uppercase tracking-tight">{event.title}</h4>
+                                                        <p className="text-xs text-slate-500 font-medium mt-0.5">{event.date} • {event.venue}</p>
+                                                    </div>
+                                                    <span className="text-blue-600 font-black text-xs uppercase tracking-wider flex items-center gap-1 hover:translate-x-1 transition-transform">
+                                                        Track Workflow →
+                                                    </span>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                {/* Event Status Summary */}
+                                <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div>
+                                        <span className="text-[10px] text-blue-600 font-black uppercase tracking-widest">{selectedEventDetails.category}</span>
+                                        <h4 className="text-xl font-black text-slate-900 uppercase mt-0.5">{selectedEventDetails.title}</h4>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-xs font-bold text-slate-400 uppercase">Workflow Event Status:</span>
+                                        <span className={`px-3 py-1 rounded-xl text-xs font-black uppercase tracking-wider ${
+                                            selectedEventDetails.status === 'LIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                                        }`}>
+                                            {selectedEventDetails.status}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Step-by-Step Workflow Steps */}
+                                <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                                    {/* Step 1: Technical Authorization */}
+                                    <div className={`p-6 rounded-3xl border bg-white flex flex-col justify-between ${selectedEventDetails.status === 'LIVE' ? 'border-emerald-100' : 'border-slate-200'}`}>
+                                        <div>
+                                            <div className="flex justify-between items-start mb-4">
+                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Step 1</span>
+                                                <span className={`px-2 py-0.5 text-[8px] font-black uppercase rounded ${selectedEventDetails.status === 'LIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                                                    {selectedEventDetails.status === 'LIVE' ? 'Approved' : 'Awaiting Approval'}
+                                                </span>
+                                            </div>
+                                            <h5 className="text-sm font-black text-slate-800 uppercase tracking-tight">Event Approval</h5>
+                                            <p className="text-[11px] text-slate-500 mt-2 font-medium leading-relaxed">Ensure the event has technical admin authorization before proceeding.</p>
+                                        </div>
+                                        <div className="mt-6">
+                                            {selectedEventDetails.status === 'PENDING' ? (
+                                                <button
+                                                    onClick={async () => {
+                                                        if (window.confirm("Approve this event and make it LIVE?")) {
+                                                            try {
+                                                                const ref = doc(db, 'events', selectedEventDetails.id);
+                                                                await updateDoc(ref, { status: 'LIVE' });
+                                                                setSelectedEventDetails(prev => ({ ...prev, status: 'LIVE' }));
+                                                                setEvents(prev => prev.map(e => e.id === selectedEventDetails.id ? { ...e, status: 'LIVE' } : e));
+                                                                alert("✅ Event approved and marked LIVE!");
+                                                            } catch (err) {
+                                                                console.error(err);
+                                                            }
+                                                        }
+                                                    }}
+                                                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                                                >
+                                                    Approve Event
+                                                </button>
+                                            ) : (
+                                                <div className="w-full py-2 px-3 bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-xl text-[10px] font-black uppercase tracking-wider text-center flex items-center justify-center gap-1">
+                                                    <Check className="w-3.5 h-3.5" /> Approved & Live
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Step 2: Approval Letter Generator */}
+                                    <div className="p-6 rounded-3xl border border-slate-200 bg-white flex flex-col justify-between">
+                                        <div>
+                                            <div className="flex justify-between items-start mb-4">
+                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Step 2</span>
+                                                <span className="px-2 py-0.5 text-[8px] font-black uppercase rounded bg-slate-50 text-slate-500">Generator</span>
+                                            </div>
+                                            <h5 className="text-sm font-black text-slate-800 uppercase tracking-tight">Approval Letter</h5>
+                                            <p className="text-[11px] text-slate-500 mt-2 font-medium leading-relaxed">Redirect to the requisition generator to export the official approval letter PDF.</p>
+                                        </div>
+                                        <div className="mt-6">
+                                            <button
+                                                onClick={() => {
+                                                    setActiveTab('reports');
+                                                    setReportsSubTab('approval_letter_generator');
+                                                }}
+                                                className="w-full py-2.5 bg-slate-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5"
+                                            >
+                                                Go to Generator →
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Step 3: OD Requisition */}
+                                    <div className="p-6 rounded-3xl border border-slate-200 bg-white flex flex-col justify-between">
+                                        <div>
+                                            <div className="flex justify-between items-start mb-4">
+                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Step 3</span>
+                                                <span className="px-2 py-0.5 text-[8px] font-black uppercase rounded bg-slate-50 text-slate-500">Generator</span>
+                                            </div>
+                                            <h5 className="text-sm font-black text-slate-800 uppercase tracking-tight">OD Report Generator</h5>
+                                            <p className="text-[11px] text-slate-500 mt-2 font-medium leading-relaxed">Switch to the OD requisition layout to generate official participant OD certificates.</p>
+                                        </div>
+                                        <div className="mt-6">
+                                            <button
+                                                onClick={() => {
+                                                    setActiveTab('reports');
+                                                    setReportsSubTab('od_generator');
+                                                }}
+                                                className="w-full py-2.5 bg-slate-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5"
+                                            >
+                                                Go to Generator →
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Step 4: Final Compliance Report */}
+                                    <div className="p-6 rounded-3xl border border-slate-200 bg-white flex flex-col justify-between">
+                                        <div>
+                                            <div className="flex justify-between items-start mb-4">
+                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Step 4</span>
+                                                <span className="px-2 py-0.5 text-[8px] font-black uppercase rounded bg-slate-50 text-slate-500">Exporter</span>
+                                            </div>
+                                            <h5 className="text-sm font-black text-slate-800 uppercase tracking-tight">Final Compliance PDF</h5>
+                                            <p className="text-[11px] text-slate-500 mt-2 font-medium leading-relaxed">Download compile report generator consisting of registrations, feedback, and attendance logs.</p>
+                                        </div>
+                                        <div className="mt-6">
+                                            <button
+                                                onClick={() => handleDownloadFinalReport(selectedEventDetails)}
+                                                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5"
+                                            >
+                                                Download PDF Report
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Stepper workflow timeline & verification panel */}
+                                <div className="grid grid-cols-1 gap-6">
+                                    {/* Stepper workflow progress block */}
+                                    <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm text-left">
+                                        <div className="flex justify-between items-center mb-6">
+                                            <div>
+                                                <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest italic">Workflow Verification Status</h4>
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Active step-by-step deliverable validation</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                            {[
+                                                { title: "Poster", done: !!selectedEventDetails.posterVerified, desc: "Creative head & Graphic designer poster submission" },
+                                                { title: "Approval Letter", done: !!selectedEventDetails.approvalVerified, desc: "President & Event organiser approval letter" },
+                                                { title: "Photo Gallery", done: !!selectedEventDetails.imageVerified, desc: "Photography head uploaded photos" },
+                                                { title: "Final Report", done: !!selectedEventDetails.reportDriveVerified, desc: "Admin & Report head compliance checklist" }
+                                            ].map((del, i) => (
+                                                <div key={i} className={`p-4 rounded-2xl border flex gap-3 items-center ${del.done ? 'bg-emerald-50/40 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
+                                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white shrink-0 ${del.done ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+                                                        {del.done ? <Check className="w-3.5 h-3.5" /> : "?"}
+                                                    </div>
+                                                    <div>
+                                                        <h5 className="text-xs font-black text-slate-800 uppercase">{del.title}</h5>
+                                                        <p className="text-[9px] text-slate-400 font-medium leading-tight mt-0.5">{del.desc}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Drive Asset Verification Console */}
+                                    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm text-left">
+                                        <div className="border-b pb-4 mb-6">
+                                            <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest italic">Drive Asset Verification Console</h4>
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Verify, submit, or revoke deliverable drive links</p>
+                                        </div>
+
+                                        <div className="space-y-6">
+                                            {/* Poster */}
+                                            <div className="grid grid-cols-1 lg:grid-cols-4 items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <h5 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">1. Poster Submission</h5>
+                                                        {selectedEventDetails.posterVerified ? (
+                                                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[7px] font-black uppercase">Accepted</span>
+                                                        ) : (selectedEventDetails.posterUrl || selectedEventDetails.posterDriveUrl) ? (
+                                                            <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-[7px] font-black uppercase">Pending Approval</span>
+                                                        ) : (
+                                                            <span className="px-2 py-0.5 bg-slate-100 text-slate-400 rounded text-[7px] font-black uppercase">Missing</span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-[9px] text-slate-400 font-medium mt-0.5">Creative Head & Graphic Designer</p>
+                                                </div>
+                                                <div className="lg:col-span-2 flex gap-2">
+                                                    <input 
+                                                        type="text" 
+                                                        placeholder="Paste Poster Google Drive URL..." 
+                                                        value={drivePosterUrl}
+                                                        onChange={(e) => setDrivePosterUrl(e.target.value)}
+                                                        className="flex-1 px-4 py-2 text-xs bg-white border border-slate-200 rounded-xl font-bold outline-none"
+                                                    />
+                                                    {(selectedEventDetails.posterDriveUrl || selectedEventDetails.posterUrl) && (
+                                                        <a 
+                                                            href={selectedEventDetails.posterDriveUrl || selectedEventDetails.posterUrl} 
+                                                            target="_blank" 
+                                                            rel="noopener noreferrer" 
+                                                            className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center"
+                                                        >
+                                                            Open link
+                                                        </a>
+                                                    )}
+                                                </div>
+                                                <div className="flex gap-2 justify-end">
+                                                    <button 
+                                                        onClick={() => handleVerifyDriveLink('poster')}
+                                                        disabled={!(selectedEventDetails.posterUrl || selectedEventDetails.posterDriveUrl) || selectedEventDetails.posterVerified}
+                                                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
+                                                    >
+                                                        Accept
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleRevokeDriveLink('poster')}
+                                                        disabled={!(selectedEventDetails.posterUrl || selectedEventDetails.posterDriveUrl)}
+                                                        className="px-4 py-2 bg-red-50 hover:bg-red-100 disabled:opacity-50 text-red-600 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
+                                                    >
+                                                        Revoke
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Approval Letter */}
+                                            <div className="grid grid-cols-1 lg:grid-cols-4 items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <h5 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">2. Approval Letter</h5>
+                                                        {selectedEventDetails.approvalVerified ? (
+                                                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[7px] font-black uppercase">Accepted</span>
+                                                        ) : (selectedEventDetails.approvalLetterUrl || selectedEventDetails.approvalLetterDriveUrl) ? (
+                                                            <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-[7px] font-black uppercase">Pending Approval</span>
+                                                        ) : (
+                                                            <span className="px-2 py-0.5 bg-slate-100 text-slate-400 rounded text-[7px] font-black uppercase">Missing</span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-[9px] text-slate-400 font-medium mt-0.5">President & Organiser</p>
+                                                </div>
+                                                <div className="lg:col-span-2 flex gap-2">
+                                                    <input 
+                                                        type="text" 
+                                                        placeholder="Paste Approval Letter Drive URL..." 
+                                                        value={driveApprovalUrl}
+                                                        onChange={(e) => setDriveApprovalUrl(e.target.value)}
+                                                        className="flex-1 px-4 py-2 text-xs bg-white border border-slate-200 rounded-xl font-bold outline-none"
+                                                    />
+                                                    {(selectedEventDetails.approvalLetterDriveUrl || selectedEventDetails.approvalLetterUrl) && (
+                                                        <a 
+                                                            href={selectedEventDetails.approvalLetterDriveUrl || selectedEventDetails.approvalLetterUrl} 
+                                                            target="_blank" 
+                                                            rel="noopener noreferrer" 
+                                                            className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center"
+                                                        >
+                                                            Open link
+                                                        </a>
+                                                    )}
+                                                </div>
+                                                <div className="flex gap-2 justify-end">
+                                                    <button 
+                                                        onClick={() => handleVerifyDriveLink('approval')}
+                                                        disabled={!(selectedEventDetails.approvalLetterUrl || selectedEventDetails.approvalLetterDriveUrl) || selectedEventDetails.approvalVerified}
+                                                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
+                                                    >
+                                                        Accept
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleRevokeDriveLink('approval')}
+                                                        disabled={!(selectedEventDetails.approvalLetterUrl || selectedEventDetails.approvalLetterDriveUrl)}
+                                                        className="px-4 py-2 bg-red-50 hover:bg-red-100 disabled:opacity-50 text-red-600 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
+                                                    >
+                                                        Revoke
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Photo Gallery */}
+                                            <div className="grid grid-cols-1 lg:grid-cols-4 items-start gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <h5 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">3. Photo Gallery</h5>
+                                                        {selectedEventDetails.imageVerified ? (
+                                                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[7px] font-black uppercase">Accepted</span>
+                                                        ) : (selectedEventDetails.imageDriveUrl1 || selectedEventDetails.imageDriveUrl2 || selectedEventDetails.imageDriveUrl3 || selectedEventDetails.imageDriveUrl4 || (selectedEventDetails.photoUrls && selectedEventDetails.photoUrls.length > 0)) ? (
+                                                            <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-[7px] font-black uppercase">Pending Approval</span>
+                                                        ) : (
+                                                            <span className="px-2 py-0.5 bg-slate-100 text-slate-400 rounded text-[7px] font-black uppercase">Missing</span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-[9px] text-slate-400 font-medium mt-0.5">Photography Head</p>
+                                                </div>
+                                                <div className="lg:col-span-2 space-y-3">
+                                                    {[
+                                                        { val: driveImageUrl1, setVal: setDriveImageUrl1, orig: selectedEventDetails.imageDriveUrl1 || (selectedEventDetails.photoUrls && selectedEventDetails.photoUrls[0]), label: "Link 1" },
+                                                        { val: driveImageUrl2, setVal: setDriveImageUrl2, orig: selectedEventDetails.imageDriveUrl2 || (selectedEventDetails.photoUrls && selectedEventDetails.photoUrls[1]), label: "Link 2" },
+                                                        { val: driveImageUrl3, setVal: setDriveImageUrl3, orig: selectedEventDetails.imageDriveUrl3 || (selectedEventDetails.photoUrls && selectedEventDetails.photoUrls[2]), label: "Link 3" },
+                                                        { val: driveImageUrl4, setVal: setDriveImageUrl4, orig: selectedEventDetails.imageDriveUrl4 || (selectedEventDetails.photoUrls && selectedEventDetails.photoUrls[3]), label: "Link 4" }
+                                                    ].map((linkObj, idx) => (
+                                                        <div key={idx} className="flex gap-2 items-center">
+                                                            <span className="text-[9px] font-black text-slate-400 uppercase w-10 shrink-0">{linkObj.label}:</span>
+                                                            <input 
+                                                                type="text" 
+                                                                placeholder={`Paste Photo ${idx+1} Drive URL...`} 
+                                                                value={linkObj.val}
+                                                                onChange={(e) => linkObj.setVal(e.target.value)}
+                                                                className="flex-1 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl font-bold outline-none"
+                                                            />
+                                                            {linkObj.orig && (
+                                                                <a 
+                                                                    href={linkObj.orig} 
+                                                                    target="_blank" 
+                                                                    rel="noopener noreferrer" 
+                                                                    className="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-center whitespace-nowrap"
+                                                                >
+                                                                    Open
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <div className="flex gap-2 justify-end lg:mt-2">
+                                                    <button 
+                                                        onClick={() => handleVerifyDriveLink('image')}
+                                                        disabled={!(selectedEventDetails.imageDriveUrl1 || selectedEventDetails.imageDriveUrl2 || selectedEventDetails.imageDriveUrl3 || selectedEventDetails.imageDriveUrl4 || (selectedEventDetails.photoUrls && selectedEventDetails.photoUrls.length > 0)) || selectedEventDetails.imageVerified}
+                                                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
+                                                    >
+                                                        Accept
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleRevokeDriveLink('image')}
+                                                        disabled={!(selectedEventDetails.imageDriveUrl1 || selectedEventDetails.imageDriveUrl2 || selectedEventDetails.imageDriveUrl3 || selectedEventDetails.imageDriveUrl4 || (selectedEventDetails.photoUrls && selectedEventDetails.photoUrls.length > 0))}
+                                                        className="px-4 py-2 bg-red-50 hover:bg-red-100 disabled:opacity-50 text-red-600 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
+                                                    >
+                                                        Revoke
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Report */}
+                                            <div className="grid grid-cols-1 lg:grid-cols-4 items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <h5 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">4. Final Report</h5>
+                                                        {selectedEventDetails.reportDriveVerified ? (
+                                                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[7px] font-black uppercase">Accepted</span>
+                                                        ) : selectedEventDetails.reportDriveUrl ? (
+                                                            <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-[7px] font-black uppercase">Pending Approval</span>
+                                                        ) : (
+                                                            <span className="px-2 py-0.5 bg-slate-100 text-slate-400 rounded text-[7px] font-black uppercase">Missing</span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-[9px] text-slate-400 font-medium mt-0.5">Admin & Report Head</p>
+                                                </div>
+                                                <div className="lg:col-span-2 flex gap-2">
+                                                    <input 
+                                                        type="text" 
+                                                        placeholder="Paste Final Compliance Report Drive URL..." 
+                                                        value={driveReportUrl}
+                                                        onChange={(e) => setDriveReportUrl(e.target.value)}
+                                                        className="flex-1 px-4 py-2 text-xs bg-white border border-slate-200 rounded-xl font-bold outline-none"
+                                                    />
+                                                    {selectedEventDetails.reportDriveUrl && (
+                                                        <a 
+                                                            href={selectedEventDetails.reportDriveUrl} 
+                                                            target="_blank" 
+                                                            rel="noopener noreferrer" 
+                                                            className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center"
+                                                        >
+                                                            Open link
+                                                        </a>
+                                                    )}
+                                                </div>
+                                                <div className="flex gap-2 justify-end">
+                                                    <button 
+                                                        onClick={() => handleVerifyDriveLink('report')}
+                                                        disabled={!selectedEventDetails.reportDriveUrl || selectedEventDetails.reportDriveVerified}
+                                                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
+                                                    >
+                                                        Accept
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleRevokeDriveLink('report')}
+                                                        disabled={!selectedEventDetails.reportDriveUrl}
+                                                        className="px-4 py-2 bg-red-50 hover:bg-red-100 disabled:opacity-50 text-red-600 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
+                                                    >
+                                                        Revoke
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Action to Save Links */}
+                                        <div className="mt-6 flex justify-end">
+                                            <button 
+                                                onClick={handleSaveDriveLinks}
+                                                className="px-6 py-3 bg-slate-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all"
+                                            >
+                                                Save Link Submissions
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
             case 'reports':
                 return (
                     <div className="animate-in slide-in-from-bottom-4 duration-500 text-left">
@@ -4525,12 +5055,21 @@ const AdminDashboard = () => {
                                         <h4 className="text-xl font-black text-slate-800 uppercase italic">OD <span className="text-blue-600">Requisition</span></h4>
                                         <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Create official requisition letters for club members</p>
                                     </div>
-                                    <button
-                                        onClick={downloadManualODLetter}
-                                        className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-slate-200 hover:bg-black transition-all flex items-center gap-3"
-                                    >
-                                        <Download className="w-4 h-4" /> Download Official PDF
-                                    </button>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={downloadManualODLetter}
+                                            className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-slate-200 hover:bg-black transition-all flex items-center gap-3"
+                                        >
+                                            <Download className="w-4 h-4" /> Download Official PDF
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleAddToDrive('OD Letters')}
+                                            className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-blue-200 transition-all flex items-center gap-2"
+                                        >
+                                            <Plus className="w-4 h-4" /> Add to Drive
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -5015,7 +5554,7 @@ const AdminDashboard = () => {
                                         </div>
 
                                         {/* Compile Action */}
-                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-4">
+                                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-3">
                                             <button
                                                 onClick={downloadEventReportPDF}
                                                 disabled={isGeneratingReport || isFetchingEventAssets || !selectedEventId}
@@ -5034,6 +5573,14 @@ const AdminDashboard = () => {
                                                         <Download className="w-4 h-4" /> Generate Event Report PDF
                                                     </>
                                                 )}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleAddToDrive('Event Report')}
+                                                disabled={isGeneratingReport || isFetchingEventAssets || !selectedEventId}
+                                                className="w-full py-3.5 bg-slate-900 hover:bg-black text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2"
+                                            >
+                                                <Plus className="w-4 h-4" /> Add to Drive
                                             </button>
                                         </div>
                                     </div>
@@ -5308,21 +5855,31 @@ const AdminDashboard = () => {
                                                 </button>
                                             </div>
 
-                                            <button
-                                                onClick={downloadAnnualReportPDF}
-                                                disabled={isGeneratingAnnualReport}
-                                                className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-lg shadow-emerald-500/10"
-                                            >
-                                                {isGeneratingAnnualReport ? (
-                                                    <>
-                                                        <RefreshCw className="w-4 h-4 animate-spin" /> Compiling Report...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Download className="w-4 h-4" /> Export Annual Report PDF
-                                                    </>
-                                                )}
-                                            </button>
+                                            <div className="space-y-3">
+                                                <button
+                                                    onClick={downloadAnnualReportPDF}
+                                                    disabled={isGeneratingAnnualReport}
+                                                    className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-lg shadow-emerald-500/10"
+                                                >
+                                                    {isGeneratingAnnualReport ? (
+                                                        <>
+                                                            <RefreshCw className="w-4 h-4 animate-spin" /> Compiling Report...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Download className="w-4 h-4" /> Export Annual Report PDF
+                                                        </>
+                                                    )}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleAddToDrive('Annual Report')}
+                                                    disabled={isGeneratingAnnualReport}
+                                                    className="w-full py-3.5 bg-slate-900 hover:bg-black text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2"
+                                                >
+                                                    <Plus className="w-4 h-4" /> Add to Drive
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -5550,26 +6107,36 @@ const AdminDashboard = () => {
                                                 </button>
                                             </div>
 
-                                            <button
-                                                onClick={downloadApprovalLetterPDF}
-                                                disabled={isGeneratingApprovalLetter}
-                                                className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-lg shadow-blue-500/10"
-                                            >
-                                                {isGeneratingApprovalLetter ? (
-                                                    <>
-                                                        <RefreshCw className="w-4 h-4 animate-spin" /> Compiling Letter...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Download className="w-4 h-4" /> Generate Approval Letter PDF
-                                                    </>
-                                                )}
-                                            </button>
+                                            <div className="space-y-3">
+                                                <button
+                                                    onClick={downloadApprovalLetterPDF}
+                                                    disabled={isGeneratingApprovalLetter}
+                                                    className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-lg shadow-blue-500/10"
+                                                >
+                                                    {isGeneratingApprovalLetter ? (
+                                                        <>
+                                                            <RefreshCw className="w-4 h-4 animate-spin" /> Compiling Letter...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Download className="w-4 h-4" /> Generate Approval Letter PDF
+                                                        </>
+                                                    )}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleAddToDrive('Approval Letters')}
+                                                    disabled={isGeneratingApprovalLetter}
+                                                    className="w-full py-3.5 bg-slate-900 hover:bg-black text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2"
+                                                >
+                                                    <Plus className="w-4 h-4" /> Add to Drive
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
                             </div>
-                        )}
+                        </div>
+                    )}
                     </div>
                 );
             case 'core-team':
@@ -6073,7 +6640,8 @@ const AdminDashboard = () => {
         { id: 'core-team', icon: <Award className="w-5 h-5" />, label: 'Core Team', desc: 'Club Co-ordinators' },
         { id: 'organizers', icon: <UserCog className="w-5 h-5" />, label: 'Organizers', desc: 'Team Management', badge: organizers.length },
         { id: 'approvals', icon: <CalendarCheck className="w-5 h-5" />, label: 'Approvals', desc: 'Event Authorization', badge: events.filter(e => e.status === 'PENDING').length, badgeColor: 'orange' },
-        { id: 'projects', icon: <Briefcase className="w-5 h-5" />, label: 'Recruitment', desc: 'Team Building' },
+        { id: 'projects', icon: <Briefcase className="w-5 h-5" />, label: 'Projects', desc: 'Hub & Recruitment' },
+        { id: 'workflows', icon: <TrendingUp className="w-5 h-5" />, label: 'Event Workflows', desc: 'Compliance & Tracking' },
         { id: 'all_events', icon: <Calendar className="w-5 h-5" />, label: 'All Events', desc: 'Complete Registry' },
         { id: 'registrations', icon: <ClipboardList className="w-5 h-5" />, label: 'Registrations', desc: 'Participant Data' },
         { id: 'reports', icon: <PieChart className="w-5 h-5" />, label: 'Reports & Requisitions', desc: 'PDF Intelligence' },
@@ -8456,6 +9024,47 @@ const AdminDashboard = () => {
                                     <CheckCircle className="w-4 h-4" /> Save Faculty Coordinator
                                 </button>
                             </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Drive Uploading Simulator Modal */}
+            <AnimatePresence>
+                {isUploadingToDrive && (
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="relative w-full max-w-md bg-white rounded-3xl p-8 border border-slate-100 shadow-2xl text-center space-y-6"
+                        >
+                            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto text-blue-600 animate-pulse">
+                                <TrendingUp className="w-8 h-8" />
+                            </div>
+                            <div>
+                                <h4 className="text-lg font-black text-slate-800 uppercase tracking-tight">Uploading to Google Drive</h4>
+                                <p className="text-[10px] text-blue-600 font-bold uppercase mt-1">Target Folder: {uploadingFolder}</p>
+                            </div>
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-xs font-bold text-slate-500">
+                                    <span className="truncate max-w-[250px]">{uploadingFileName}.pdf</span>
+                                    <span>{uploadProgress}%</span>
+                                </div>
+                                <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
+                                    <div 
+                                        className="h-full bg-gradient-to-r from-blue-600 to-indigo-600 transition-all duration-150"
+                                        style={{ width: `${uploadProgress}%` }}
+                                    />
+                                </div>
+                            </div>
+                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Syncing metadata to TechSpark Drive Registry...</p>
                         </motion.div>
                     </div>
                 )}

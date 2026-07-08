@@ -22,6 +22,7 @@ import {
     AlertTriangle,
     Download,
     QrCode,
+    Camera,
     Rocket,
     Settings,
     CodeXml,
@@ -132,6 +133,73 @@ const StudentDueActionForm = ({ event, actionType }) => {
     const [photo3, setPhoto3] = useState('');
     const [photo4, setPhoto4] = useState('');
     const [photo5, setPhoto5] = useState('');
+
+    // Camera states for PRO canvassing
+    const [showCamera, setShowCamera] = useState(false);
+    const [capturedPhotos, setCapturedPhotos] = useState([]);
+    const videoRef = useRef(null);
+    const streamRef = useRef(null);
+
+    const startCamera = async () => {
+        setShowCamera(true);
+        setCapturedPhotos([]);
+        setTimeout(async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' } 
+                });
+                streamRef.current = stream;
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                }
+            } catch (err) {
+                console.error("Camera access error:", err);
+                alert("Unable to access camera. Please verify camera permissions in your browser settings.");
+            }
+        }, 300);
+    };
+
+    const stopCamera = () => {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+        }
+        setShowCamera(false);
+    };
+
+    const capturePhoto = () => {
+        if (!videoRef.current) return;
+        const canvas = document.createElement('canvas');
+        canvas.width = videoRef.current.videoWidth || 640;
+        canvas.height = videoRef.current.videoHeight || 480;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        
+        setCapturedPhotos(prev => {
+            if (prev.length >= 5) return prev;
+            return [...prev, dataUrl];
+        });
+    };
+
+    const submitCanvassing = async () => {
+        if (capturedPhotos.length < 5) return alert("Please capture exactly 5 photos to complete canvassing.");
+        setLoading(true);
+        try {
+            const eventRef = doc(db, 'events', event.id);
+            await updateDoc(eventRef, {
+                canvassingPhotos: capturedPhotos,
+                canvassingCompleted: true,
+                canvassedAt: serverTimestamp()
+            });
+            alert("🎉 Event canvassing registered successfully with 5 photos!");
+            stopCamera();
+        } catch (err) {
+            console.error("Submit canvassing error:", err);
+            alert("Failed to submit canvassing photos. Try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -261,6 +329,91 @@ const StudentDueActionForm = ({ event, actionType }) => {
         );
     }
 
+    if (actionType === 'CANVAS') {
+        return (
+            <div className="w-full sm:w-auto">
+                <button
+                    onClick={startCamera}
+                    disabled={loading}
+                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2"
+                >
+                    <Camera className="w-4 h-4" /> Start Canvassing (Camera)
+                </button>
+
+                {showCamera && (
+                    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+                        <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md" onClick={stopCamera} />
+                        <div className="relative w-full max-w-lg bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-2xl flex flex-col max-h-[90vh]">
+                            {/* Header */}
+                            <div className="p-5 bg-indigo-600 text-white flex justify-between items-center">
+                                <div>
+                                    <h4 className="text-sm font-black uppercase tracking-widest">Class Canvassing Tool</h4>
+                                    <p className="text-[10px] text-indigo-200 font-bold uppercase tracking-wider mt-0.5">PRO Active Task: {event.title}</p>
+                                </div>
+                                <button onClick={stopCamera} className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+
+                            {/* Camera Area */}
+                            <div className="relative aspect-video bg-black flex items-center justify-center">
+                                <video 
+                                    ref={videoRef} 
+                                    autoPlay 
+                                    playsInline 
+                                    className="w-full h-full object-cover"
+                                />
+                                <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-black text-white uppercase tracking-wider">
+                                    Captured: {capturedPhotos.length} / 5
+                                </div>
+                            </div>
+
+                            {/* Captured Strip */}
+                            <div className="p-4 bg-slate-50 border-y border-slate-100">
+                                <div className="flex gap-2 overflow-x-auto pb-1">
+                                    {[...Array(5)].map((_, idx) => (
+                                        <div key={idx} className="relative w-16 aspect-video bg-slate-200 rounded-lg overflow-hidden border border-slate-350 shrink-0 flex items-center justify-center text-[10px] font-bold text-slate-400 uppercase">
+                                            {capturedPhotos[idx] ? (
+                                                <img src={capturedPhotos[idx]} alt={`pic-${idx}`} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <span>Pic {idx + 1}</span>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Controls */}
+                            <div className="p-6 flex flex-col gap-3">
+                                {capturedPhotos.length < 5 ? (
+                                    <button
+                                        type="button"
+                                        onClick={capturePhoto}
+                                        className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
+                                    >
+                                        <Camera className="w-4 h-4" /> Capture Photo {capturedPhotos.length + 1}
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={submitCanvassing}
+                                        disabled={loading}
+                                        className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
+                                    >
+                                        {loading ? 'Uploading Canvass Record...' : (<>Submit Canvassing <CheckCircle className="w-4 h-4" /></>)}
+                                    </button>
+                                )}
+                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider text-center">
+                                    Take exactly 5 photos inside different classrooms to prove event canvassing
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
     return null;
 };
 
@@ -333,6 +486,11 @@ const StudentDashboard = () => {
     const [isUpdatingGender, setIsUpdatingGender] = useState(false);
     const [showGenderModal, setShowGenderModal] = useState(false);
     const genderPromptShown = useRef(false);
+    const [showDobModal, setShowDobModal] = useState(false);
+    const [selectedDob, setSelectedDob] = useState('');
+    const [isUpdatingDob, setIsUpdatingDob] = useState(false);
+    const dobPromptShown = useRef(false);
+    const [isCardFlipped, setIsCardFlipped] = useState(false);
     const [coreTeamRole, setCoreTeamRole] = useState(null); // Stores role if student is a core member
 
     useEffect(() => {
@@ -341,11 +499,19 @@ const StudentDashboard = () => {
             const timer = setTimeout(() => setShowGenderModal(true), 1500);
             return () => clearTimeout(timer);
         } else if (user?.gender) {
-            // If gender exists, reset the shown flag so if an admin 
-            // reverts/removes it, the popup can trigger again.
             genderPromptShown.current = false;
         }
     }, [user?.gender, loading]);
+
+    useEffect(() => {
+        if (user && !user.dateOfBirth && !dobPromptShown.current && !loading) {
+            dobPromptShown.current = true;
+            const timer = setTimeout(() => setShowDobModal(true), 2500);
+            return () => clearTimeout(timer);
+        } else if (user?.dateOfBirth) {
+            dobPromptShown.current = false;
+        }
+    }, [user?.dateOfBirth, loading]);
 
     const handleGenderUpdate = async () => {
         if (!selectedGender || !user?.uid) return;
@@ -360,6 +526,23 @@ const StudentDashboard = () => {
             alert('Failed to update gender. Please try again.');
         } finally {
             setIsUpdatingGender(false);
+        }
+    };
+
+    const handleDobUpdate = async () => {
+        if (!selectedDob || !user?.uid) return;
+        setIsUpdatingDob(true);
+        try {
+            const userRef = doc(db, 'users', user.uid);
+            await updateDoc(userRef, { dateOfBirth: selectedDob });
+            setShowDobModal(false);
+            setSelectedDob('');
+            alert("✓ Date of birth saved successfully!");
+        } catch (error) {
+            console.error("DOB update error:", error);
+            alert("Failed to save date of birth. Try again.");
+        } finally {
+            setIsUpdatingDob(false);
         }
     };
 
@@ -2394,87 +2577,107 @@ const StudentDashboard = () => {
                     <div className="space-y-8">
                         <MyActiveProjects user={user} />
                         <StudentRecruitmentSection user={user} />
-                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
-                            <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-                                <BookOpen className="w-5 h-5 text-blue-600" />
-                                Academic Profile
-                            </h2>
-                            <div className="space-y-4 mb-8">
-                                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 group hover:border-blue-200 transition-colors">
-                                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-sm text-blue-600">
-                                        <User className="w-4 h-4" />
+                        {/* 3D Flippable Member ID Card */}
+                        <div className="relative w-full max-w-sm mx-auto select-none">
+                            {/* Perspective container */}
+                            <div className="perspective-1000 w-full aspect-[2.7/4]">
+                                <motion.div
+                                    animate={{ rotateY: isCardFlipped ? 180 : 0 }}
+                                    transition={{ duration: 0.6, ease: "easeInOut" }}
+                                    className="relative w-full h-full transform-style-3d cursor-pointer"
+                                    onClick={() => setIsCardFlipped(!isCardFlipped)}
+                                >
+                                    {/* Front Side */}
+                                    <div className="absolute inset-0 backface-hidden bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-950 rounded-[2.5rem] border border-indigo-500/30 p-8 shadow-2xl flex flex-col justify-between overflow-hidden">
+                                        <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+                                        <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+                                        
+                                        {/* Header */}
+                                        <div className="flex items-center justify-between border-b border-indigo-500/20 pb-4">
+                                            <div className="flex items-center gap-2">
+                                                <img src={tsLogo} alt="TechSpark Logo" className="w-8 h-8 rounded-lg object-contain" />
+                                                <div className="text-left">
+                                                    <h3 className="text-sm font-black tracking-widest text-white leading-none">TECHSPARK</h3>
+                                                    <span className="text-[7px] text-indigo-400 font-bold uppercase tracking-widest">RIT CHENNAI</span>
+                                                </div>
+                                            </div>
+                                            <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-wider">
+                                                MEMBER
+                                            </span>
+                                        </div>
+
+                                        {/* Profile */}
+                                        <div className="flex flex-col items-center my-6">
+                                            <div className="w-24 h-24 rounded-2xl bg-indigo-950 border border-indigo-500/20 shadow-inner flex items-center justify-center text-4xl text-indigo-400 font-black relative overflow-hidden group">
+                                                <div className="absolute inset-0 bg-gradient-to-tr from-indigo-600/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                {user.fullName ? user.fullName[0].toUpperCase() : '?'}
+                                            </div>
+                                            <h4 className="text-lg font-black uppercase tracking-tight text-white mt-4 truncate max-w-full">
+                                                {user.fullName || 'NO REG NAME'}
+                                            </h4>
+                                            <p className="text-[10px] text-indigo-400 font-black tracking-widest uppercase mt-1">
+                                                {user.rollNumber || 'NO ROLL NUMBER'}
+                                            </p>
+                                        </div>
+
+                                        {/* Footer Credentials */}
+                                        <div className="grid grid-cols-2 gap-4 border-t border-indigo-500/20 pt-4">
+                                            <div className="text-left">
+                                                <p className="text-[8px] text-indigo-400 font-bold uppercase tracking-widest">Department</p>
+                                                <p className="text-xs font-black text-white uppercase truncate">{user.department || 'N/A'}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[8px] text-indigo-400 font-bold uppercase tracking-widest">Year of Study</p>
+                                                <p className="text-xs font-black text-indigo-300 uppercase">YEAR {user.yearOfStudy || 'N/A'}</p>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="flex-1 text-left">
-                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Student Name</p>
-                                        <p className="text-sm font-bold text-slate-700 uppercase">{user.fullName || 'N/A'}</p>
+
+                                    {/* Back Side */}
+                                    <div className="absolute inset-0 backface-hidden rotate-y-180 bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-950 rounded-[2.5rem] border border-indigo-500/30 p-8 shadow-2xl flex flex-col justify-between overflow-hidden">
+                                        <div className="absolute -top-10 -left-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+                                        
+                                        {/* Header */}
+                                        <div className="flex items-center justify-between border-b border-indigo-500/20 pb-4">
+                                            <span className="text-[9px] text-indigo-400 font-black uppercase tracking-widest">Digital Entry QR Code</span>
+                                            <span className="text-[8px] text-indigo-400 font-black">TECHSPARK SECURE</span>
+                                        </div>
+
+                                        {/* QR Code Container */}
+                                        <div className="flex flex-col items-center my-6">
+                                            <div className="p-3 bg-white rounded-2xl border border-indigo-500/20 shadow-xl group-hover:scale-105 transition-transform">
+                                                <QRCodeSVG 
+                                                    value={user.rollNumber || "TECHSPARK-GUEST"} 
+                                                    size={120} 
+                                                    level={"H"} 
+                                                    includeMargin={false} 
+                                                    imageSettings={{ src: tsLogo, x: undefined, y: undefined, height: 24, width: 24, excavate: true }} 
+                                                />
+                                            </div>
+                                            <p className="text-[8px] text-indigo-400 font-bold uppercase tracking-widest mt-3">Scan for campus events entry</p>
+                                        </div>
+
+                                        {/* Back details */}
+                                        <div className="grid grid-cols-2 gap-4 border-t border-indigo-500/20 pt-4">
+                                            <div className="text-left">
+                                                <p className="text-[8px] text-indigo-400 font-bold uppercase tracking-widest">Date of Birth</p>
+                                                <p className="text-xs font-black text-white uppercase">{user.dateOfBirth || 'N/A'}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[8px] text-indigo-400 font-bold uppercase tracking-widest">Admission Batch</p>
+                                                <p className="text-xs font-black text-indigo-300 uppercase">{user.admissionYear || 'N/A'}</p>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-left">
-                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Reg Number</p>
-                                        <p className="text-sm font-bold text-slate-700">{user.rollNumber || 'N/A'}</p>
-                                    </div>
-                                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-left">
-                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Department</p>
-                                        <p className="text-sm font-bold text-slate-700">{user.department || 'N/A'}</p>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-left">
-                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Year</p>
-                                        <p className="text-sm font-bold text-blue-600">Year {user.yearOfStudy || 'N/A'}</p>
-                                    </div>
-                                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-left">
-                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Admission Batch</p>
-                                        <p className="text-sm font-bold text-slate-700">{user.admissionYear || 'N/A'}</p>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-left">
-                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Section</p>
-                                        <p className="text-sm font-bold text-slate-700">{user.section || 'N/A'}</p>
-                                    </div>
-                                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-left">
-                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Gender</p>
-                                        {user.gender ? (
-                                            <p className="text-sm font-bold text-slate-700">{user.gender}</p>
-                                        ) : (
-                                            <button
-                                                onClick={() => setShowGenderModal(true)}
-                                                className="text-xs font-bold text-blue-600 hover:text-blue-700 underline underline-offset-2 cursor-pointer"
-                                            >
-                                                Tap to update
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 text-left">
-                                    <Mail className="w-4 h-4 text-slate-400 shrink-0" />
-                                    <p className="text-xs font-bold text-slate-700 truncate">{user.email}</p>
-                                </div>
-                                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 text-left">
-                                    <Phone className="w-4 h-4 text-slate-400 shrink-0" />
-                                    <p className="text-xs font-bold text-slate-700">+91 {user.phone || 'XXXXXXXXXX'}</p>
-                                </div>
-                                <div className="mt-4 p-4 bg-white rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center gap-3 group hover:border-blue-400 transition-all">
-                                    <div className="bg-white p-2 rounded-lg shadow-sm border border-slate-100 group-hover:scale-105 transition-transform">
-                                        <QRCodeSVG value={user.rollNumber || "TECHSPARK-GUEST"} size={120} level={"H"} includeMargin={false} imageSettings={{ src: tsLogo, x: undefined, y: undefined, height: 24, width: 24, excavate: true }} />
-                                    </div>
-                                    <div className="text-center">
-                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Digital Entry QR</p>
-                                        <p className="text-[9px] text-blue-600 font-medium font-mono">{user.rollNumber || 'NO-REG-DATA'}</p>
-                                    </div>
-                                </div>
+                                </motion.div>
                             </div>
-                        </div>
-                        <div id="digital-id-card" className="pt-6 border-t border-slate-100">
-                            <button onClick={handleDownloadCard} className="w-full bg-blue-600 text-white p-6 rounded-2xl relative overflow-hidden group cursor-pointer text-left focus:outline-none shadow-lg shadow-blue-100">
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-500" />
-                                <h3 className="text-lg font-bold mb-1">TS Digital Identity</h3>
-                                <p className="text-blue-100 text-xs mb-4 uppercase font-bold tracking-tight">Your official club member badge.</p>
-                                <div className="flex items-center gap-2 text-xs font-bold bg-white/20 w-fit px-3 py-1.5 rounded-lg backdrop-blur-sm group-hover:bg-white group-hover:text-blue-600 transition-all uppercase">
-                                    DOWNLOAD CARD <Download className="w-3 h-3" />
-                                </div>
+
+                            {/* Download Action */}
+                            <button 
+                                onClick={handleDownloadCard} 
+                                className="w-full mt-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                            >
+                                <Download className="w-4 h-4" /> Download Digital ID Card
                             </button>
                         </div>
                     </div>
@@ -3596,6 +3799,75 @@ const StudentDashboard = () => {
 
                                     <p className="text-[9px] text-slate-400 text-center font-medium">
                                         This helps us maintain accurate records for your profile
+                                    </p>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    </AnimatePresence>,
+                    document.body
+                )
+            }
+            {/* DOB Update Popup Modal */}
+            {
+                showDobModal && !user?.dateOfBirth && createPortal(
+                    <AnimatePresence>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[99999] bg-black/70 backdrop-blur-md flex items-center justify-center p-4 text-left"
+                        >
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                                className="bg-white rounded-[2rem] max-w-sm w-full shadow-2xl overflow-hidden"
+                            >
+                                {/* Header */}
+                                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white text-center relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12" />
+                                    <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/10 rounded-full -ml-8 -mb-8" />
+                                    <div className="relative z-10">
+                                        <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                                            <Calendar className="w-7 h-7" />
+                                        </div>
+                                        <h2 className="text-lg font-black uppercase tracking-wide">Date of Birth Required</h2>
+                                        <p className="text-blue-100 text-xs mt-1 font-medium">Please enter your date of birth to complete your profile</p>
+                                    </div>
+                                </div>
+
+                                {/* DOB Form */}
+                                <div className="p-6 space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Select Date of Birth</label>
+                                        <input
+                                            type="date"
+                                            required
+                                            value={selectedDob}
+                                            onChange={(e) => setSelectedDob(e.target.value)}
+                                            className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-blue-500/5 transition-all text-slate-700"
+                                        />
+                                    </div>
+
+                                    <button
+                                        onClick={handleDobUpdate}
+                                        disabled={!selectedDob || isUpdatingDob}
+                                        className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-40 disabled:hover:scale-100 flex items-center justify-center gap-2 cursor-pointer"
+                                    >
+                                        {isUpdatingDob ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" /> Saving...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <CheckCircle className="w-4 h-4" /> Save & Proceed
+                                            </>
+                                        )}
+                                    </button>
+
+                                    <p className="text-[9px] text-slate-400 text-center font-medium">
+                                        This is a mandatory record for ID Card generation
                                     </p>
                                 </div>
                             </motion.div>

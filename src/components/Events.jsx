@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Search, Calendar, MapPin, Clock, Filter, Tag, Users, Rocket, X, ShieldCheck, Smartphone, Hash, Building2, GraduationCap, CheckCircle, Users as UsersIcon, Trophy, Plus, LogIn, Zap, Lock, ArrowUpRight, Brain, Shield, Info, FileText, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { doc, getDoc, setDoc, serverTimestamp, collection, onSnapshot, query, orderBy, updateDoc, increment, where, getDocs } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { AnimatePresence, motion } from 'framer-motion';
 
 const Events = () => {
@@ -24,6 +25,71 @@ const Events = () => {
     const [customProblemStatement, setCustomProblemStatement] = useState('');
     const [isCustomProblem, setIsCustomProblem] = useState(false);
 
+    // External Registration States
+    const [showExternalRegisterModal, setShowExternalRegisterModal] = useState(false);
+    const [selectedInterCollegeEvent, setSelectedInterCollegeEvent] = useState(null);
+    const [externalForm, setExternalForm] = useState({
+        fullName: '',
+        email: '',
+        password: '',
+        phone: '',
+        college: '',
+        department: '',
+        yearOfStudy: 'I'
+    });
+    const [isExternalSubmitting, setIsExternalSubmitting] = useState(false);
+
+    const handleExternalRegisterSubmit = async (e) => {
+        e.preventDefault();
+        if (!selectedInterCollegeEvent) return;
+        setIsExternalSubmitting(true);
+        try {
+            // 1. Create auth user
+            const userCredential = await createUserWithEmailAndPassword(auth, externalForm.email, externalForm.password);
+            
+            // 2. Create firestore user doc
+            await setDoc(doc(db, 'users', userCredential.user.uid), {
+                uid: userCredential.user.uid,
+                fullName: externalForm.fullName,
+                email: externalForm.email,
+                phone: externalForm.phone,
+                college: externalForm.college,
+                department: externalForm.department,
+                yearOfStudy: externalForm.yearOfStudy,
+                role: 'student',
+                isExternalStudent: true,
+                createdAt: serverTimestamp()
+            });
+
+            // 3. Register for the event
+            const regId = `${selectedInterCollegeEvent.id}_${userCredential.user.uid}`;
+            await setDoc(doc(db, 'registrations', regId), {
+                eventId: selectedInterCollegeEvent.id,
+                eventTitle: selectedInterCollegeEvent.title,
+                userId: userCredential.user.uid,
+                userEmail: externalForm.email,
+                userName: externalForm.fullName,
+                registeredAt: serverTimestamp(),
+                registrationType: 'INDIVIDUAL',
+                status: 'CONFIRMED'
+            });
+
+            // 4. Update attendeesCount
+            await updateDoc(doc(db, 'events', selectedInterCollegeEvent.id), {
+                attendeesCount: increment(1)
+            });
+
+            alert(`🎉 Registration successful for event: ${selectedInterCollegeEvent.title}!\nRedirecting you to the External Participant Hub.`);
+            setShowExternalRegisterModal(false);
+            window.location.href = '/dashboard';
+        } catch (error) {
+            console.error("External registration error:", error);
+            alert(`Registration failed: ${error.message}`);
+        } finally {
+            setIsExternalSubmitting(false);
+        }
+    };
+
     useEffect(() => {
         const q = query(collection(db, 'events'), orderBy('createdAt', 'desc'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -39,6 +105,21 @@ const Events = () => {
 
     const handleRegister = async (event) => {
         if (!user) {
+            if (event.participationType === 'Inter College Participation') {
+                setSelectedInterCollegeEvent(event);
+                // Initialize form values
+                setExternalForm({
+                    fullName: '',
+                    email: '',
+                    password: '',
+                    phone: '',
+                    college: '',
+                    department: '',
+                    yearOfStudy: 'I'
+                });
+                setShowExternalRegisterModal(true);
+                return;
+            }
             openAuthModal();
             return;
         }
@@ -789,6 +870,151 @@ const Events = () => {
                                     </button>
                                 </div>
                             </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* External Student Register Modal */}
+            <AnimatePresence>
+                {showExternalRegisterModal && selectedInterCollegeEvent && (
+                    <div className="fixed inset-0 z-[160] flex items-center justify-center p-4 overflow-y-auto">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowExternalRegisterModal(false)}
+                            className="fixed inset-0 bg-slate-900/60 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border border-slate-100 max-h-[90vh]"
+                        >
+                            {/* Header */}
+                            <div className="p-6 bg-gradient-to-r from-blue-600 to-indigo-700 text-white flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-xl font-black uppercase tracking-tight flex items-center gap-3">
+                                        Inter-College Registration
+                                    </h3>
+                                    <p className="text-[10px] text-blue-100 font-bold uppercase tracking-widest mt-1">Event: {selectedInterCollegeEvent.title}</p>
+                                </div>
+                                <button onClick={() => setShowExternalRegisterModal(false)} className="p-2 hover:bg-white/20 rounded-xl transition-colors">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            {/* Warning Banner */}
+                            <div className="bg-amber-50 border-y border-amber-100 p-4 flex gap-3 text-left">
+                                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="text-xs font-black text-amber-800 uppercase">Attention Non-RIT Students</p>
+                                    <p className="text-[10px] text-amber-700 font-medium leading-relaxed mt-0.5">
+                                        Use this form ONLY if you are from another college. RIT students must close this modal, log in via RIT google account and register.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Scrollable Form */}
+                            <form onSubmit={handleExternalRegisterSubmit} className="p-8 space-y-4 text-left overflow-y-auto custom-scrollbar flex-1">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={externalForm.fullName}
+                                            onChange={(e) => setExternalForm({ ...externalForm, fullName: e.target.value })}
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-500 transition-all"
+                                            placeholder="e.g. John Doe"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone Number</label>
+                                        <input
+                                            type="tel"
+                                            required
+                                            value={externalForm.phone}
+                                            onChange={(e) => setExternalForm({ ...externalForm, phone: e.target.value })}
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-500 transition-all"
+                                            placeholder="e.g. 9876543210"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
+                                    <input
+                                        type="email"
+                                        required
+                                        value={externalForm.email}
+                                        onChange={(e) => setExternalForm({ ...externalForm, email: e.target.value })}
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-500 transition-all"
+                                        placeholder="e.g. student@othercollege.edu"
+                                    />
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Create Password</label>
+                                    <input
+                                        type="password"
+                                        required
+                                        minLength={6}
+                                        value={externalForm.password}
+                                        onChange={(e) => setExternalForm({ ...externalForm, password: e.target.value })}
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-500 transition-all"
+                                        placeholder="Min 6 characters"
+                                    />
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">College Name</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={externalForm.college}
+                                        onChange={(e) => setExternalForm({ ...externalForm, college: e.target.value })}
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-500 transition-all"
+                                        placeholder="e.g. Loyola College"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Department</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={externalForm.department}
+                                            onChange={(e) => setExternalForm({ ...externalForm, department: e.target.value })}
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-500 transition-all"
+                                            placeholder="e.g. Computer Science"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Year of Study</label>
+                                        <select
+                                            value={externalForm.yearOfStudy}
+                                            onChange={(e) => setExternalForm({ ...externalForm, yearOfStudy: e.target.value })}
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-500 transition-all"
+                                        >
+                                            <option value="I">I Year</option>
+                                            <option value="II">II Year</option>
+                                            <option value="III">III Year</option>
+                                            <option value="IV">IV Year</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={isExternalSubmitting}
+                                    className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-95 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 mt-4 cursor-pointer"
+                                >
+                                    {isExternalSubmitting ? 'Transmitting...' : (<>Register & Create Account <CheckCircle className="w-4 h-4" /></>)}
+                                </button>
+                            </form>
                         </motion.div>
                     </div>
                 )}

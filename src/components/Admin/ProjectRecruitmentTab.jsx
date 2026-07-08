@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../../firebase';
 import { collection, query, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, arrayUnion, deleteDoc, arrayRemove } from 'firebase/firestore';
-import { Briefcase, Plus, Users, CheckCircle, X, Clock, ExternalLink, Activity, Eye, ShieldAlert, Trash2, Key } from 'lucide-react';
+import { Briefcase, Plus, Users, CheckCircle, X, Clock, ExternalLink, Activity, Eye, ShieldAlert, Trash2, Key, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const ProjectRecruitmentTab = () => {
     const [projects, setProjects] = useState([]);
     const [applications, setApplications] = useState([]);
+    const [usersList, setUsersList] = useState([]);
+    const [selectedStudentUid, setSelectedStudentUid] = useState('');
     const [loading, setLoading] = useState(true);
     
     // Modal states
@@ -32,12 +34,18 @@ const ProjectRecruitmentTab = () => {
         const qApps = query(collection(db, 'project_applications'));
         const unsubApps = onSnapshot(qApps, (snapshot) => {
             setApplications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        });
+
+        const qUsers = query(collection(db, 'users'));
+        const unsubUsers = onSnapshot(qUsers, (snapshot) => {
+            setUsersList(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
             setLoading(false);
         });
 
         return () => {
             unsubProjects();
             unsubApps();
+            unsubUsers();
         };
     }, []);
 
@@ -47,19 +55,39 @@ const ProjectRecruitmentTab = () => {
             const roles = newProject.rolesRequired.split(',').map(r => r.trim()).filter(r => r);
             const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
             
+            let teamLeadVal = null;
+            let teamMembersVal = [];
+            let statusVal = 'recruiting';
+
+            if (selectedStudentUid) {
+                const studentUser = usersList.find(u => u.id === selectedStudentUid);
+                if (studentUser) {
+                    teamLeadVal = studentUser.id;
+                    teamMembersVal = [{
+                        uid: studentUser.id,
+                        name: studentUser.fullName,
+                        department: studentUser.department || 'N/A',
+                        role: 'Team Lead',
+                        rollNumber: studentUser.rollNumber || ''
+                    }];
+                    statusVal = 'in_progress';
+                }
+            }
+
             await addDoc(collection(db, 'ts_projects'), {
                 ...newProject,
                 rolesRequired: roles,
-                status: 'recruiting',
-                teamLead: null,
-                teamMembers: [],
+                status: statusVal,
+                teamLead: teamLeadVal,
+                teamMembers: teamMembersVal,
                 updates: [],
                 inviteCode: inviteCode,
                 createdAt: serverTimestamp()
             });
             setIsCreateModalOpen(false);
+            setSelectedStudentUid('');
             setNewProject({ title: '', description: '', rolesRequired: '', projectType: 'individual', visibility: ['ALL'], githubUrl: '', liveUrl: '' });
-            alert('Project posted for recruitment!');
+            alert('Project posted successfully!');
         } catch (error) {
             console.error("Error creating project:", error);
             alert("Failed to create project");
@@ -123,7 +151,7 @@ const ProjectRecruitmentTab = () => {
     const handleReject = async (appId) => {
         if (!window.confirm("Reject this application?")) return;
         try {
-            await updateDoc(doc(db, 'project_applications', appId), {
+            await updateDoc(doc(db, 'project_applications', app.id), {
                 status: 'rejected'
             });
         } catch (error) {
@@ -189,7 +217,33 @@ const ProjectRecruitmentTab = () => {
         }
     };
 
+    const handleApproveProposal = async (projectId, requireRecruitment) => {
+        try {
+            await updateDoc(doc(db, 'ts_projects', projectId), {
+                status: requireRecruitment ? 'recruiting' : 'in_progress'
+            });
+            alert('🎉 Project proposal approved successfully! It is now live.');
+        } catch (error) {
+            console.error("Error approving project proposal:", error);
+            alert("Failed to approve project proposal.");
+        }
+    };
+
+    const handleDeclineProposal = async (projectId) => {
+        if (!window.confirm("Are you sure you want to decline and delete this project idea?")) return;
+        try {
+            await deleteDoc(doc(db, 'ts_projects', projectId));
+            alert("Project idea declined and removed.");
+        } catch (error) {
+            console.error("Error declining project proposal:", error);
+            alert("Failed to decline proposal.");
+        }
+    };
+
     if (loading) return <div className="p-10 text-center">Loading Projects...</div>;
+
+    const pendingProposals = projects.filter(p => p.status === 'pending_approval');
+    const activeProjects = projects.filter(p => p.status !== 'pending_approval');
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -206,8 +260,65 @@ const ProjectRecruitmentTab = () => {
                 </button>
             </div>
 
+            {/* Pending Proposals Section */}
+            {pendingProposals.length > 0 && (
+                <div className="bg-amber-50/50 p-6 rounded-[2rem] border border-amber-200/60 shadow-sm space-y-4">
+                    <div>
+                        <h3 className="text-lg font-black text-amber-800 uppercase tracking-tight flex items-center gap-2">
+                            <ShieldAlert className="w-5 h-5 text-amber-600" /> Pending Student Proposals ({pendingProposals.length})
+                        </h3>
+                        <p className="text-xs text-amber-700/80 font-bold uppercase mt-0.5">Review, verify, and approve student-proposed project ideas</p>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                        {pendingProposals.map(proposal => (
+                            <div key={proposal.id} className="bg-white p-5 rounded-2xl border border-amber-100 shadow-sm flex flex-col justify-between">
+                                <div>
+                                    <div className="flex justify-between items-start mb-2">
+                                        <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[9px] font-black uppercase rounded-md tracking-wider">
+                                            {proposal.projectType} proposal
+                                        </span>
+                                        <span className="text-[9px] text-slate-400 font-bold uppercase">
+                                            Proposed by: {proposal.proposedBy?.name || 'Student'}
+                                        </span>
+                                    </div>
+                                    <h4 className="text-base font-black text-slate-800 uppercase tracking-tight">{proposal.title}</h4>
+                                    <p className="text-xs text-slate-500 mt-2 font-medium leading-relaxed">{proposal.description}</p>
+                                    
+                                    {proposal.projectType === 'team' && proposal.rolesRequired && proposal.rolesRequired.length > 0 && (
+                                        <div className="mt-3">
+                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Roles Required</p>
+                                            <div className="flex flex-wrap gap-1">
+                                                {proposal.rolesRequired.map((role, i) => (
+                                                    <span key={i} className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold">{role}</span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex gap-2 mt-4 pt-3 border-t border-slate-100">
+                                    <button 
+                                        onClick={() => handleApproveProposal(proposal.id, proposal.projectType === 'team')}
+                                        className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                                    >
+                                        <Check className="w-3.5 h-3.5" /> Approve & Go Live
+                                    </button>
+                                    <button 
+                                        onClick={() => handleDeclineProposal(proposal.id)}
+                                        className="py-2 px-3.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                                    >
+                                        Decline
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             <div className="grid lg:grid-cols-2 gap-6">
-                {projects.map(project => {
+                {activeProjects.map(project => {
                     const projectApps = applications.filter(a => a.projectId === project.id);
                     const pendingApps = projectApps.filter(a => a.status === 'pending');
                     
@@ -350,7 +461,7 @@ const ProjectRecruitmentTab = () => {
                                         <ShieldAlert className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                                         <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">No updates posted yet.</p>
                                     </div>
-                                ) : (
+                               ) : (
                                     viewUpdatesModal.updates.sort((a, b) => b.timestamp - a.timestamp).map((update, i) => (
                                         <div key={i} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl">
                                             <div className="flex justify-between items-center mb-2">
@@ -421,6 +532,31 @@ const ProjectRecruitmentTab = () => {
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Description</label>
                                     <textarea required value={newProject.description} onChange={e => setNewProject({...newProject, description: e.target.value})} className="w-full p-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none font-medium h-24 resize-none" placeholder="Brief details about the project..." />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Link Student (Developer/Lead)</label>
+                                    <select 
+                                        value={selectedStudentUid} 
+                                        onChange={e => setSelectedStudentUid(e.target.value)} 
+                                        className="w-full p-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none font-medium bg-white"
+                                    >
+                                        <option value="">-- None / Select Student to Credit --</option>
+                                        {usersList.map(u => (
+                                            <option key={u.id} value={u.id}>
+                                                {u.fullName} ({u.department || 'No Dept'}) - {u.rollNumber}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">GitHub Repo Link (Optional)</label>
+                                        <input value={newProject.githubUrl} onChange={e => setNewProject({...newProject, githubUrl: e.target.value})} className="w-full p-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none font-medium text-xs" placeholder="e.g. https://github.com/..." />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Live Deployed Link (Optional)</label>
+                                        <input value={newProject.liveUrl} onChange={e => setNewProject({...newProject, liveUrl: e.target.value})} className="w-full p-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none font-medium text-xs" placeholder="e.g. https://my-app.vercel.app" />
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Roles Required (Comma separated)</label>

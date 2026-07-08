@@ -32,8 +32,12 @@ export const AuthProvider = ({ children }) => {
 
         const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
             if (currentUser) {
-                // 1. Check Domain
-                if (!currentUser.email.endsWith('ritchennai.edu.in')) {
+                // 1. Check if user is an external student first
+                const userDocRef = doc(db, 'users', currentUser.uid);
+                const userSnapshot = await getDoc(userDocRef);
+                const isExternal = userSnapshot.exists() && userSnapshot.data().isExternalStudent;
+
+                if (!isExternal && !currentUser.email.endsWith('ritchennai.edu.in')) {
                     await signOut(auth);
                     alert("Access Denied: Please use your college email (@ritchennai.edu.in)");
                     setUser(null);
@@ -42,8 +46,6 @@ export const AuthProvider = ({ children }) => {
                 }
 
                 // 2. Real-time Profile Sync
-                const userDocRef = doc(db, 'users', currentUser.uid);
-
                 unsubscribeUser = onSnapshot(userDocRef, (userSnapshot) => {
                     if (userSnapshot.exists()) {
                         const userData = userSnapshot.data();

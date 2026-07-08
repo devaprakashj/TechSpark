@@ -139,6 +139,7 @@ const OrganizerDashboard = () => {
     const [formData, setFormData] = useState({
         title: '',
         type: 'Workshop',
+        participationType: 'Only RIT Students',
         shortDescription: '',
         detailedDescription: '',
         posterUrl: '',
@@ -442,7 +443,7 @@ const OrganizerDashboard = () => {
         setActiveStep(1);
         setEditingEventId(null);
         setFormData({
-            title: '', type: 'Workshop', shortDescription: '', detailedDescription: '', posterUrl: '',
+            title: '', type: 'Workshop', participationType: 'Only RIT Students', shortDescription: '', detailedDescription: '',
             startDate: '', startTime: '', endDate: '', endTime: '', venueType: 'Offline', venueName: '', googleMapLink: '',
             audienceType: 'Whole College', departments: [], years: [], sections: [],
             registrationRequired: true, regStartDateTime: '', regEndDateTime: '', maxParticipants: '', waitingList: false,
@@ -3045,6 +3046,18 @@ const OrganizerDashboard = () => {
                                                         <option>Quiz</option>
                                                         <option>Webinar</option>
                                                         <option>Expo</option>
+                                                    </select>
+                                                </div>
+
+                                                <div className="col-span-2 md:col-span-1 space-y-1">
+                                                    <label className="block text-xs font-semibold text-slate-700 ml-1">Participation Type *</label>
+                                                    <select
+                                                        value={formData.participationType || 'Only RIT Students'}
+                                                        onChange={(e) => setFormData({ ...formData, participationType: e.target.value })}
+                                                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-medium text-slate-800 text-xs transition-all shadow-sm appearance-none"
+                                                    >
+                                                        <option value="Only RIT Students">Only RIT Students</option>
+                                                        <option value="Inter College Participation">Inter College Participation</option>
                                                     </select>
                                                 </div>
 

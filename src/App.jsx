@@ -23,6 +23,45 @@ import HackathonLeaderboard from './components/HackathonLeaderboard';
 import ScrollToTop from './components/ScrollToTop';
 import Chatbot from './components/Chatbot';
 import './index.css';
+import { QRCodeSVG } from 'qrcode.react';
+
+const DashboardWrapper = () => {
+  const { user } = useAuth();
+  if (user?.isExternalStudent) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 pt-24 pb-20">
+        <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl max-w-md w-full text-center space-y-6">
+          <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto text-2xl font-bold">🎓</div>
+          <div>
+            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">External Participant Hub</h2>
+            <p className="text-xs text-slate-400 font-bold uppercase mt-1">College: {user.college || 'N/A'}</p>
+          </div>
+          <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 text-left space-y-3">
+            <p className="text-xs font-bold text-slate-700">Hello {user.fullName || 'User'}! You have successfully registered for the hackathon. Your check-in code is:</p>
+            <div className="flex flex-col items-center py-3">
+              <QRCodeSVG value={user.rollNumber || user.uid} size={140} level="H" />
+              <p className="text-[10px] text-slate-400 font-bold font-mono tracking-widest mt-3">{user.rollNumber || 'REG-CODE'}</p>
+            </div>
+            <div className="pt-2 border-t border-slate-200 text-[11px] text-slate-500 font-medium">
+              <span className="font-bold">Email:</span> {user.email}<br/>
+              <span className="font-bold">Dept:</span> {user.department}<br/>
+              <span className="font-bold">Year:</span> {user.yearOfStudy}
+            </div>
+          </div>
+          <p className="text-[9px] text-slate-400 font-medium leading-relaxed">
+            Note: RIT Campus Workspace, Projects, and Internal Dashboards are restricted to internal students.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <>
+      <StudentDashboard />
+      <Projects />
+    </>
+  );
+};
 
 const MainContent = () => {
   // ... no changes here
@@ -166,7 +205,7 @@ function App() {
                       path="/dashboard"
                       element={
                         <ProtectedRoute>
-                          <StudentDashboard />
+                          <DashboardWrapper />
                         </ProtectedRoute>
                       }
                     />
