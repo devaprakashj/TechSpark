@@ -229,10 +229,10 @@ const CodingChallengesTab = () => {
         try {
             await updateDoc(doc(db, 'ts_challenge_submissions', subId), {
                 status: 'verified',
-                verifiedAt: serverTimestamp()
+                verifiedAt: serverTimestamp(),
+                xpAwarded: xpToAward
             });
-            // Ideally here we would also update the student's XP in the 'users' collection
-            // But this is an MVP demonstration of the verify flow
+            // The student dashboard will dynamically calculate their total XP including these verified challenge points.
             alert(`Verified! ${xpToAward} XP awarded to student.`);
         } catch (err) {
             console.error("Error verifying:", err);

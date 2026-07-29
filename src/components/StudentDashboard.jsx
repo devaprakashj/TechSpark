@@ -1510,7 +1510,13 @@ const StudentDashboard = () => {
     if (!user) return null;
 
     const certCount = certificates.length;
-    const calculatedPoints = certCount * 100;
+    
+    // Calculate Challenge XP (Verified submissions)
+    const challengeXP = myChallengeSubmissions
+        .filter(s => s.status === 'verified')
+        .reduce((sum, s) => sum + (s.xpAwarded || s.xpPoints || 100), 0);
+        
+    const calculatedPoints = (certCount * 100) + challengeXP;
 
     const stats = [
         { label: 'Events Registered', value: registrations.length, icon: <Calendar className="w-5 h-5" />, color: 'blue' },
