@@ -57,7 +57,7 @@ import ritLogo from '../../assets/rit-logo.png';
 import techsparkLogo from '../../assets/techspark-logo.png';
 import iqacLogo from '../../assets/iqac-logo.png';
 import ProjectRecruitmentTab from './ProjectRecruitmentTab';
-
+import CodingChallengesTab from './CodingChallengesTab';
 const AdminDashboard = () => {
     const [admin, setAdmin] = useState(null);
     const [students, setStudents] = useState([]);
@@ -3098,6 +3098,8 @@ const AdminDashboard = () => {
         }
 
         switch (activeTab) {
+            case 'coding_challenges':
+                return <CodingChallengesTab />;
             case 'projects':
                 return <ProjectRecruitmentTab />;
             case 'overview':
@@ -6641,6 +6643,7 @@ const AdminDashboard = () => {
         { id: 'organizers', icon: <UserCog className="w-5 h-5" />, label: 'Organizers', desc: 'Team Management', badge: organizers.length },
         { id: 'approvals', icon: <CalendarCheck className="w-5 h-5" />, label: 'Approvals', desc: 'Event Authorization', badge: events.filter(e => e.status === 'PENDING').length, badgeColor: 'orange' },
         { id: 'projects', icon: <Briefcase className="w-5 h-5" />, label: 'Projects', desc: 'Hub & Recruitment' },
+        { id: 'coding_challenges', icon: <Terminal className="w-5 h-5" />, label: 'GFG Challenges', desc: 'Manage Weekly Contests' },
         { id: 'workflows', icon: <TrendingUp className="w-5 h-5" />, label: 'Event Workflows', desc: 'Compliance & Tracking' },
         { id: 'all_events', icon: <Calendar className="w-5 h-5" />, label: 'All Events', desc: 'Complete Registry' },
         { id: 'registrations', icon: <ClipboardList className="w-5 h-5" />, label: 'Registrations', desc: 'Participant Data' },
@@ -6817,6 +6820,7 @@ const AdminDashboard = () => {
                                 {activeTab === 'organizers' && <UserCog className="w-5 h-5 text-white" />}
                                 {activeTab === 'approvals' && <CalendarCheck className="w-5 h-5 text-white" />}
                                 {activeTab === 'projects' && <Briefcase className="w-5 h-5 text-white" />}
+                                {activeTab === 'coding_challenges' && <Terminal className="w-5 h-5 text-white" />}
                                 {activeTab === 'all_events' && <Calendar className="w-5 h-5 text-white" />}
                                 {activeTab === 'registrations' && <ClipboardList className="w-5 h-5 text-white" />}
                                 {activeTab === 'reports' && <PieChart className="w-5 h-5 text-white" />}

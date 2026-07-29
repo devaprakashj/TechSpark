@@ -12,6 +12,7 @@
   "dependencies": {
     "@dotlottie/react-player": "^1.6.19",
     "@emailjs/browser": "^4.4.1",
+    "@monaco-editor/react": "^4.7.0",
     "@yudiel/react-qr-scanner": "^2.5.0",
     "canvas-confetti": "^1.9.4",
     "firebase": "^12.7.0",

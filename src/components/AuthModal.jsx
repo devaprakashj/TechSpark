@@ -25,7 +25,7 @@ const AuthModal = () => {
 
     // Redirect to dashboard after successful auth
     useEffect(() => {
-        if (isAuthenticated && !isRegistrationStep) {
+        if (isAuthenticated && !isRegistrationStep && (window.location.pathname === '/' || window.location.pathname === '/welcome')) {
             navigate('/dashboard');
         }
     }, [isAuthenticated, isRegistrationStep, navigate]);

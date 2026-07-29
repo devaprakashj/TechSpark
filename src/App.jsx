@@ -22,6 +22,8 @@ import JudgePortal from './components/JudgePortal';
 import HackathonLeaderboard from './components/HackathonLeaderboard';
 import ScrollToTop from './components/ScrollToTop';
 import Chatbot from './components/Chatbot';
+import ChallengeIntro from './components/ChallengeIntro';
+import SecureCodeEditor from './components/SecureCodeEditor';
 import './index.css';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -189,6 +191,24 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Welcome />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Secure Coding Environment */}
+            <Route
+              path="/challenge-intro"
+              element={
+                <ProtectedRoute>
+                  <ChallengeIntro />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/secure-editor"
+              element={
+                <ProtectedRoute>
+                  <SecureCodeEditor />
                 </ProtectedRoute>
               }
             />

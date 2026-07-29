@@ -478,6 +478,10 @@ const StudentDashboard = () => {
     const [showPSModal, setShowPSModal] = useState(false);
     const [psModalReg, setPsModalReg] = useState(null);
     const [psModalEvent, setPsModalEvent] = useState(null);
+
+    // --- WEEKLY CHALLENGE STATE ---
+    const [activeChallenge, setActiveChallenge] = useState(null);
+    const [myChallengeSubmissions, setMyChallengeSubmissions] = useState([]);
     const [newSelectedPS, setNewSelectedPS] = useState('');
     const [isUpdatingPS, setIsUpdatingPS] = useState(false);
 
@@ -1097,6 +1101,29 @@ const StudentDashboard = () => {
     useEffect(() => {
         if (!user) return;
 
+        // Fetch Active or Scheduled Challenge
+        const qChallenge = query(collection(db, 'ts_challenges'), where('status', 'in', ['active', 'scheduled']));
+        const unsubChallenge = onSnapshot(qChallenge, (snapshot) => {
+            if (!snapshot.empty) {
+                const fetchedChallenges = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                fetchedChallenges.sort((a, b) => {
+                    const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt || 0);
+                    const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt || 0);
+                    return timeB - timeA;
+                });
+                setActiveChallenge(fetchedChallenges[0]);
+            } else {
+                setActiveChallenge(null);
+            }
+        });
+
+        // Fetch Challenge Submissions for this student
+        const qChallengeSubs = query(collection(db, 'ts_challenge_submissions'), where('studentUid', '==', user.uid));
+        const unsubChallengeSubs = onSnapshot(qChallengeSubs, (snapshot) => {
+            const subs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setMyChallengeSubmissions(subs);
+        });
+
         // Fetch Registrations - Removed orderBy to ensure instant local update even with pending serverTimestamp
         const qRegs = query(
             collection(db, 'registrations'),
@@ -1188,8 +1215,10 @@ const StudentDashboard = () => {
         return () => {
             unsubscribeRegs();
             unsubscribeEvents();
+            unsubChallenge();
+            unsubChallengeSubs();
         };
-    }, [user]);
+    }, [user, logout]);
 
     // Fetch Core Team Role for this student
     useEffect(() => {
@@ -1902,8 +1931,69 @@ const StudentDashboard = () => {
                                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
                                         <p className="text-sm text-slate-400">Loading your events...</p>
                                     </div>
-                                ) : registrations.length > 0 ? (
+                                ) : (registrations.length > 0 || activeChallenge) ? (
                                     <div className="space-y-4">
+                                        {/* Weekly Challenge Card (if active or scheduled) */}
+                                        {activeChallenge && (() => {
+                                            const isScheduled = activeChallenge.status === 'scheduled';
+                                            const startTime = activeChallenge.scheduledStartTime ? new Date(activeChallenge.scheduledStartTime) : null;
+                                            const now = new Date();
+                                            // Client-side auto-activation if time has passed
+                                            const isWaiting = isScheduled && startTime && startTime > now;
+
+                                            return (
+                                                <div className="flex items-center justify-between p-4 bg-slate-900 rounded-2xl group border border-slate-800 shadow-md transition-all duration-300 hover:border-slate-700">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-12 h-12 bg-green-500/10 text-green-400 rounded-xl flex flex-col items-center justify-center font-bold overflow-hidden border border-green-500/20">
+                                                            <CodeXml className="w-6 h-6" />
+                                                        </div>
+                                                        <div>
+                                                            <h3 className="font-black text-white group-hover:text-green-400 transition-colors uppercase text-sm md:text-base">{activeChallenge.title}</h3>
+                                                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
+                                                                <p className="text-[10px] text-green-400 font-bold uppercase tracking-widest flex items-center gap-1">
+                                                                    {isWaiting ? 'Scheduled Coding Challenge' : 'Active Coding Challenge'}
+                                                                </p>
+                                                                <span className="text-[10px] font-black text-yellow-500 flex items-center gap-1">
+                                                                    <Award className="w-3 h-3" /> {activeChallenge.xpPoints} XP
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
+                                                        {myChallengeSubmissions.some(s => s.challengeId === activeChallenge.id) ? (
+                                                            <span className="px-4 py-2 bg-slate-800 text-green-400 text-[10px] font-black rounded-lg uppercase tracking-widest border border-green-900 shadow-lg flex items-center gap-1.5 cursor-not-allowed">
+                                                                <CheckCircle className="w-4 h-4" /> Completed
+                                                            </span>
+                                                        ) : isWaiting ? (
+                                                            <div className="bg-slate-800 px-3 py-2 rounded-lg border border-slate-700 shadow-inner flex flex-col items-end">
+                                                                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest mb-1">Starts In</span>
+                                                                <EventCountdown targetDate={startTime} />
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    try {
+                                                                        const safeChallenge = { ...activeChallenge };
+                                                                        if (safeChallenge.createdAt) {
+                                                                            safeChallenge.createdAt = safeChallenge.createdAt?.toMillis ? safeChallenge.createdAt.toMillis() : null;
+                                                                        }
+                                                                        navigate('/challenge-intro', { state: { challenge: safeChallenge } });
+                                                                    } catch (err) {
+                                                                        alert("Navigation Error: " + err.message);
+                                                                        console.error(err);
+                                                                    }
+                                                                }}
+                                                                className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-[10px] font-black rounded-lg uppercase tracking-widest shadow-lg shadow-green-900/50 flex items-center gap-1.5 transition-all"
+                                                            >
+                                                                Enter <ArrowUpRight className="w-3 h-3" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+
                                         {registrations.map((reg, idx) => {
                                             const eventActualData = allEvents.find(e => e.id === reg.eventId);
                                             const isCheckedIn = reg.isAttended || reg.status === 'Present';
