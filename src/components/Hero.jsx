@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, ArrowRight } from 'lucide-react';
+import { Sparkles, ArrowRight, Star } from 'lucide-react';
 import TypewriterText from './TypewriterText';
 import CountUp from './CountUp';
 import RotatingText from './RotatingText';
@@ -174,6 +174,45 @@ const Hero = () => {
                                 </div>
                             </button>
                         ))}
+                    </div>
+
+                    {/* Excellence Award Banner */}
+                    <div className="mt-20 max-w-4xl mx-auto px-4 animate-fade-in-up" style={{ animationDelay: '0.5s' }}>
+                        <div className="relative group rounded-3xl overflow-hidden shadow-2xl border border-yellow-400/40 bg-gradient-to-br from-yellow-50/80 to-amber-100/50 p-1">
+                            {/* Glow Effect */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/20 via-amber-500/20 to-orange-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-700 blur-xl"></div>
+                            
+                            <div className="relative bg-white/90 backdrop-blur-md rounded-[1.4rem] p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 md:gap-10 border border-white">
+                                {/* Image Side */}
+                                <div className="w-full md:w-1/2 flex justify-center">
+                                    <div className="relative">
+                                        <div className="absolute inset-0 bg-yellow-400 blur-2xl opacity-40 rounded-full animate-pulse-slow"></div>
+                                        <img 
+                                            src="/excellence-award.jpg" 
+                                            alt="Excellent Club Award 2025-26" 
+                                            className="relative z-10 w-full max-w-[280px] rounded-2xl shadow-xl border-[4px] border-white transform -rotate-3 group-hover:rotate-0 transition-transform duration-500 object-cover aspect-[4/3]"
+                                        />
+                                    </div>
+                                </div>
+                                {/* Content Side */}
+                                <div className="w-full md:w-1/2 text-center md:text-left">
+                                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-bold uppercase tracking-widest mb-4">
+                                        <Star className="w-3.5 h-3.5 fill-yellow-500 text-yellow-500" />
+                                        <span>Prestigious Honor</span>
+                                    </div>
+                                    <h3 className="text-2xl md:text-3xl font-black text-slate-800 mb-3 leading-tight">
+                                        Excellent Club Award <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-500 to-orange-600">2025-26</span>
+                                    </h3>
+                                    <p className="text-slate-600 font-medium leading-relaxed mb-6">
+                                        We are incredibly proud to be recognized as the top performing club at RIT, Chennai. A true testament to our students' dedication, innovation, and technical brilliance.
+                                    </p>
+                                    <button onClick={() => scrollToSection('about')} className="text-sm font-bold text-orange-600 hover:text-orange-700 flex items-center gap-2 mx-auto md:mx-0 group/btn">
+                                        Read Our Story
+                                        <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

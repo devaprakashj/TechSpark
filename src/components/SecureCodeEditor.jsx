@@ -34,10 +34,40 @@ const SecureCodeEditor = () => {
     const isSubmittingRef = useRef(false);
     const lastWarningTimeRef = useRef(0);
     const warningsRef = useRef(0);
+    const videoRef = useRef(null);
+    const streamRef = useRef(null);
+    const [cameraActive, setCameraActive] = useState(false);
 
     useEffect(() => {
+        const startCamera = async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                streamRef.current = stream;
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                    setCameraActive(true);
+                }
+            } catch (err) {
+                console.error("Camera access error:", err);
+            }
+        };
+        startCamera();
+
+        return () => {
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(track => track.stop());
+            }
+        };
+    }, []);    useEffect(() => {
         warningsRef.current = warnings;
     }, [warnings]);
+
+    // Attach stream to video element when it mounts
+    useEffect(() => {
+        if (hasStarted && streamRef.current && videoRef.current && !videoRef.current.srcObject) {
+            videoRef.current.srcObject = streamRef.current;
+        }
+    }, [hasStarted]);
 
     useEffect(() => {
         if (!hasStarted) return;
@@ -414,6 +444,18 @@ const SecureCodeEditor = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* Live Proctoring Feed */}
+                {hasStarted && (
+                    <div className="fixed bottom-4 right-4 w-32 h-24 bg-slate-900 border border-red-500/30 rounded-lg overflow-hidden shadow-2xl z-50 flex items-center justify-center group pointer-events-none">
+                        <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover transform scale-x-[-1] opacity-80 group-hover:opacity-100 transition-opacity" />
+                        {!cameraActive && <span className="text-[8px] text-red-500 font-bold uppercase text-center p-2 absolute animate-pulse">Camera Loading...</span>}
+                        <div className="absolute top-1 right-1 flex items-center gap-1 bg-red-500/20 px-1.5 py-0.5 rounded backdrop-blur-sm">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                            <span className="text-[6px] font-black text-red-500 uppercase tracking-widest">LIVE</span>
+                        </div>
+                    </div>
+                )}
 
                 {/* Right Panel: Editor & Output */}
                 <div className="w-2/3 flex flex-col bg-[#1e1e1e]">
