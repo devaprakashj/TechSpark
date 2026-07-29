@@ -168,6 +168,25 @@ const ChallengeIntro = () => {
                                     An AI proctoring system continuously monitors your session. All window blurs, keystroke anomalies, and malpractices are logged. Suspicious behavior will lead to <b>instant disqualification</b>.
                                 </p>
                             </div>
+                            <div className="bg-slate-800/50 p-4 rounded-xl border border-yellow-900/30">
+                                <h3 className="text-yellow-400 font-bold uppercase text-xs md:text-sm mb-1 flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span> 
+                                    4. Power & Notifications
+                                </h3>
+                                <p className="text-slate-300 text-xs md:text-sm leading-snug">
+                                    If using a laptop, ensure the charger is connected. You MUST disable all pop-ups and notifications (WhatsApp, Discord, System alerts) to avoid accidental window focus loss, which triggers a violation.
+                                </p>
+                            </div>
+
+                            <div className="bg-slate-800/50 p-4 rounded-xl border border-purple-900/30">
+                                <h3 className="text-purple-400 font-bold uppercase text-xs md:text-sm mb-1 flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span> 
+                                    5. Trackpad & Gesture Restrictions
+                                </h3>
+                                <p className="text-slate-300 text-xs md:text-sm leading-snug">
+                                    Strictly avoid using multi-finger trackpad gestures (like 3-finger swipe up). This can accidentally switch desktops or windows, causing an immediate violation and exiting your session.
+                                </p>
+                            </div>
                         </div>
 
                         <div className="mt-auto">
