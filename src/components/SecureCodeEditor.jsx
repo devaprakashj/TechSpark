@@ -113,18 +113,14 @@ const SecureCodeEditor = () => {
             }
             if (e.ctrlKey && (e.key === 'c' || e.key === 'v' || e.key === 'x' || e.key === 'C' || e.key === 'V' || e.key === 'X')) {
                 e.preventDefault();
-                if (hasStartedRef.current) {
-                    triggerWarning("Copy/Paste is disabled during the test!");
-                }
+                // We just prevent it; no warning triggered for shortcuts
             }
         };
 
         const handleContextMenu = (e) => e.preventDefault();
         const handleCopyPaste = (e) => {
             e.preventDefault();
-            if (hasStartedRef.current) {
-                triggerWarning("Copy/Paste is disabled during the test!");
-            }
+            // Just prevent the action; no warning triggered for UI copy/paste
         };
 
         document.addEventListener('fullscreenchange', handleFullscreenChange);
