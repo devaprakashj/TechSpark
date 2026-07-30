@@ -14,6 +14,11 @@ import vigneshImg from '../assets/team/vignesh.png';
 import antoImg from '../assets/team/anto.jpg';
 import mugkeshImg from '../assets/team/mugkesh.png';
 import harivasanImg from '../assets/team/harivasan.png';
+import krishanthImg from '../assets/team/krishanth.jpeg';
+import ramyaImg from '../assets/team/ramya.png';
+import divyadarshiniImg from '../assets/team/divyadarshini.jpeg';
+import ajithaImg from '../assets/team/ajitha.jpeg';
+import lavanyaImg from '../assets/team/lavanya.jpeg';
 
 const Team = () => {
     // Lead Members (Coordinator & President)
@@ -77,35 +82,35 @@ const Team = () => {
             },
         },
         {
-            name: 'JANANISHREE M',
+            name: 'DIVYADARSHINI D',
             role: 'Report Head',
             emoji: '📊',
-            image: jananishreeImg,
+            image: divyadarshiniImg,
             gradient: 'from-indigo-600 to-purple-600',
             social: {
-                linkedin: 'https://www.linkedin.com/in/janani-shree-535926299?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app',
+                linkedin: 'https://www.linkedin.com/in/divyadarshini-dhanasekaran-218785365',
                 email: 'reports@techspark.edu',
             },
         },
         {
-            name: 'MUGESH M',
+            name: 'AJITHA V',
             role: 'Content Writer',
             emoji: '✍️',
-            image: mugkeshImg,
+            image: ajithaImg,
             gradient: 'from-green-600 to-emerald-600',
             social: {
-                linkedin: 'https://www.linkedin.com/in/mugesh-m-50403232b?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app',
+                linkedin: 'https://www.linkedin.com/in/ajitha-vishwanath-079a21402',
                 email: 'content@techspark.edu',
             },
         },
         {
-            name: 'THENDRALRAJA M J',
+            name: 'MONESH RAJ J',
             role: 'Photography Head',
             emoji: '📸',
-            image: thendralrajaImg,
+            image: moneshImg,
             gradient: 'from-yellow-600 to-orange-600',
             social: {
-                linkedin: '#',
+                linkedin: 'https://www.linkedin.com/in/monesh-raj-j-35a80a371?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app',
                 email: 'photography@techspark.edu',
             },
         },
@@ -121,24 +126,24 @@ const Team = () => {
             },
         },
         {
-            name: 'KANISHGA S',
+            name: 'LAVANYA S',
             role: 'Creative Head',
             emoji: '🎨',
-            image: kanishgaImg,
+            image: lavanyaImg,
             gradient: 'from-violet-600 to-purple-600',
             social: {
-                linkedin: 'https://www.linkedin.com/in/kanishga-shanmugam-7211a7283?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app',
+                linkedin: 'https://www.linkedin.com/in/s-lavanya-1684792b2',
                 email: 'creative@techspark.edu',
             },
         },
         {
-            name: 'PALLAVI S',
+            name: 'RAMYA K N',
             role: 'Social Media Head',
             emoji: '📱',
-            image: pallaviImg,
+            image: ramyaImg,
             gradient: 'from-blue-600 to-indigo-600',
             social: {
-                linkedin: 'https://www.linkedin.com/in/pallavi-s-aa61a1337?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app',
+                linkedin: 'https://www.linkedin.com/in/ramya-k-n-04402537b',
                 email: 'socialmedia@techspark.edu',
                 instagram: '#',
             },
@@ -155,24 +160,24 @@ const Team = () => {
             },
         },
         {
-            name: 'ABINAYA M',
-            role: 'Graphic Designer',
+            name: 'KRISHANTH R',
+            role: 'Design Head',
             emoji: '🎨',
-            image: abinayaImg,
+            image: krishanthImg,
             gradient: 'from-fuchsia-600 to-pink-600',
             social: {
-                linkedin: 'https://www.linkedin.com/in/abinaya-m-880297291?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app',
-                email: 'graphics@techspark.edu',
+                linkedin: 'https://www.linkedin.com/in/krishanth-r007/',
+                email: 'design@techspark.edu',
             },
         },
         {
-            name: 'MONESH RAJ J',
-            role: 'Volunteer Management',
+            name: 'MUGESH M',
+            role: 'Operation Head',
             emoji: '🤝',
-            image: moneshImg,
+            image: mugkeshImg,
             gradient: 'from-lime-600 to-green-600',
             social: {
-                linkedin: 'https://www.linkedin.com/in/monesh-raj-j-35a80a371?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app',
+                linkedin: 'https://www.linkedin.com/in/mugesh-m-50403232b?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app',
                 email: 'volunteers@techspark.edu',
             },
         },
