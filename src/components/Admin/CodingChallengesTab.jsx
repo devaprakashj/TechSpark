@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../../firebase';
 import { collection, query, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { Plus, Check, X, ShieldAlert, Code2, Users, Eye, User, Terminal, ArrowLeft, Edit, Clock, Download } from 'lucide-react';
+import { Plus, Check, X, ShieldAlert, Code2, Users, Eye, User, Terminal, ArrowLeft, Edit, Clock, Download, BarChart3, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -16,6 +16,9 @@ const CodingChallengesTab = () => {
     // Modal states
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [viewSubmissionsModal, setViewSubmissionsModal] = useState(null);
+    const [reportModal, setReportModal] = useState(null);
+    const [reportGroupBy, setReportGroupBy] = useState('year');
+    const [expandedGroups, setExpandedGroups] = useState({});
     const [submissionTab, setSubmissionTab] = useState('pending');
 
     const [newChallenge, setNewChallenge] = useState({
@@ -186,6 +189,131 @@ const CodingChallengesTab = () => {
         } catch (err) {
             console.error("PDF Generation Error", err);
             alert("Failed to generate PDF. Make sure logos are accessible.");
+        }
+    };
+
+    const generateGroupedPDFReport = async (challenge, relatedSubs, groupBy) => {
+        try {
+            const doc = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = doc.internal.pageSize.getWidth();
+
+            const [rit, gfg, ts] = await Promise.all([
+                loadImage(ritLogo),
+                loadImage('/gfg-logo.png'),
+                loadImage(techsparkLogo)
+            ]);
+
+            const constrainImage = (img, maxW, maxH) => {
+                const nw = img.naturalWidth || img.width || 1;
+                const nh = img.naturalHeight || img.height || 1;
+                let w = maxW, h = w * (nh / nw);
+                if (h > maxH) { h = maxH; w = h * (nw / nh); }
+                return { w, h };
+            };
+
+            const ritDim = constrainImage(rit, 50, 20);
+            const tsDim = constrainImage(ts, 50, 16);
+            const gfgDim = constrainImage(gfg, 55, 26);
+            const headerCenterY = 20;
+            doc.addImage(rit, 'PNG', 15, headerCenterY - (ritDim.h / 2), ritDim.w, ritDim.h);
+            doc.addImage(ts, 'PNG', (pageWidth / 2) - (tsDim.w / 2) + 10, headerCenterY - (tsDim.h / 2), tsDim.w, tsDim.h);
+            doc.addImage(gfg, 'PNG', pageWidth - 15 - gfgDim.w, headerCenterY - (gfgDim.h / 2), gfgDim.w, gfgDim.h);
+
+            const headerStartY = headerCenterY + 20;
+            doc.setFontSize(16); doc.setFont("helvetica", "bold");
+            doc.text(`TechSpark Weekly Coding Challenge — ${groupBy === 'year' ? 'Year' : groupBy === 'dept' ? 'Department' : 'Section'}-wise Report`, pageWidth / 2, headerStartY, { align: "center" });
+            doc.setFontSize(11); doc.setFont("helvetica", "normal");
+            doc.text(`Challenge: ${challenge.title}`, 15, headerStartY + 12);
+            doc.text(`Total Submissions: ${relatedSubs.length}   |   Verified: ${relatedSubs.filter(s => s.status === 'verified').length}`, 15, headerStartY + 20);
+            doc.text(`Report Date: ${new Date().toLocaleDateString('en-IN')}`, 15, headerStartY + 28);
+
+            // Group the submissions
+            const groupMap = {};
+            relatedSubs.forEach(sub => {
+                let key = 'Unknown';
+                if (groupBy === 'year') key = sub.studentYear ? `Year ${sub.studentYear}` : 'Unknown Year';
+                else if (groupBy === 'dept') key = sub.studentDepartment || 'Unknown Dept';
+                else if (groupBy === 'section') key = `${sub.studentDepartment || '?'} - Sec ${sub.studentSection || '?'}`;
+                if (!groupMap[key]) groupMap[key] = [];
+                groupMap[key].push(sub);
+            });
+
+            let currentY = headerStartY + 38;
+            const tableColumn = ["S.No", "Name", "Roll No", "Dept", "Year/Sec", "Language", "Status"];
+
+            Object.entries(groupMap).sort(([a], [b]) => a.localeCompare(b)).forEach(([groupName, subs]) => {
+                // Group header
+                doc.setFontSize(12); doc.setFont("helvetica", "bold");
+                if (currentY > 250) { doc.addPage(); currentY = 20; }
+                doc.setFillColor(30, 58, 138);
+                doc.roundedRect(15, currentY, pageWidth - 30, 8, 2, 2, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.text(`${groupName}  (${subs.length} submissions | ${subs.filter(s => s.status === 'verified').length} verified)`, 18, currentY + 5.5);
+                doc.setTextColor(0, 0, 0);
+                currentY += 12;
+
+                const rows = subs.sort((a, b) => {
+                    if (a.status === 'verified' && b.status !== 'verified') return -1;
+                    if (a.status !== 'verified' && b.status === 'verified') return 1;
+                    return (a.timeTaken || 999999) - (b.timeTaken || 999999);
+                }).map((sub, i) => [
+                    i + 1,
+                    sub.studentName || 'N/A',
+                    sub.studentRoll || 'N/A',
+                    sub.studentDepartment || '-',
+                    `Yr${sub.studentYear || '?'} / ${sub.studentSection || '?'}`,
+                    sub.language || '-',
+                    sub.status === 'verified' ? '✓ Verified' : 'Pending'
+                ]);
+
+                autoTable(doc, {
+                    startY: currentY,
+                    head: [tableColumn],
+                    body: rows,
+                    theme: 'grid',
+                    headStyles: { fillColor: [71, 85, 105], textColor: 255, fontSize: 8 },
+                    styles: { fontSize: 8, cellPadding: 2.5 },
+                    alternateRowStyles: { fillColor: [248, 250, 252] },
+                    margin: { left: 15, right: 15 },
+                    columnStyles: { 6: { textColor: [5, 150, 105], fontStyle: 'bold' } }
+                });
+                currentY = doc.lastAutoTable.finalY + 10;
+            });
+
+            // Overall summary at the end
+            doc.addPage();
+            doc.setFontSize(14); doc.setFont("helvetica", "bold");
+            doc.text("Overall Summary", pageWidth / 2, 20, { align: "center" });
+
+            const summaryRows = Object.entries(groupMap).sort(([a], [b]) => a.localeCompare(b)).map(([gName, subs]) => [
+                gName, subs.length, subs.filter(s => s.status === 'verified').length, subs.filter(s => s.status !== 'verified').length,
+                `${Math.round((subs.filter(s => s.status === 'verified').length / subs.length) * 100)}%`
+            ]);
+            summaryRows.push(['TOTAL', relatedSubs.length, relatedSubs.filter(s => s.status === 'verified').length, relatedSubs.filter(s => s.status !== 'verified').length, `${Math.round((relatedSubs.filter(s => s.status === 'verified').length / relatedSubs.length) * 100)}%`]);
+
+            autoTable(doc, {
+                startY: 28,
+                head: [['Group', 'Total Submissions', 'Verified', 'Pending', 'Pass Rate']],
+                body: summaryRows,
+                theme: 'grid',
+                headStyles: { fillColor: [30, 58, 138], textColor: 255 },
+                styles: { fontSize: 10, cellPadding: 3 },
+                alternateRowStyles: { fillColor: [248, 250, 252] },
+                foot: [summaryRows[summaryRows.length - 1]],
+                footStyles: { fillColor: [240, 253, 244], textColor: [5, 150, 105], fontStyle: 'bold' }
+            });
+
+            const signY = doc.lastAutoTable.finalY + 30;
+            doc.setFontSize(10); doc.setFont("helvetica", "bold");
+            const colW = pageWidth / 3;
+            doc.text("Club Coordinator", colW * 0.5, signY, { align: "center" });
+            doc.text("HOD", colW * 1.5, signY, { align: "center" });
+            doc.text("Principal", colW * 2.5, signY, { align: "center" });
+
+            doc.save(`${challenge.title.replace(/\s+/g, '_')}_${groupBy}_wise_Report.pdf`);
+        } catch (err) {
+            console.error("Grouped PDF Error", err);
+            alert("Failed to generate report. Make sure logos are accessible.");
         }
     };
 
@@ -484,12 +612,20 @@ const CodingChallengesTab = () => {
                                 <h4 className="text-xs font-bold text-slate-800 flex items-center gap-2">
                                     <Users className="w-4 h-4 text-blue-600" /> Submissions ({relatedSubs.length})
                                 </h4>
+                                <div className="flex gap-2">
+                                <button 
+                                    onClick={() => { setReportModal(challenge); setExpandedGroups({}); }}
+                                    className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-100 flex items-center gap-1"
+                                >
+                                    <BarChart3 className="w-4 h-4" /> Report
+                                </button>
                                 <button 
                                     onClick={() => setViewSubmissionsModal(challenge)}
                                     className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100 flex items-center gap-1"
                                 >
                                     <Eye className="w-4 h-4" /> Review
                                 </button>
+                                </div>
                             </div>
                         </div>
                     );
@@ -555,6 +691,176 @@ const CodingChallengesTab = () => {
                         </motion.div>
                     </div>
                 )}
+            </AnimatePresence>
+
+            {/* ===================== REPORT MODAL ===================== */}
+            <AnimatePresence>
+                {reportModal && (() => {
+                    const relatedSubs = submissions.filter(s => s.challengeId === reportModal.id);
+                    const verified = relatedSubs.filter(s => s.status === 'verified');
+                    const pending = relatedSubs.filter(s => s.status !== 'verified');
+
+                    // Group helper
+                    const groupBy = (subs, key) => {
+                        const map = {};
+                        subs.forEach(sub => {
+                            let k = 'Unknown';
+                            if (key === 'year') k = sub.studentYear ? `Year ${sub.studentYear}` : 'Unknown Year';
+                            else if (key === 'dept') k = sub.studentDepartment || 'Unknown Dept';
+                            else if (key === 'section') k = `${sub.studentDepartment || '?'} — Sec ${sub.studentSection || '?'}`;
+                            if (!map[k]) map[k] = [];
+                            map[k].push(sub);
+                        });
+                        return map;
+                    };
+
+                    const groups = groupBy(relatedSubs, reportGroupBy);
+                    const passRate = relatedSubs.length > 0 ? Math.round((verified.length / relatedSubs.length) * 100) : 0;
+
+                    return (
+                        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+                                onClick={() => setReportModal(null)} />
+
+                            <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                                className="bg-white rounded-3xl w-full max-w-4xl p-6 lg:p-8 shadow-2xl relative z-10 max-h-[92vh] overflow-y-auto custom-scrollbar">
+
+                                {/* Header */}
+                                <div className="flex justify-between items-start mb-6">
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <BarChart3 className="w-5 h-5 text-blue-600" />
+                                            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">Challenge Report</h2>
+                                        </div>
+                                        <p className="text-sm text-slate-500 font-medium">{reportModal.title}</p>
+                                    </div>
+                                    <button onClick={() => setReportModal(null)} className="text-slate-400 hover:text-slate-600 p-1">
+                                        <X className="w-6 h-6" />
+                                    </button>
+                                </div>
+
+                                {/* Summary Stats */}
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                                    {[
+                                        { label: 'Total Submissions', value: relatedSubs.length, color: 'bg-blue-50 text-blue-700', icon: <Users className="w-5 h-5" /> },
+                                        { label: 'Verified', value: verified.length, color: 'bg-emerald-50 text-emerald-700', icon: <Check className="w-5 h-5" /> },
+                                        { label: 'Pending Review', value: pending.length, color: 'bg-orange-50 text-orange-700', icon: <Clock className="w-5 h-5" /> },
+                                        { label: 'Pass Rate', value: `${passRate}%`, color: 'bg-purple-50 text-purple-700', icon: <BarChart3 className="w-5 h-5" /> },
+                                    ].map((s, i) => (
+                                        <div key={i} className={`${s.color} rounded-2xl p-4 flex flex-col gap-1`}>
+                                            <div className="flex items-center gap-2 opacity-70">{s.icon}<span className="text-xs font-bold uppercase tracking-wider">{s.label}</span></div>
+                                            <div className="text-3xl font-black">{s.value}</div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Group By Selector + PDF Downloads */}
+                                <div className="flex flex-wrap items-center justify-between gap-3 mb-5 p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Group By:</span>
+                                        {[
+                                            { id: 'year', label: '🎓 Year' },
+                                            { id: 'dept', label: '🏫 Department' },
+                                            { id: 'section', label: '🔤 Section' },
+                                        ].map(opt => (
+                                            <button key={opt.id} onClick={() => { setReportGroupBy(opt.id); setExpandedGroups({}); }}
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${reportGroupBy === opt.id ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'}`}>
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => generateGroupedPDFReport(reportModal, relatedSubs, reportGroupBy)}
+                                            className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-blue-700 flex items-center gap-1.5 shadow-sm">
+                                            <Download className="w-4 h-4" /> Download {reportGroupBy === 'year' ? 'Year' : reportGroupBy === 'dept' ? 'Dept' : 'Section'}-wise PDF
+                                        </button>
+                                        <button onClick={() => generatePDFReport(reportModal, relatedSubs)}
+                                            className="px-4 py-2 bg-slate-700 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-slate-800 flex items-center gap-1.5 shadow-sm">
+                                            <FileText className="w-4 h-4" /> Full Report
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Grouped Sections */}
+                                {relatedSubs.length === 0 ? (
+                                    <div className="text-center py-16 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
+                                        <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                                        <p className="text-sm font-bold text-slate-400 uppercase tracking-wider">No submissions yet for this challenge.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([groupName, subs]) => {
+                                            const gVerified = subs.filter(s => s.status === 'verified');
+                                            const gPassRate = Math.round((gVerified.length / subs.length) * 100);
+                                            const isExpanded = expandedGroups[groupName];
+                                            return (
+                                                <div key={groupName} className="border border-slate-200 rounded-2xl overflow-hidden">
+                                                    {/* Group Header */}
+                                                    <button onClick={() => setExpandedGroups(prev => ({ ...prev, [groupName]: !prev[groupName] }))}
+                                                        className="w-full flex items-center justify-between px-5 py-4 bg-slate-50 hover:bg-slate-100 transition-colors text-left">
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="font-black text-slate-800 text-sm uppercase tracking-wide">{groupName}</span>
+                                                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-black rounded-full uppercase">{subs.length} submissions</span>
+                                                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-black rounded-full uppercase">{gVerified.length} verified</span>
+                                                            <span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase ${gPassRate >= 70 ? 'bg-green-100 text-green-700' : gPassRate >= 40 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+                                                                {gPassRate}% pass
+                                                            </span>
+                                                        </div>
+                                                        {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                                                    </button>
+
+                                                    {/* Expanded Table */}
+                                                    {isExpanded && (
+                                                        <div className="overflow-x-auto">
+                                                            <table className="w-full text-xs">
+                                                                <thead>
+                                                                    <tr className="bg-slate-800 text-white">
+                                                                        <th className="px-4 py-2.5 text-left font-black uppercase tracking-wider">#</th>
+                                                                        <th className="px-4 py-2.5 text-left font-black uppercase tracking-wider">Name</th>
+                                                                        <th className="px-4 py-2.5 text-left font-black uppercase tracking-wider">Roll No</th>
+                                                                        <th className="px-4 py-2.5 text-left font-black uppercase tracking-wider">Dept</th>
+                                                                        <th className="px-4 py-2.5 text-left font-black uppercase tracking-wider">Yr / Sec</th>
+                                                                        <th className="px-4 py-2.5 text-left font-black uppercase tracking-wider">Language</th>
+                                                                        <th className="px-4 py-2.5 text-left font-black uppercase tracking-wider">Time</th>
+                                                                        <th className="px-4 py-2.5 text-left font-black uppercase tracking-wider">Status</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {subs.sort((a, b) => {
+                                                                        if (a.status === 'verified' && b.status !== 'verified') return -1;
+                                                                        if (a.status !== 'verified' && b.status === 'verified') return 1;
+                                                                        return (a.timeTaken || 999999) - (b.timeTaken || 999999);
+                                                                    }).map((sub, idx) => (
+                                                                        <tr key={sub.id} className={`border-t border-slate-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
+                                                                            <td className="px-4 py-3 font-bold text-slate-400">{idx + 1}</td>
+                                                                            <td className="px-4 py-3 font-bold text-slate-800">{sub.studentName || 'N/A'}</td>
+                                                                            <td className="px-4 py-3 font-mono text-slate-600">{sub.studentRoll || 'N/A'}</td>
+                                                                            <td className="px-4 py-3 text-slate-600">{sub.studentDepartment || '-'}</td>
+                                                                            <td className="px-4 py-3 text-slate-600">Yr {sub.studentYear || '?'} / {sub.studentSection || '?'}</td>
+                                                                            <td className="px-4 py-3"><span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-bold">{sub.language || '-'}</span></td>
+                                                                            <td className="px-4 py-3 text-blue-700 font-bold">{sub.timeTakenFormatted || '-'}</td>
+                                                                            <td className="px-4 py-3">
+                                                                                {sub.status === 'verified'
+                                                                                    ? <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-md font-black">✓ Verified</span>
+                                                                                    : <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-md font-black">Pending</span>}
+                                                                            </td>
+                                                                        </tr>
+                                                                    ))}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </motion.div>
+                        </div>
+                    );
+                })()}
             </AnimatePresence>
 
         </div>
