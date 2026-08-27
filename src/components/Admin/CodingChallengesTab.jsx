@@ -323,6 +323,14 @@ const CodingChallengesTab = () => {
             if (newChallenge.id) {
                 const challengeRef = doc(db, 'ts_challenges', newChallenge.id);
                 const { id, ...updateData } = newChallenge;
+                if (updateData.testCases && updateData.testCases.length > 0) {
+                    updateData.testCases = updateData.testCases.map((tc, idx) => {
+                        if (idx === 0) {
+                            return { ...tc, input: newChallenge.sampleInput, output: newChallenge.sampleOutput };
+                        }
+                        return tc;
+                    });
+                }
                 await updateDoc(challengeRef, updateData);
                 alert('Challenge updated successfully!');
             } else {
@@ -540,22 +548,51 @@ const CodingChallengesTab = () => {
                 <div className="flex items-center gap-2">
                 <button 
                     onClick={async () => {
-                        await addDoc(collection(db, 'ts_challenges'), {
-                            title: 'Two Sum Problem',
-                            problemStatement: 'Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.\n\nYou may assume that each input would have exactly one solution, and you may not use the same element twice.',
-                            sampleInput: '2 7 11 15\n9',
-                            sampleOutput: '0 1',
-                            allowedLanguages: 'Python, JavaScript, C++, Java',
-                            xpPoints: 500,
-                            timeLimit: 15,
-                            status: 'active',
-                            createdAt: serverTimestamp()
-                        });
-                        alert('Sample Challenge Created!');
+                        try {
+                            const res = await fetch('http://localhost:8008/mcp/create-weekly-challenge?difficulty=EASY');
+                            if (res.ok) {
+                                const data = await res.json();
+                                await addDoc(collection(db, 'ts_challenges'), {
+                                    ...data.challenge,
+                                    createdAt: serverTimestamp()
+                                });
+                                alert('✅ Weekly LeetCode Challenge (10 Test Cases) Created & Scheduled!');
+                            } else {
+                                throw new Error("MCP Server offline");
+                            }
+                        } catch (err) {
+                            // Fallback client-side generation
+                            await addDoc(collection(db, 'ts_challenges'), {
+                                title: '[LeetCode] Two Sum Problem',
+                                problemStatement: 'Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.\n\nYou may assume that each input would have exactly one solution, and you may not use the same element twice.',
+                                sampleInput: '2 7 11 15\n9',
+                                sampleOutput: '0 1',
+                                testCasesCount: 10,
+                                testCases: [
+                                    { id: 1, input: '2 7 11 15\n9', output: '0 1', isHidden: false, description: 'Sample Case 1' },
+                                    { id: 2, input: '3 2 4\n6', output: '1 2', isHidden: false, description: 'Sample Case 2' },
+                                    { id: 3, input: '3 3\n6', output: '0 1', isHidden: true, description: 'Duplicates edge case' },
+                                    { id: 4, input: '-1 -2 -3 -4\n-7', output: '2 3', isHidden: true, description: 'Negative numbers' },
+                                    { id: 5, input: '0 4 3 0\n0', output: '0 3', isHidden: true, description: 'Zero elements' },
+                                    { id: 6, input: '1000 2000 3000\n5000', output: '1 2', isHidden: true, description: 'Large integers' },
+                                    { id: 7, input: '1 5 9 13\n14', output: '1 2', isHidden: true, description: 'Middle element match' },
+                                    { id: 8, input: '10 20 30 40 50\n90', output: '3 4', isHidden: true, description: 'End element match' },
+                                    { id: 9, input: '5 4 3 2 1\n3', output: '3 4', isHidden: true, description: 'Reverse order' },
+                                    { id: 10, input: '100 200\n300', output: '0 1', isHidden: true, description: 'Two element array' }
+                                ],
+                                allowedLanguages: 'Python, JavaScript, C++, Java',
+                                xpPoints: 500,
+                                timeLimit: 30,
+                                status: 'scheduled',
+                                scheduleWindow: 'Saturday 00:00 - Sunday 24:00',
+                                createdAt: serverTimestamp()
+                            });
+                            alert('✅ Weekly LeetCode Challenge (10 Test Cases) Created & Scheduled!');
+                        }
                     }}
-                    className="px-4 py-2.5 bg-green-600 text-white font-bold rounded-xl flex items-center gap-2 shadow-lg hover:bg-green-700 transition-all mr-2"
+                    className="px-4 py-2.5 bg-emerald-600 text-white font-bold rounded-xl flex items-center gap-2 shadow-lg hover:bg-emerald-700 transition-all mr-2"
                 >
-                    <Code2 className="w-5 h-5" /> Generate Sample Challenge
+                    <Code2 className="w-5 h-5" /> Generate LeetCode Challenge (10 Test Cases)
                 </button>
                 <button 
                     onClick={() => {
@@ -595,12 +632,24 @@ const CodingChallengesTab = () => {
                                     }} className="text-blue-500 text-xs font-bold bg-blue-50 p-2 rounded-lg hover:bg-blue-100 flex items-center justify-center">
                                         <Edit className="w-4 h-4" />
                                     </button>
-                                    {(challenge.status === 'active' || challenge.status === 'scheduled') && (
+                                        {(challenge.status === 'active' || challenge.status === 'scheduled') && (
+                                        <div className="flex gap-1">
+                                        {challenge.status === 'scheduled' && (
+                                        <button onClick={async () => {
+                                            if(window.confirm("Activate this challenge now for students?")) {
+                                                await updateDoc(doc(db, 'ts_challenges', challenge.id), { status: 'active' });
+                                                alert("✅ Challenge is now LIVE for students!");
+                                            }
+                                        }} className="text-emerald-500 text-xs font-bold bg-emerald-50 px-2 py-1 rounded-lg hover:bg-emerald-100 transition-all">
+                                            ⚡ Go Live
+                                        </button>
+                                        )}
                                         <button onClick={async () => {
                                             if(window.confirm("Are you sure you want to end this challenge?")) {
                                                 await updateDoc(doc(db, 'ts_challenges', challenge.id), { status: 'closed' });
                                             }
                                         }} className="text-orange-500 text-xs font-bold bg-orange-50 px-3 py-2 rounded-lg hover:bg-orange-100 uppercase tracking-widest">End</button>
+                                    </div>
                                     )}
                                     <button onClick={() => handleDeleteChallenge(challenge.id)} className="text-red-500 text-xs font-bold bg-red-50 p-2 rounded-lg hover:bg-red-100">Delete</button>
                                 </div>

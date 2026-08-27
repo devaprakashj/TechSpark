@@ -17,11 +17,10 @@ const AuthModal = () => {
         completeRegistration,
         isAuthenticated,
         signingIn,
-        devBypassLogin
+        logout
     } = useAuth();
 
     const navigate = useNavigate();
-    const [devUid, setDevUid] = useState('');
 
     // Redirect to dashboard after successful auth
     useEffect(() => {
@@ -319,7 +318,6 @@ const AuthModal = () => {
                                     )}
                                     <span>{signingIn ? 'Signing in...' : 'Continue with Google'}</span>
                                 </button>
-                                
                             </div>
                         )}
 
