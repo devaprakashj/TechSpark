@@ -2,7 +2,7 @@ import { getRandomLeetCodeChallenge } from "./leetcodeScraper.js";
 import { generate10Testcases } from "./testcaseGenerator.js";
 
 /**
- * Builds weekly coding challenge payload scheduled Saturday 00:00 to Sunday 24:00.
+ * Builds weekly coding challenge payload scheduled Saturday 00:00 (IST) to Sunday 23:59:59 (IST).
  */
 export async function buildWeeklyChallengePayload(difficulty = "EASY") {
     const problem = await getRandomLeetCodeChallenge(difficulty);
@@ -17,18 +17,44 @@ export async function buildWeeklyChallengePayload(difficulty = "EASY") {
 
     const { testcases, cleanedDesc } = generate10Testcases(title, rawContent, rawTestcases);
 
-    // Compute upcoming Saturday 00:00 and Sunday 23:59:59
-    const today = new Date();
-    const dayOfWeek = today.getDay(); // 0 is Sunday, 6 is Saturday
-    const daysUntilSaturday = (6 - dayOfWeek + 7) % 7;
+    // Compute Saturday 00:00 IST and Sunday 23:59:59 IST in Asia/Kolkata timezone
+    const now = new Date();
+    const istDateStr = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+    const istNow = new Date(istDateStr);
 
-    const saturday = new Date(today);
-    saturday.setDate(today.getDate() + daysUntilSaturday);
-    saturday.setHours(0, 0, 0, 0);
+    const dayOfWeek = istNow.getDay(); // 0 = Sunday, 5 = Friday, 6 = Saturday
+    const isWeekend = (dayOfWeek === 6 || dayOfWeek === 0);
 
-    const sunday = new Date(saturday);
-    sunday.setDate(saturday.getDate() + 1);
-    sunday.setHours(23, 59, 59, 999);
+    let satDate, sunDate;
+    if (dayOfWeek === 6) {
+        satDate = new Date(istNow);
+        satDate.setHours(0, 0, 0, 0);
+        sunDate = new Date(istNow);
+        sunDate.setDate(istNow.getDate() + 1);
+        sunDate.setHours(23, 59, 59, 999);
+    } else if (dayOfWeek === 0) {
+        satDate = new Date(istNow);
+        satDate.setDate(istNow.getDate() - 1);
+        satDate.setHours(0, 0, 0, 0);
+        sunDate = new Date(istNow);
+        sunDate.setHours(23, 59, 59, 999);
+    } else {
+        const daysUntilSaturday = 6 - dayOfWeek;
+        satDate = new Date(istNow);
+        satDate.setDate(istNow.getDate() + daysUntilSaturday);
+        satDate.setHours(0, 0, 0, 0);
+        sunDate = new Date(satDate);
+        sunDate.setDate(satDate.getDate() + 1);
+        sunDate.setHours(23, 59, 59, 999);
+    }
+
+    const pad = (n) => String(n).padStart(2, '0');
+    const formatISTIso = (d) => {
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}+05:30`;
+    };
+
+    const scheduledStartTime = formatISTIso(satDate);
+    const scheduledEndTime = formatISTIso(sunDate);
 
     const sampleInput = testcases[0]?.input || "";
     const sampleOutput = testcases[0]?.output || "";
@@ -45,16 +71,17 @@ export async function buildWeeklyChallengePayload(difficulty = "EASY") {
         testCases: testcases,
         testCasesCount: testcases.length,
         allowedLanguages: "Python, JavaScript, C++, Java",
-        status: "scheduled",
-        scheduleWindow: "Saturday 00:00 - Sunday 24:00",
-        scheduledStartTime: saturday.toISOString().replace('T', ' ').substring(0, 19),
-        scheduledEndTime: sunday.toISOString().replace('T', ' ').substring(0, 19),
+        status: isWeekend ? "active" : "scheduled",
+        scheduleWindow: "Saturday 00:00 (IST) - Sunday 23:59 (IST)",
+        scheduledStartTime: scheduledStartTime,
+        scheduledEndTime: scheduledEndTime,
+        timezone: "Asia/Kolkata",
         createdAt: new Date().toISOString()
     };
 }
 
 // Execute if run directly via node
-if (process.argv[1].endsWith('automateChallenge.js')) {
+if (process.argv[1] && process.argv[1].endsWith('automateChallenge.js')) {
     (async () => {
         console.log("Generating Node.js Weekly Challenge Payload...");
         const payload = await buildWeeklyChallengePayload("EASY");

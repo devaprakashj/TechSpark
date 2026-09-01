@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "mcp-server": "node backend/mcpChallengeServer.js",
+    "server": "node backend/server.js",
+    "backend": "node backend/server.js",
+    "mcp-server": "node backend/server.js",
+    "weekly-scheduler": "node backend/server.js",
     "automate-challenge": "node backend/automateChallenge.js",
-    "weekly-scheduler": "node backend/weeklyScheduler.js",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"

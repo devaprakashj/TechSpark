@@ -58,38 +58,30 @@ const extractMethodInfo = (code, lang) => {
 
     if (lang === 'python') {
         const codeWithoutComments = code.split('\n').filter(line => !line.trim().startsWith('#')).join('\n');
-        const matches = [...codeWithoutComments.matchAll(/def\s+([a-zA-Z0-9_]+)\s*\(self(?:,\s*([^)]+))?\)/g)];
-        const validMatch = matches.find(m => m[1] !== '__init__' && !m[1].startsWith('_'));
-        if (validMatch) {
-            methodName = validMatch[1];
-            const params = validMatch[2] ? validMatch[2].split(',').filter(p => p.trim()) : [];
-            paramCount = params.length;
+        const match = codeWithoutComments.match(/def\s+([a-zA-Z0-9_]+)\s*\(\s*self/);
+        if (match && match[1] !== '__init__') {
+            methodName = match[1];
         }
     } else if (lang === 'javascript') {
         const codeWithoutComments = code.split('\n').filter(line => !line.trim().startsWith('//')).join('\n');
-        const m1 = codeWithoutComments.match(/var\s+([a-zA-Z0-9_]+)\s*=\s*function\s*\(([^)]*)\)/);
-        const m2 = codeWithoutComments.match(/function\s+([a-zA-Z0-9_]+)\s*\(([^)]*)\)/);
-        const match = m1 || m2;
-        if (match) {
+        const m1 = codeWithoutComments.match(/var\s+([a-zA-Z0-9_]+)\s*=\s*function/);
+        const m2 = codeWithoutComments.match(/function\s+([a-zA-Z0-9_]+)\s*\(/);
+        const m3 = codeWithoutComments.match(/([a-zA-Z0-9_]+)\s*\([^)]*\)\s*\{/);
+        const match = m1 || m2 || m3;
+        if (match && match[1] !== 'Solution' && match[1] !== 'TreeNode' && match[1] !== 'ListNode') {
             methodName = match[1];
-            const params = match[2] ? match[2].split(',').filter(p => p.trim()) : [];
-            paramCount = params.length;
         }
     } else if (lang === 'cpp') {
         const codeWithoutComments = code.split('\n').filter(line => !line.trim().startsWith('//')).join('\n');
-        const match = codeWithoutComments.match(/public:[\s\S]*?\w[\w<>*&, ]+\s+([a-zA-Z0-9_]+)\s*\(([^)]*)\)/);
+        const match = codeWithoutComments.match(/(?:bool|int|double|float|long|void|string|char|TreeNode\*|ListNode\*|vector<[\w\s,<>]+>)\s+([a-zA-Z0-9_]+)\s*\(/);
         if (match) {
             methodName = match[1];
-            const params = match[2] ? match[2].split(',').filter(p => p.trim()) : [];
-            paramCount = params.length;
         }
     } else if (lang === 'java') {
         const codeWithoutComments = code.split('\n').filter(line => !line.trim().startsWith('//')).join('\n');
-        const match = codeWithoutComments.match(/public\s+[\w<>\[\]]+\s+([a-zA-Z0-9_]+)\s*\(([^)]*)\)/);
+        const match = codeWithoutComments.match(/public\s+[\w<>\[\], ?]+\s+([a-zA-Z0-9_]+)\s*\(/);
         if (match) {
             methodName = match[1];
-            const params = match[2] ? match[2].split(',').filter(p => p.trim()) : [];
-            paramCount = params.length;
         }
     }
 
@@ -117,12 +109,6 @@ class ListNode:
     def __init__(self, val=0, next=None):
         self.val = val
         self.next = next
-    def __repr__(self):
-        result, node = [], self
-        while node:
-            result.append(node.val)
-            node = node.next
-        return str(result)
 
 class TreeNode:
     def __init__(self, val=0, left=None, right=None):
@@ -146,12 +132,65 @@ def _linkedlist_to_list(node):
         node = node.next
     return result
 
+def _list_to_tree(lst):
+    if not lst or lst[0] is None:
+        return None
+    root = TreeNode(lst[0])
+    queue = [root]
+    i = 1
+    while queue and i < len(lst):
+        node = queue.pop(0)
+        if node is not None:
+            if i < len(lst):
+                if lst[i] is not None:
+                    node.left = TreeNode(lst[i])
+                    queue.append(node.left)
+                else:
+                    queue.append(None)
+                i += 1
+            if i < len(lst):
+                if lst[i] is not None:
+                    node.right = TreeNode(lst[i])
+                    queue.append(node.right)
+                else:
+                    queue.append(None)
+                i += 1
+    return root
+
+def _tree_to_list(root):
+    if not root:
+        return []
+    result = []
+    queue = [root]
+    while queue:
+        node = queue.pop(0)
+        if node is not None:
+            result.append(node.val)
+            queue.append(node.left)
+            queue.append(node.right)
+        else:
+            result.append(None)
+    while result and result[-1] is None:
+        result.pop()
+    return result
+
 def _parse_arg(s):
     s = s.strip()
+    # Normalize true/false/null
+    if s.lower() == 'true': return True
+    if s.lower() == 'false': return False
+    if s.lower() == 'null' or s.lower() == 'none': return None
     try:
+        # If wrapped in root = [...] or nums = [...]
+        if '=' in s:
+            s = s.split('=', 1)[1].strip()
+        # Replace unquoted null with None for Python literal eval if needed
         return json.loads(s)
     except Exception:
-        return s
+        try:
+            return eval(s)
+        except Exception:
+            return s
 
 `;
 
@@ -168,24 +207,37 @@ if __name__ == '__main__':
         if method_name and hasattr(sol, method_name):
             method = getattr(sol, method_name)
             sig = inspect.signature(method)
-            param_count = len(sig.parameters)
+            param_names = list(sig.parameters.keys())
+            param_count = len(param_names)
             parsed = [_parse_arg(l) for l in lines[:max(param_count, 1)]]
             type_hints = str(sig)
             converted = []
-            for arg in parsed:
-                if isinstance(arg, list) and 'ListNode' in type_hints:
-                    converted.append(_list_to_linkedlist(arg))
+            for idx, arg in enumerate(parsed):
+                p_name = param_names[idx] if idx < len(param_names) else ''
+                p_hint = type_hints
+                if isinstance(arg, list):
+                    if 'TreeNode' in p_hint or 'root' in p_name.lower() or 'tree' in p_name.lower():
+                        converted.append(_list_to_tree(arg))
+                    elif 'ListNode' in p_hint or 'head' in p_name.lower() or 'node' in p_name.lower() or 'list' in p_name.lower():
+                        converted.append(_list_to_linkedlist(arg))
+                    else:
+                        converted.append(arg)
                 else:
                     converted.append(arg)
+
             if param_count == 0:
                 result = method()
             elif param_count == 1:
                 result = method(converted[0] if converted else None)
             else:
                 result = method(*converted[:param_count])
+
             if result is not None:
-                if hasattr(result, 'val') or type(result).__name__ == 'ListNode' or isinstance(result, ListNode):
+                if isinstance(result, TreeNode) or hasattr(result, 'left') or hasattr(result, 'right'):
+                    result = _tree_to_list(result)
+                elif isinstance(result, ListNode) or hasattr(result, 'next'):
                     result = _linkedlist_to_list(result)
+                
                 if isinstance(result, (list, dict)):
                     print(json.dumps(result, separators=(',', ':')))
                 elif isinstance(result, bool):
@@ -193,18 +245,105 @@ if __name__ == '__main__':
                 else:
                     print(result)
             else:
-                if 'ListNode' in type_hints:
+                if 'bool' in str(sig.return_annotation).lower():
+                    print('false')
+                elif 'TreeNode' in str(sig.return_annotation) or 'ListNode' in str(sig.return_annotation):
                     print('[]')
                 else:
                     print('null')
     except Exception as e:
-        sys.stderr.write('Error: ' + str(e) + '\\n')
+        sys.stderr.write('Runtime Error: ' + str(e) + '\\n')
 `;
             return preamble + code + driverCode;
         }
     } else if (lang === 'javascript') {
         if ((code.includes('var ') || code.includes('function ') || code.includes('class Solution')) && !code.includes('require(') && !code.includes('readFileSync')) {
             const fnName = methodName || 'solve';
+            const preamble = `
+function ListNode(val, next) {
+    this.val = (val === undefined ? 0 : val);
+    this.next = (next === undefined ? null : next);
+}
+
+function TreeNode(val, left, right) {
+    this.val = (val === undefined ? 0 : val);
+    this.left = (left === undefined ? null : left);
+    this.right = (right === undefined ? null : right);
+}
+
+function _listToTree(arr) {
+    if (!arr || !arr.length || arr[0] === null || arr[0] === undefined) return null;
+    const root = new TreeNode(arr[0]);
+    const queue = [root];
+    let i = 1;
+    while (queue.length > 0 && i < arr.length) {
+        const curr = queue.shift();
+        if (curr !== null) {
+            if (i < arr.length) {
+                if (arr[i] !== null && arr[i] !== undefined) {
+                    curr.left = new TreeNode(arr[i]);
+                    queue.push(curr.left);
+                } else {
+                    queue.push(null);
+                }
+                i++;
+            }
+            if (i < arr.length) {
+                if (arr[i] !== null && arr[i] !== undefined) {
+                    curr.right = new TreeNode(arr[i]);
+                    queue.push(curr.right);
+                } else {
+                    queue.push(null);
+                }
+                i++;
+            }
+        }
+    }
+    return root;
+}
+
+function _treeToList(root) {
+    if (!root) return [];
+    const result = [];
+    const queue = [root];
+    while (queue.length > 0) {
+        const node = queue.shift();
+        if (node) {
+            result.push(node.val);
+            queue.push(node.left);
+            queue.push(node.right);
+        } else {
+            result.push(null);
+        }
+    }
+    while (result.length > 0 && result[result.length - 1] === null) {
+        result.pop();
+    }
+    return result;
+}
+
+function _listToLinkedList(arr) {
+    if (!arr || !arr.length) return null;
+    const head = new ListNode(arr[0]);
+    let curr = head;
+    for (let i = 1; i < arr.length; i++) {
+        curr.next = new ListNode(arr[i]);
+        curr = curr.next;
+    }
+    return head;
+}
+
+function _linkedListToList(head) {
+    const res = [];
+    let curr = head;
+    while (curr) {
+        res.push(curr.val);
+        curr = curr.next;
+    }
+    return res;
+}
+`;
+
             const driverCode = `
 
 const readline = require('readline');
@@ -214,6 +353,8 @@ rl.on('line', (line) => lines.push(line.trim()));
 rl.on('close', () => {
     try {
         function parseArg(s) {
+            if (!s) return null;
+            if (s.includes('=')) s = s.split('=')[1].trim();
             try { return JSON.parse(s); } catch(e) { return s; }
         }
         const parsed = lines.filter(Boolean).map(parseArg);
@@ -224,22 +365,64 @@ rl.on('close', () => {
             if (methods.length > 0) fn = sol[methods[0]].bind(sol);
         }
         if (!fn) throw new Error('Function not found');
-        const result = parsed.length === 1 ? fn(parsed[0]) : fn(...parsed);
+
+        const fnStr = fn.toString();
+        const converted = parsed.map(arg => {
+            if (Array.isArray(arg)) {
+                if (fnStr.includes('root') || fnStr.includes('tree') || fnStr.includes('TreeNode')) {
+                    return _listToTree(arg);
+                } else if (fnStr.includes('head') || fnStr.includes('ListNode')) {
+                    return _listToLinkedList(arg);
+                }
+            }
+            return arg;
+        });
+
+        const result = converted.length === 1 ? fn(converted[0]) : fn(...converted);
         if (result !== undefined) {
-            console.log(typeof result === 'object' ? JSON.stringify(result) : result);
+            if (result instanceof TreeNode || (result && (result.left !== undefined || result.right !== undefined))) {
+                console.log(JSON.stringify(_treeToList(result)));
+            } else if (result instanceof ListNode || (result && result.next !== undefined)) {
+                console.log(JSON.stringify(_linkedListToList(result)));
+            } else if (typeof result === 'object') {
+                console.log(JSON.stringify(result));
+            } else {
+                console.log(result);
+            }
         }
     } catch(e) {
-        process.stderr.write('Error: ' + e.message + '\\n');
+        process.stderr.write('Runtime Error: ' + e.message + '\\n');
     }
 });
 `;
-            return code + driverCode;
+            return preamble + code + driverCode;
         }
     } else if (lang === 'java') {
         if (code.includes('class Solution') && !code.includes('public static void main')) {
             const preamble = `import java.util.*;
 import java.io.*;
 import java.lang.reflect.*;
+
+class ListNode {
+    public int val;
+    public ListNode next;
+    public ListNode() {}
+    public ListNode(int val) { this.val = val; }
+    public ListNode(int val, ListNode next) { this.val = val; this.next = next; }
+}
+
+class TreeNode {
+    public int val;
+    public TreeNode left;
+    public TreeNode right;
+    public TreeNode() {}
+    public TreeNode(int val) { this.val = val; }
+    public TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
 
 `;
             const javaDriver = `
@@ -279,7 +462,11 @@ public class Main {
 
                 Object result = target.invoke(sol, argsList);
                 if (result != null) {
-                    if (result instanceof int[]) {
+                    if (result instanceof TreeNode) {
+                        System.out.println(treeToString((TreeNode) result));
+                    } else if (result instanceof ListNode) {
+                        System.out.println(listToString((ListNode) result));
+                    } else if (result instanceof int[]) {
                         System.out.println(Arrays.toString((int[]) result).replace(" ", ""));
                     } else if (result instanceof boolean[]) {
                         System.out.println(Arrays.toString((boolean[]) result).replace(" ", ""));
@@ -290,6 +477,14 @@ public class Main {
                     } else {
                         System.out.println(result);
                     }
+                } else {
+                    if (target.getReturnType() == boolean.class || target.getReturnType() == Boolean.class) {
+                        System.out.println("false");
+                    } else if (target.getReturnType() == TreeNode.class || target.getReturnType() == ListNode.class) {
+                        System.out.println("[]");
+                    } else {
+                        System.out.println("null");
+                    }
                 }
             }
         } catch (Exception e) {
@@ -297,29 +492,151 @@ public class Main {
         }
     }
 
-    private static Object parseArg(String s, Class<?> type) {
+    private static TreeNode buildTree(String s) {
+        if (s == null || s.trim().isEmpty()) return null;
         s = s.trim();
-        if (type == int[].class) {
+        if (s.contains("=")) s = s.split("=", 2)[1].trim();
+        s = s.replace("[", "").replace("]", "").replace(" ", "");
+        if (s.isEmpty()) return null;
+        String[] parts = s.split(",");
+        if (parts[0].equalsIgnoreCase("null") || parts[0].isEmpty()) return null;
+
+        TreeNode root = new TreeNode(Integer.parseInt(parts[0]));
+        Queue<TreeNode> q = new LinkedList<>();
+        q.add(root);
+        int i = 1;
+
+        while (!q.isEmpty() && i < parts.length) {
+            TreeNode curr = q.poll();
+            if (curr != null) {
+                if (i < parts.length) {
+                    if (!parts[i].equalsIgnoreCase("null") && !parts[i].isEmpty()) {
+                        curr.left = new TreeNode(Integer.parseInt(parts[i]));
+                        q.add(curr.left);
+                    } else {
+                        q.add(null);
+                    }
+                    i++;
+                }
+                if (i < parts.length) {
+                    if (!parts[i].equalsIgnoreCase("null") && !parts[i].isEmpty()) {
+                        curr.right = new TreeNode(Integer.parseInt(parts[i]));
+                        q.add(curr.right);
+                    } else {
+                        q.add(null);
+                    }
+                    i++;
+                }
+            }
+        }
+        return root;
+    }
+
+    private static String treeToString(TreeNode root) {
+        if (root == null) return "[]";
+        List<String> res = new ArrayList<>();
+        Queue<TreeNode> q = new LinkedList<>();
+        q.add(root);
+        while (!q.isEmpty()) {
+            TreeNode node = q.poll();
+            if (node != null) {
+                res.add(String.valueOf(node.val));
+                q.add(node.left);
+                q.add(node.right);
+            } else {
+                res.add("null");
+            }
+        }
+        while (res.size() > 0 && res.get(res.size() - 1).equals("null")) {
+            res.remove(res.size() - 1);
+        }
+        return "[" + String.join(",", res) + "]";
+    }
+
+    private static ListNode buildList(String s) {
+        if (s == null || s.trim().isEmpty()) return null;
+        s = s.trim();
+        if (s.contains("=")) s = s.split("=", 2)[1].trim();
+        s = s.replace("[", "").replace("]", "").replace(" ", "");
+        if (s.isEmpty()) return null;
+        String[] parts = s.split(",");
+        ListNode dummy = new ListNode(0);
+        ListNode curr = dummy;
+        for (String p : parts) {
+            if (!p.trim().isEmpty()) {
+                curr.next = new ListNode(Integer.parseInt(p.trim()));
+                curr = curr.next;
+            }
+        }
+        return dummy.next;
+    }
+
+    private static String listToString(ListNode head) {
+        List<String> res = new ArrayList<>();
+        ListNode curr = head;
+        while (curr != null) {
+            res.add(String.valueOf(curr.val));
+            curr = curr.next;
+        }
+        return "[" + String.join(",", res) + "]";
+    }
+
+    private static Object parseArg(String s, Class<?> type) {
+        if (s == null) return null;
+        s = s.trim();
+        if (s.contains("=")) s = s.split("=", 2)[1].trim();
+
+        if (type == TreeNode.class) {
+            return buildTree(s);
+        } else if (type == ListNode.class) {
+            return buildList(s);
+        } else if (type == int[].class) {
             s = s.replace("[", "").replace("]", "").replace(" ", "");
             if (s.isEmpty()) return new int[0];
             String[] parts = s.split(",");
             int[] arr = new int[parts.length];
             for (int i = 0; i < parts.length; i++) arr[i] = Integer.parseInt(parts[i].trim());
             return arr;
+        } else if (type == int[][].class) {
+            s = s.trim();
+            if (s.startsWith("[") && s.endsWith("]")) s = s.substring(1, s.length() - 1).trim();
+            List<int[]> matrix = new ArrayList<>();
+            int depth = 0;
+            StringBuilder curRow = new StringBuilder();
+            for (int k = 0; k < s.length(); k++) {
+                char c = s.charAt(k);
+                if (c == '[') { depth++; curRow.setLength(0); }
+                else if (c == ']') {
+                    depth--;
+                    String rStr = curRow.toString().replace(" ", "").trim();
+                    if (!rStr.isEmpty()) {
+                        String[] items = rStr.split(",");
+                        int[] rowArr = new int[items.length];
+                        for (int j = 0; j < items.length; j++) rowArr[j] = Integer.parseInt(items[j].trim());
+                        matrix.add(rowArr);
+                    }
+                } else if (depth > 0) {
+                    curRow.append(c);
+                }
+            }
+            return matrix.toArray(new int[0][]);
         } else if (type == String[].class) {
             s = s.replace("[", "").replace("]", "").replace(String.valueOf('"'), "").replace(" ", "");
             if (s.isEmpty()) return new String[0];
             return s.split(",");
         } else if (type == int.class || type == Integer.class) {
-            return Integer.parseInt(s);
+            return Integer.parseInt(s.replace(String.valueOf('"'), "").trim());
         } else if (type == boolean.class || type == Boolean.class) {
-            return Boolean.parseBoolean(s.toLowerCase());
+            return Boolean.parseBoolean(s.toLowerCase().trim());
         } else if (type == double.class || type == Double.class) {
-            return Double.parseDouble(s);
+            return Double.parseDouble(s.trim());
         } else if (type == long.class || type == Long.class) {
-            return Long.parseLong(s);
+            return Long.parseLong(s.trim());
         } else if (type == String.class) {
-            return s.replace(String.valueOf('"'), "");
+            return s.replace(String.valueOf('"'), "").trim();
+        } else if (type == char.class || type == Character.class) {
+            s = s.replace(String.valueOf('"'), "").replace("'", "").trim();
+            return s.isEmpty() ? ' ' : s.charAt(0);
         }
         return s;
     }
@@ -334,14 +651,237 @@ public class Main {
 #include <string>
 #include <sstream>
 #include <algorithm>
+#include <queue>
+#include <stack>
+#include <deque>
 #include <map>
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
+#include <cmath>
+#include <climits>
 using namespace std;
 
+struct ListNode {
+    int val;
+    ListNode *next;
+    ListNode() : val(0), next(nullptr) {}
+    ListNode(int x) : val(x), next(nullptr) {}
+    ListNode(int x, ListNode *next) : val(x), next(next) {}
+};
+
+struct TreeNode {
+    int val;
+    TreeNode *left;
+    TreeNode *right;
+    TreeNode() : val(0), left(nullptr), right(nullptr) {}
+    TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}
+    TreeNode(int x, TreeNode *left, TreeNode *right) : val(x), left(left), right(right) {}
+};
+
+static TreeNode* buildTree(string s) {
+    if (s.find('=') != string::npos) s = s.substr(s.find('=') + 1);
+    string clean = "";
+    for (char c : s) if (c != '[' && c != ']' && c != ' ') clean += c;
+    if (clean.empty()) return nullptr;
+    stringstream ss(clean);
+    string item;
+    vector<string> parts;
+    while (getline(ss, item, ',')) parts.push_back(item);
+    if (parts.empty() || parts[0] == "null" || parts[0].empty()) return nullptr;
+
+    TreeNode* root = new TreeNode(stoi(parts[0]));
+    queue<TreeNode*> q;
+    q.push(root);
+    size_t i = 1;
+
+    while (!q.empty() && i < parts.size()) {
+        TreeNode* curr = q.front();
+        q.pop();
+        if (curr) {
+            if (i < parts.size()) {
+                if (parts[i] != "null" && !parts[i].empty()) {
+                    curr->left = new TreeNode(stoi(parts[i]));
+                    q.push(curr->left);
+                } else {
+                    q.push(nullptr);
+                }
+                i++;
+            }
+            if (i < parts.size()) {
+                if (parts[i] != "null" && !parts[i].empty()) {
+                    curr->right = new TreeNode(stoi(parts[i]));
+                    q.push(curr->right);
+                } else {
+                    q.push(nullptr);
+                }
+                i++;
+            }
+        }
+    }
+    return root;
+}
+
+static string treeToString(TreeNode* root) {
+    if (!root) return "[]";
+    vector<string> res;
+    queue<TreeNode*> q;
+    q.push(root);
+    while (!q.empty()) {
+        TreeNode* node = q.front();
+        q.pop();
+        if (node) {
+            res.push_back(to_string(node->val));
+            q.push(node->left);
+            q.push(node->right);
+        } else {
+            res.push_back("null");
+        }
+    }
+    while (!res.empty() && res.back() == "null") res.pop_back();
+    string out = "[";
+    for (size_t i = 0; i < res.size(); i++) {
+        out += res[i] + (i + 1 < res.size() ? "," : "");
+    }
+    out += "]";
+    return out;
+}
+
+static ListNode* buildList(string s) {
+    if (s.find('=') != string::npos) s = s.substr(s.find('=') + 1);
+    string clean = "";
+    for (char c : s) if (c != '[' && c != ']' && c != ' ') clean += c;
+    if (clean.empty()) return nullptr;
+    stringstream ss(clean);
+    string item;
+    ListNode dummy(0);
+    ListNode* curr = &dummy;
+    while (getline(ss, item, ',')) {
+        if (!item.empty()) {
+            curr->next = new ListNode(stoi(item));
+            curr = curr->next;
+        }
+    }
+    return dummy.next;
+}
+
+static string listToString(ListNode* head) {
+    string out = "[";
+    ListNode* curr = head;
+    while (curr) {
+        out += to_string(curr->val) + (curr->next ? "," : "");
+        curr = curr->next;
+    }
+    out += "]";
+    return out;
+}
+
+static vector<int> parseVectorInt(string s) {
+    if (s.find('=') != string::npos) s = s.substr(s.find('=') + 1);
+    string clean = "";
+    for (char c : s) if (c != '[' && c != ']' && c != ' ') clean += c;
+    vector<int> res;
+    if (clean.empty()) return res;
+    stringstream ss(clean);
+    string item;
+    while (getline(ss, item, ',')) {
+        if (!item.empty()) res.push_back(stoi(item));
+    }
+    return res;
+}
 `;
-            return preamble + code;
+
+            // Detect parameter types from C++ method signature
+            const cleanCode = code.split('\n').filter(l => !l.trim().startsWith('//')).join('\n');
+            const sigMatch = cleanCode.match(/(?:bool|int|double|float|long|void|string|char|TreeNode\*|ListNode\*|vector<[\w\s,<>]+>)\s+([a-zA-Z0-9_]+)\s*\(([\s\S]*?)\)/);
+            
+            const fn = sigMatch ? sigMatch[1] : (methodName || 'solve');
+            const rawParams = sigMatch && sigMatch[2] ? sigMatch[2] : '';
+            const isTreeParam = rawParams.includes('TreeNode');
+            const isListParam = rawParams.includes('ListNode');
+            const isMultiParam = rawParams.includes(',');
+
+            let callerCode = '';
+            if (isTreeParam) {
+                callerCode = `
+    string s = lines.empty() ? "" : lines[0];
+    TreeNode* root = buildTree(s);
+    auto res = sol.${fn}(root);
+    if constexpr (is_same_v<decltype(res), bool>) {
+        cout << (res ? "true" : "false") << "\\n";
+    } else if constexpr (is_same_v<decltype(res), TreeNode*>) {
+        cout << treeToString(res) << "\\n";
+    } else if constexpr (is_same_v<decltype(res), int>) {
+        cout << res << "\\n";
+    } else {
+        cout << res << "\\n";
+    }
+`;
+            } else if (isListParam) {
+                callerCode = `
+    string s = lines.empty() ? "" : lines[0];
+    ListNode* head = buildList(s);
+    auto res = sol.${fn}(head);
+    if constexpr (is_same_v<decltype(res), ListNode*>) {
+        cout << listToString(res) << "\\n";
+    } else if constexpr (is_same_v<decltype(res), bool>) {
+        cout << (res ? "true" : "false") << "\\n";
+    } else {
+        cout << res << "\\n";
+    }
+`;
+            } else if (isMultiParam) {
+                callerCode = `
+    auto arr = parseVectorInt(lines.size() > 0 ? lines[0] : "");
+    int target = lines.size() > 1 ? stoi(lines[1]) : 0;
+    auto res = sol.${fn}(arr, target);
+    if constexpr (is_same_v<decltype(res), vector<int>>) {
+        cout << "[";
+        for (size_t i = 0; i < res.size(); i++) cout << res[i] << (i + 1 < res.size() ? "," : "");
+        cout << "]\\n";
+    } else if constexpr (is_same_v<decltype(res), bool>) {
+        cout << (res ? "true" : "false") << "\\n";
+    } else {
+        cout << res << "\\n";
+    }
+`;
+            } else {
+                callerCode = `
+    auto arr = parseVectorInt(lines.size() > 0 ? lines[0] : "");
+    auto res = sol.${fn}(arr);
+    if constexpr (is_same_v<decltype(res), vector<int>>) {
+        cout << "[";
+        for (size_t i = 0; i < res.size(); i++) cout << res[i] << (i + 1 < res.size() ? "," : "");
+        cout << "]\\n";
+    } else if constexpr (is_same_v<decltype(res), bool>) {
+        cout << (res ? "true" : "false") << "\\n";
+    } else if constexpr (is_same_v<decltype(res), int>) {
+        cout << res << "\\n";
+    } else {
+        cout << res << "\\n";
+    }
+`;
+            }
+
+            const cppDriver = `
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    vector<string> lines;
+    string line;
+    while (getline(cin, line)) {
+        while (!line.empty() && (line.back() == '\\r' || line.back() == ' ')) line.pop_back();
+        if (!line.empty()) lines.push_back(line);
+    }
+    if (lines.empty()) return 0;
+
+    Solution sol;
+    ${callerCode}
+    return 0;
+}
+`;
+            return preamble + code + cppDriver;
         }
     }
 
@@ -562,13 +1102,93 @@ const SecureCodeEditor = () => {
     const JUDGE0_API_URL = "https://ce.judge0.com/submissions?base64_encoded=false&wait=true";
 
     const getJudge0Language = (lang) => {
-        switch (lang) {
-            case 'python': return 100;
-            case 'javascript': return 102;
-            case 'java': return 91;
-            case 'cpp': return 105;
-            default: return 100;
+        const l = (lang || '').toLowerCase();
+        if (l.includes('python') || l === 'py') return 100;
+        if (l.includes('javascript') || l === 'js') return 102;
+        if (l.includes('java')) return 91;
+        if (l.includes('cpp') || l.includes('c++')) return 105;
+        if (l === 'c') return 103;
+        return 100;
+    };
+
+    /**
+     * LeetCode-grade output comparison engine.
+     * Accurately compares strings (with/without quotes), booleans, numbers, arrays, matrices, and trees.
+     */
+    const compareLeetCodeOutputs = (actualRaw, expectedRaw) => {
+        if (actualRaw === undefined || actualRaw === null) actualRaw = '';
+        if (expectedRaw === undefined || expectedRaw === null) expectedRaw = '';
+
+        let act = String(actualRaw).trim().replace(/\r\n/g, '\n');
+        let exp = String(expectedRaw).trim().replace(/\r\n/g, '\n');
+
+        // 1. Direct match
+        if (act === exp) return true;
+
+        // 2. Unquote strings (fixes "string" vs string bug)
+        const unquote = (s) => {
+            let trimmed = s.trim();
+            if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+                return trimmed.slice(1, -1);
+            }
+            return trimmed;
+        };
+
+        if (unquote(act) === unquote(exp)) return true;
+
+        // 3. Boolean normalization (true / False / True)
+        const isBool = (s) => s.toLowerCase() === 'true' || s.toLowerCase() === 'false';
+        if (isBool(act) && isBool(exp)) {
+            return act.toLowerCase() === exp.toLowerCase();
         }
+
+        // 4. Null / None / Empty array normalization
+        const isNullOrEmpty = (s) => s.toLowerCase() === 'null' || s.toLowerCase() === 'none' || s === '[]' || s === '';
+        if (isNullOrEmpty(act) && isNullOrEmpty(exp)) {
+            return true;
+        }
+
+        // 5. JSON Structural comparison (for arrays, matrices, trees, objects)
+        try {
+            const parseJson = (s) => {
+                let clean = s.trim();
+                if (clean.startsWith('[') || clean.startsWith('{')) {
+                    return JSON.parse(clean.replace(/\bNone\b/g, 'null').replace(/\bTrue\b/g, 'true').replace(/\bFalse\b/g, 'false'));
+                }
+                return null;
+            };
+
+            const actJson = parseJson(act);
+            const expJson = parseJson(exp);
+
+            if (actJson !== null && expJson !== null) {
+                return JSON.stringify(actJson) === JSON.stringify(expJson);
+            }
+        } catch (e) {
+            // Fallback
+        }
+
+        // 6. Whitespace/bracket-insensitive array match: [1, 2] vs [1,2]
+        const cleanArray = (s) => s.replace(/[\[\]\s"]/g, '').toLowerCase();
+        if ((act.startsWith('[') && exp.startsWith('[')) || (act.includes(',') && exp.includes(','))) {
+            if (cleanArray(act) === cleanArray(exp)) {
+                return true;
+            }
+        }
+
+        // 7. Float precision (1e-5 epsilon)
+        const numAct = Number(act);
+        const numExp = Number(exp);
+        if (!isNaN(numAct) && !isNaN(numExp) && act !== '' && exp !== '') {
+            return Math.abs(numAct - numExp) < 1e-5;
+        }
+
+        // 8. Normalized string comparison
+        if (unquote(act).toLowerCase() === unquote(exp).toLowerCase()) {
+            return true;
+        }
+
+        return false;
     };
 
     const runCode = async () => {
@@ -604,16 +1224,7 @@ const SecureCodeEditor = () => {
                     const actualOutput = (data.stdout || "").trim();
                     const expectedOutput = (tc.output || "").trim();
                     
-                    const normalize = (str) => {
-                        if (!str) return "";
-                        return str.trim()
-                            .replace(/\r\n/g, '\n')
-                            .replace(/\s*,\s*/g, ',')
-                            .replace(/\s+/g, ' ')
-                            .toLowerCase();
-                    };
-                    const passed = normalize(actualOutput) === normalize(expectedOutput);
-
+                    const passed = compareLeetCodeOutputs(actualOutput, expectedOutput);
                     if (passed) passedCount++;
 
                     resultsList.push({
